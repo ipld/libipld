@@ -125,18 +125,64 @@ mod tests {
     use super::*;
 
     #[test]
+    fn from_into_bool() {
+        let boolean = true;
+        let ipld = IpldBool::from(boolean);
+        let boolean2: bool = ipld.into();
+        assert_eq!(boolean, boolean2);
+    }
+
+    #[test]
+    fn from_into_integer() {
+        let int: u8 = 1;
+        let ipld = IpldInteger::from(int);
+        let int2: u8 = ipld.into();
+        assert_eq!(int, int2);
+    }
+
+    #[test]
+    fn from_into_float() {
+        let float: f32 = 1.0;
+        let ipld = IpldFloat::from(float);
+        let float2: f32 = ipld.into();
+        assert_eq!(float, float2);
+    }
+
+    #[test]
     fn from_into_string() {
-        let string: String = "a string".into();
-        let ipld: IpldString = string.clone().into();
+        let string = "a string".to_string();
+        let ipld = IpldString::from(string.clone());
         let string2: String = ipld.into();
         assert_eq!(string, string2);
     }
 
     #[test]
-    fn from_into_bool() {
-        let boolean: bool = true;
-        let ipld: IpldBool = boolean.into();
-        let boolean2: bool = ipld.into();
-        assert_eq!(boolean, boolean2);
+    fn string_from_str() {
+        let ipld = IpldString::from("a string");
+        let ipld2 = IpldString::from("a string".to_string());
+        assert_eq!(ipld, ipld2);
+    }
+
+    #[test]
+    fn from_into_bytes() {
+        let bytes: Vec<u8> = vec![0, 1, 2, 3];
+        let ipld = IpldBytes::from(bytes.clone());
+        let bytes2: Vec<u8> = ipld.into();
+        assert_eq!(bytes, bytes2);
+    }
+
+    #[test]
+    fn from_into_link() {
+        let prefix = cid::Prefix {
+            version: cid::Version::V0,
+            codec: cid::Codec::DagProtobuf,
+            mh_type: multihash::Hash::SHA2256,
+            mh_len: 32,
+        };
+        let data = vec![0, 1, 2, 3];
+        let link = Cid::new_from_prefix(&prefix, &data);
+        let ipld = IpldLink::from(link.clone());
+        let link2: Cid = ipld.into();
+        assert_eq!(link, link2);
     }
 }

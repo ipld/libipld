@@ -7,3 +7,6 @@ edition = "2018"
 [dependencies]
 cid = { git = "https://github.com/multiformats/rust-cid", branch = "master" }
 failure = "0.1"
+
+[dev-dependencies]
+multihash = "0.8"

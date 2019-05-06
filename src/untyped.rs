@@ -141,6 +141,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ipld_null_from() {
+        Ipld::from(IpldNull);
+    }
+
+    #[test]
+    fn ipld_bool_from() {
+        Ipld::from(true);
+        Ipld::from(IpldBool::from(false));
+    }
+
+    #[test]
+    fn ipld_integer_from() {
+        Ipld::from(1u8);
+        Ipld::from(IpldInteger::from(-3i8));
+    }
+
+    #[test]
+    fn ipld_float_from() {
+        Ipld::from(1.0f32);
+        Ipld::from(1.0f64);
+        Ipld::from(IpldFloat::from(1.0f32));
+    }
+
+    #[test]
     fn ipld_string_from() {
         Ipld::from("a string");
         Ipld::from("a string".to_string());
@@ -149,10 +173,30 @@ mod tests {
     }
 
     #[test]
+    fn ipld_bytes_from() {
+        Ipld::from(vec![0, 1, 2, 3]);
+        Ipld::from(IpldBytes::from(vec![0, 1, 2, 3]));
+    }
+
+    #[test]
+    fn ipld_link_from() {
+        let prefix = cid::Prefix {
+            version: cid::Version::V0,
+            codec: cid::Codec::DagProtobuf,
+            mh_type: multihash::Hash::SHA2256,
+            mh_len: 32,
+        };
+        let data = vec![0, 1, 2, 3];
+        let link = Cid::new_from_prefix(&prefix, &data);
+        Ipld::from(link.clone());
+        Ipld::from(IpldLink::from(link));
+    }
+
+    #[test]
     fn from_try_into_string() {
-        let string = IpldString::from("a string".to_string());
-        let ipld: Ipld = string.clone().into();
-        let string2: IpldString = ipld.try_into().unwrap();
-        assert_eq!(string, string2);
+        let ipld1 = IpldString::from("a string");
+        let ipld = Ipld::from(ipld1.clone());
+        let ipld2: IpldString = ipld.try_into().unwrap();
+        assert_eq!(ipld1, ipld2);
     }
 }
