@@ -45,7 +45,7 @@ macro_rules! derive_ipld {
                 }
             }
         }
-    }
+    };
 }
 
 derive_ipld!(Null, IpldNull, NotNull);
@@ -74,43 +74,43 @@ macro_rules! derive_from {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! derive_bool {
     ($rust:ty) => {
         derive_from!(Bool, IpldBool, NotBool, $rust);
-    }
+    };
 }
 
 macro_rules! derive_integer {
     ($rust:ty) => {
         derive_from!(Integer, IpldInteger, NotInteger, $rust);
-    }
+    };
 }
 
 macro_rules! derive_float {
     ($rust:ty) => {
         derive_from!(Float, IpldFloat, NotFloat, $rust);
-    }
+    };
 }
 
 macro_rules! derive_string {
     ($rust:ty) => {
         derive_from!(String, IpldString, NotString, $rust);
-    }
+    };
 }
 
 macro_rules! derive_bytes {
     ($rust:ty) => {
         derive_from!(Bytes, IpldBytes, NotBytes, $rust);
-    }
+    };
 }
 
 macro_rules! derive_link {
     ($rust:ty) => {
         derive_from!(Link, IpldLink, NotLink, $rust);
-    }
+    };
 }
 
 derive_bool!(bool);

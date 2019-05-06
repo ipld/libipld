@@ -43,7 +43,7 @@ macro_rules! derive_typed_ipld {
                 Ok(Self::from(ipld))
             }
         }
-    }
+    };
 }
 
 derive_typed_ipld!(IpldNull);
