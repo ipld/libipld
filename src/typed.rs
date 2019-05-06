@@ -6,7 +6,7 @@ use core::convert::{TryFrom, TryInto};
 use core::marker::PhantomData;
 
 /// Typed `Ipld` representation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TypedIpld<T> {
     ty: PhantomData<T>,
     ipld: Ipld,

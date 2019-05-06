@@ -5,12 +5,26 @@ use crate::ipld::*;
 use core::convert::TryInto;
 
 /// Untyped `Ipld` representation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Ipld {
-    /// An `IpldString`.
-    String(IpldString),
-    /// An `IpldBool`.
+    /// Represents the absence of a value or the value undefined.
+    Null,
+    /// Represents a boolean value.
     Bool(IpldBool),
+    /// Represents an integer.
+    Integer(IpldInteger),
+    /// Represents a floating point value.
+    Float(IpldFloat),
+    /// Represents an UTF-8 string.
+    String(IpldString),
+    /// Represents a sequence of bytes.
+    Bytes(IpldBytes),
+    // /// Represents a list.
+    // List(IpldList),
+    // /// Represents a map.
+    // Map(IpldMap),
+    /// Represents a link to an Ipld node
+    Link(IpldLink),
 }
 
 impl From<IpldString> for Ipld {
