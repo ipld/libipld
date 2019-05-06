@@ -18,53 +18,41 @@ impl<T> Into<Ipld> for TypedIpld<T> {
     }
 }
 
-impl From<IpldString> for TypedIpld<IpldString> {
-    fn from(string: IpldString) -> Self {
-        Self {
-            ty: PhantomData,
-            ipld: Ipld::from(string),
+macro_rules! derive_typed_ipld {
+    ($ipld:ident) => {
+        impl From<$ipld> for TypedIpld<$ipld> {
+            fn from(ipld: $ipld) -> Self {
+                Self {
+                    ty: PhantomData,
+                    ipld: Ipld::from(ipld),
+                }
+            }
+        }
+
+        impl Into<$ipld> for TypedIpld<$ipld> {
+            fn into(self) -> $ipld {
+                self.ipld.try_into().expect("cannot fail")
+            }
+        }
+
+        impl TryFrom<Ipld> for TypedIpld<$ipld> {
+            type Error = IpldTypeError;
+
+            fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+                let ipld: $ipld = ipld.try_into()?;
+                Ok(Self::from(ipld))
+            }
         }
     }
 }
 
-impl Into<IpldString> for TypedIpld<IpldString> {
-    fn into(self) -> IpldString {
-        self.ipld.try_into().expect("cannot fail")
-    }
-}
-
-impl TryFrom<Ipld> for TypedIpld<IpldString> {
-    type Error = IpldTypeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        let string: IpldString = ipld.try_into()?;
-        Ok(Self::from(string))
-    }
-}
-
-impl From<IpldBool> for TypedIpld<IpldBool> {
-    fn from(boolean: IpldBool) -> Self {
-        Self {
-            ty: PhantomData,
-            ipld: Ipld::from(boolean),
-        }
-    }
-}
-
-impl Into<IpldBool> for TypedIpld<IpldBool> {
-    fn into(self) -> IpldBool {
-        self.ipld.try_into().expect("cannot fail")
-    }
-}
-
-impl TryFrom<Ipld> for TypedIpld<IpldBool> {
-    type Error = IpldTypeError;
-
-    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
-        let boolean: IpldBool = ipld.try_into()?;
-        Ok(Self::from(boolean))
-    }
-}
+derive_typed_ipld!(IpldNull);
+derive_typed_ipld!(IpldBool);
+derive_typed_ipld!(IpldInteger);
+derive_typed_ipld!(IpldFloat);
+derive_typed_ipld!(IpldString);
+derive_typed_ipld!(IpldBytes);
+derive_typed_ipld!(IpldLink);
 
 #[cfg(test)]
 mod tests {

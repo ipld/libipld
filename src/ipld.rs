@@ -6,6 +6,10 @@
 //! Every `Ipld` type implements `From<Ipld>` and `From<TypedIpld<T>>`.
 pub use cid::Cid;
 
+/// Represents `null` in `Ipld`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IpldNull;
+
 /// Represents a `bool` in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IpldBool(bool);
