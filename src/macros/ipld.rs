@@ -285,6 +285,22 @@ macro_rules! ipld_unexpected {
     () => {};
 }
 
+/// Generates a `CID` for a Block.
+#[macro_export]
+macro_rules! cid {
+    ($ipld:ident) => {
+        crate::Block::<crate::DagCbor, crate::SHA2256>::from(&$ipld).cid().to_owned()
+    }
+}
+
+/// Generates a `CID` for a Block.
+#[macro_export]
+macro_rules! json_cid {
+    ($ipld:ident) => {
+        crate::Block::<crate::DagJson, crate::SHA2256>::from(&$ipld).cid().to_owned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Ipld;
@@ -300,13 +316,13 @@ mod tests {
         let _: Ipld = ipld!([]);
         let _: Ipld = ipld!([1, 2, 3]);
         let _: Ipld = ipld!({});
-        let _b: Ipld = ipld!({
+        let b: Ipld = ipld!({
             "bye": null,
             "numbers": [1, 2, 3],
             "a": a,
         });
         let _: Ipld = ipld!({
-            // "link": cid!(b),
+            "link": cid!(b),
         });
     }
 }
