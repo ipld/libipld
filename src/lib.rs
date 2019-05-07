@@ -5,6 +5,7 @@
 
 pub mod error;
 pub mod ipld;
+pub mod macros;
 pub mod typed;
 pub mod untyped;
 
