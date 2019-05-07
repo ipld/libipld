@@ -30,7 +30,7 @@ pub struct IpldNull;
 
 /// Represents a `bool` in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldBool(bool);
+pub struct IpldBool(pub bool);
 derive_from_into!(IpldBool, bool);
 
 /// Represents an integer in `Ipld`.
@@ -86,7 +86,7 @@ derive_from_into_i64!(isize);
 
 /// Represents a floating point value in `Ipld`.
 #[derive(Clone, Debug, PartialEq)]
-pub struct IpldFloat(f64);
+pub struct IpldFloat(pub f64);
 derive_from_into!(IpldFloat, f64);
 
 impl From<f32> for IpldFloat {
@@ -103,7 +103,7 @@ impl Into<f32> for IpldFloat {
 
 /// Represents a `String` in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldString(String);
+pub struct IpldString(pub String);
 derive_from_into!(IpldString, String);
 
 impl From<&str> for IpldString {
@@ -114,22 +114,22 @@ impl From<&str> for IpldString {
 
 /// Represents a sequence of bytes in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldBytes(Vec<u8>);
+pub struct IpldBytes(pub Vec<u8>);
 derive_from_into!(IpldBytes, Vec<u8>);
 
 /// Represents a sequence of `Ipld` elements.
 #[derive(Clone, Debug, PartialEq)]
-pub struct IpldList(Vec<Ipld>);
+pub struct IpldList(pub Vec<Ipld>);
 derive_from_into!(IpldList, Vec<Ipld>);
 
 /// Represents a map of `Ipld` elements.
 #[derive(Clone, Debug, PartialEq)]
-pub struct IpldMap(HashMap<String, Ipld>);
+pub struct IpldMap(pub HashMap<String, Ipld>);
 derive_from_into!(IpldMap, HashMap<String, Ipld>);
 
 /// Represents a link in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldLink(Cid);
+pub struct IpldLink(pub Cid);
 derive_from_into!(IpldLink, Cid);
 
 #[cfg(test)]
