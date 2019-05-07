@@ -4,7 +4,9 @@
 //! relevant Rust types.
 //!
 //! Every `Ipld` type implements `From<Ipld>` and `From<TypedIpld<T>>`.
+use crate::untyped::Ipld;
 pub use cid::Cid;
+use std::collections::HashMap;
 
 macro_rules! derive_from_into {
     ($ipld:ident, $rust:ty) => {
@@ -114,6 +116,16 @@ impl From<&str> for IpldString {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IpldBytes(Vec<u8>);
 derive_from_into!(IpldBytes, Vec<u8>);
+
+/// Represents a sequence of `Ipld` elements.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IpldList(Vec<Ipld>);
+derive_from_into!(IpldList, Vec<Ipld>);
+
+/// Represents a map of `Ipld` elements.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IpldMap(HashMap<String, Ipld>);
+derive_from_into!(IpldMap, HashMap<String, Ipld>);
 
 /// Represents a link in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]

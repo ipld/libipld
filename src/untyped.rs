@@ -3,6 +3,7 @@
 use crate::error::*;
 use crate::ipld::*;
 use core::convert::TryInto;
+use std::collections::HashMap;
 
 /// Untyped `Ipld` representation.
 #[derive(Clone, Debug, PartialEq)]
@@ -19,10 +20,10 @@ pub enum Ipld {
     String(IpldString),
     /// Represents a sequence of bytes.
     Bytes(IpldBytes),
-    // /// Represents a list.
-    // List(IpldList),
-    // /// Represents a map.
-    // Map(IpldMap),
+    /// Represents a list.
+    List(IpldList),
+    /// Represents a map.
+    Map(IpldMap),
     /// Represents a link to an Ipld node
     Link(IpldLink),
 }
@@ -54,6 +55,8 @@ derive_ipld!(Integer, IpldInteger, NotInteger);
 derive_ipld!(Float, IpldFloat, NotFloat);
 derive_ipld!(String, IpldString, NotString);
 derive_ipld!(Bytes, IpldBytes, NotBytes);
+derive_ipld!(List, IpldList, NotList);
+derive_ipld!(Map, IpldMap, NotMap);
 derive_ipld!(Link, IpldLink, NotLink);
 
 macro_rules! derive_from {
@@ -107,6 +110,18 @@ macro_rules! derive_bytes {
     };
 }
 
+macro_rules! derive_list {
+    ($rust:ty) => {
+        derive_from!(List, IpldList, NotList, $rust);
+    };
+}
+
+macro_rules! derive_map {
+    ($rust:ty) => {
+        derive_from!(Map, IpldMap, NotMap, $rust);
+    };
+}
+
 macro_rules! derive_link {
     ($rust:ty) => {
         derive_from!(Link, IpldLink, NotLink, $rust);
@@ -128,6 +143,8 @@ derive_float!(f32);
 derive_float!(f64);
 derive_string!(String);
 derive_bytes!(Vec<u8>);
+derive_list!(Vec<Ipld>);
+derive_map!(HashMap<String, Ipld>);
 derive_link!(Cid);
 
 impl From<&str> for Ipld {
