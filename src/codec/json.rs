@@ -17,29 +17,21 @@ fn encode(ipld: &Ipld) -> Value {
         Ipld::Float(IpldFloat(float)) => {
             let num = Number::from_f64(*float).expect("not NaN");
             Value::Number(num)
-        },
+        }
         Ipld::Bytes(IpldBytes(bytes)) => {
             let alphabet = Base::Base64.alphabet();
             json!({
                 "/": { "base64": base_x::encode(alphabet, bytes) }
             })
         }
-        Ipld::String(IpldString(string)) => {
-            Value::String(string.to_owned())
-        }
-        Ipld::List(IpldList(list)) => {
-            Value::Array(list.iter().map(encode).collect())
-        }
+        Ipld::String(IpldString(string)) => Value::String(string.to_owned()),
+        Ipld::List(IpldList(list)) => Value::Array(list.iter().map(encode).collect()),
         Ipld::Map(IpldMap(map)) => {
-            Value::Object(map.iter().map(|(k, v)| {
-                (k.to_owned(), encode(v))
-            }).collect())
+            Value::Object(map.iter().map(|(k, v)| (k.to_owned(), encode(v))).collect())
         }
-        Ipld::Link(IpldLink(cid)) => {
-            json!({
-                "/": cid.to_string()
-            })
-        }
+        Ipld::Link(IpldLink(cid)) => json!({
+            "/": cid.to_string()
+        }),
     }
 }
 impl Codec for DagJson {

@@ -14,7 +14,7 @@ macro_rules! hash {
         impl Hash for $name {
             const HASH: multihash::Hash = multihash::Hash::$name;
         }
-    }
+    };
 }
 
 hash!(SHA1);

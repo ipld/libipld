@@ -2,7 +2,7 @@
 /// Construct an `Ipld` from a literal.
 ///
 /// ```edition2018
-/// # use ipld::ipld;
+/// # use rust_ipld::ipld;
 /// #
 /// let value = ipld!({
 ///     "code": 200,
@@ -289,16 +289,28 @@ macro_rules! ipld_unexpected {
 #[macro_export]
 macro_rules! cid {
     ($ipld:ident) => {
-        crate::Block::<crate::DagCbor, crate::SHA2256>::from(&$ipld).cid().to_owned()
-    }
+        cbor_cid!($ipld)
+    };
 }
 
-/// Generates a `CID` for a Block.
+/// Generates a `cbor` `CID` for a Block.
+#[macro_export]
+macro_rules! cbor_cid {
+    ($ipld:ident) => {
+        crate::Block::<crate::DagCbor, crate::SHA2256>::from(&$ipld)
+            .cid()
+            .to_owned()
+    };
+}
+
+/// Generates a `json` `CID` for a Block.
 #[macro_export]
 macro_rules! json_cid {
     ($ipld:ident) => {
-        crate::Block::<crate::DagJson, crate::SHA2256>::from(&$ipld).cid().to_owned()
-    }
+        crate::Block::<crate::DagJson, crate::SHA2256>::from(&$ipld)
+            .cid()
+            .to_owned()
+    };
 }
 
 #[cfg(test)]

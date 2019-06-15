@@ -68,7 +68,7 @@ macro_rules! derive_typed_from_into {
                 ipld.into()
             }
         }
-    }
+    };
 }
 
 derive_typed_from_into!(IpldBool, bool);
