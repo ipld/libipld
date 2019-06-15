@@ -6,6 +6,7 @@ use multibase::Base;
 use serde_json::{json, Number, Value};
 
 /// JSON codec.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagJson;
 
 fn encode(ipld: &Ipld) -> Value {
@@ -34,6 +35,7 @@ fn encode(ipld: &Ipld) -> Value {
         }),
     }
 }
+
 impl Codec for DagJson {
     type Data = serde_json::Value;
 

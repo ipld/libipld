@@ -4,6 +4,7 @@ use crate::ipld::IpldNull;
 use crate::untyped::Ipld;
 
 /// CBOR codec.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCbor;
 
 impl Codec for DagCbor {

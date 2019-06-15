@@ -132,6 +132,12 @@ derive_from_into!(IpldMap, HashMap<String, Ipld>);
 pub struct IpldLink(pub Cid);
 derive_from_into!(IpldLink, Cid);
 
+impl From<&Cid> for IpldLink {
+    fn from(cid: &Cid) -> Self {
+        IpldLink::from(cid.to_owned())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

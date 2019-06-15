@@ -153,6 +153,12 @@ impl From<&str> for Ipld {
     }
 }
 
+impl From<&Cid> for Ipld {
+    fn from(cid: &Cid) -> Self {
+        Ipld::from(IpldLink::from(cid))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

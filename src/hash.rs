@@ -9,6 +9,7 @@ pub trait Hash {
 macro_rules! hash {
     ($name:ident) => {
         /// $name
+        #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         pub struct $name;
 
         impl Hash for $name {

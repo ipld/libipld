@@ -89,6 +89,12 @@ impl<TCodec: Codec + ToBytes, THash: Hash> From<&Ipld> for Block<TCodec, THash> 
     }
 }
 
+impl<TCodec: Codec + ToBytes, THash: Hash> From<Ipld> for Block<TCodec, THash> {
+    fn from(ipld: Ipld) -> Self {
+        Self::from(&ipld)
+    }
+}
+
 impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
     type Error = failure::Error;
 
@@ -108,5 +114,36 @@ impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
         } else {
             Err(failure::format_err!("Prefix doesn't match"))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{codec, hash, ipld};
+
+    #[test]
+    fn test_block_from_ipld() {
+        let block1 = Block::<codec::DagJson, hash::SHA2256>::from(ipld!({
+            "metadata": {
+                "type": "file",
+                "name": "hello_world.txt",
+                "size": 11,
+            },
+            "content": "hello world",
+        }));
+        let block2 = Block::<codec::DagCbor, hash::SHA2256>::from(ipld!({
+            "metadata": {
+                "type": "directory",
+                "name": "folder",
+                "size": 1,
+            },
+            "children": [
+                block1.cid(),
+            ]
+        }));
+        let block3 =
+            Block::<codec::DagCbor, hash::SHA2256>::try_from(block2.clone().to_raw()).unwrap();
+        assert_eq!(block2, block3);
     }
 }
