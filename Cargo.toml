@@ -5,12 +5,12 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
-#cid = { git = "https://github.com/multiformats/rust-cid", branch = "master" }
-cid = { path = "../rust-cid" }
+cid = { git = "https://github.com/multiformats/rust-cid", branch = "master" }
 failure = "0.1"
 base-x = "0.2"
 multibase = "0.6"
 multihash = "0.8"
+protobuf = "2.0.2"
 serde = "1.0"
 serde_json = "1.0"
 serde_cbor = "0.9"

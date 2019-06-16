@@ -3,9 +3,11 @@ use crate::Ipld;
 
 pub mod cbor;
 pub mod json;
+pub mod pb;
 
 pub use self::cbor::DagCbor;
 pub use self::json::DagJson;
+pub use self::pb::DagProtobuf;
 
 /// Codec trait.
 pub trait Codec {

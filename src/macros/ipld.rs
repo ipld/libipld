@@ -301,6 +301,14 @@ macro_rules! json_cid {
     };
 }
 
+/// Generates a `pb` `CID` for a Block.
+#[macro_export]
+macro_rules! pb_cid {
+    ($ipld:ident) => {
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::SHA2256>::from(&$ipld).cid()
+    };
+}
+
 /// Generates a `cbor` Block.
 #[macro_export]
 macro_rules! cbor_block {
@@ -314,6 +322,14 @@ macro_rules! cbor_block {
 macro_rules! json_block {
     ($ipld:tt) => {
         $crate::Block::<$crate::codec::DagJson, $crate::hash::SHA2256>::from($crate::ipld!($ipld))
+    };
+}
+
+/// Generates a `pb` Block.
+#[macro_export]
+macro_rules! pb_block {
+    ($ipld:tt) => {
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::SHA2256>::from($crate::ipld!($ipld))
     };
 }
 
