@@ -50,6 +50,11 @@ pub struct Block<TCodec, THash> {
 }
 
 impl<TCodec, THash> Block<TCodec, THash> {
+    /// Returns the raw block.
+    pub fn raw(&self) -> &RawBlock {
+        &self.raw
+    }
+
     /// Returns the `CID` of the `Block`.
     pub fn cid(&self) -> &Cid {
         self.raw.cid()
@@ -61,13 +66,20 @@ impl<TCodec, THash> Block<TCodec, THash> {
     }
 
     /// Takes a block apart.
-    pub fn into(self) -> (Cid, Vec<u8>) {
+    pub fn split(self) -> (Cid, Vec<u8>) {
         self.raw.into()
     }
 
     /// Returns the raw block.
     pub fn to_raw(self) -> RawBlock {
         self.raw
+    }
+}
+
+impl<TCodec: Codec + ToBytes, THash> Block<TCodec, THash> {
+    /// Returns the ipld of the block.
+    pub fn ipld(&self) -> Result<Ipld, TCodec::Error> {
+        TCodec::from_bytes(self.data())
     }
 }
 
@@ -124,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_block_from_ipld() {
-        let block1 = Block::<codec::DagJson, hash::SHA2256>::from(ipld!({
+        let block1 = Block::<codec::DagCbor, hash::SHA2256>::from(ipld!({
             "metadata": {
                 "type": "file",
                 "name": "hello_world.txt",
@@ -132,7 +144,7 @@ mod tests {
             },
             "content": "hello world",
         }));
-        let block2 = Block::<codec::DagCbor, hash::SHA2256>::from(ipld!({
+        let block2 = Block::<codec::DagJson, hash::SHA2256>::from(ipld!({
             "metadata": {
                 "type": "directory",
                 "name": "folder",
@@ -143,7 +155,19 @@ mod tests {
             ]
         }));
         let block3 =
-            Block::<codec::DagCbor, hash::SHA2256>::try_from(block2.clone().to_raw()).unwrap();
+            Block::<codec::DagJson, hash::SHA2256>::try_from(block2.clone().to_raw()).unwrap();
         assert_eq!(block2, block3);
+
+        let ipld = block3.ipld().unwrap();
+        assert_eq!(ipld, ipld!({
+            "metadata": {
+                "type": "directory",
+                "name": "folder",
+                "size": 1,
+            },
+            "children": [
+                block1.cid(),
+            ]
+        }));
     }
 }
