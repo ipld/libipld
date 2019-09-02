@@ -3,20 +3,20 @@ use super::*;
 use crate::untyped::Ipld;
 
 mod dag_pb;
-mod pb_node;
+mod gen;
 
 /// Protobuf codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagProtobuf;
 
 impl Codec for DagProtobuf {
-    type Data = pb_node::PbNode;
+    type Data = dag_pb::PbNode;
 
     const VERSION: cid::Version = cid::Version::V0;
     const CODEC: cid::Codec = cid::Codec::DagProtobuf;
 
     fn encode(ipld: &Ipld) -> Self::Data {
-        pb_node::PbNode::from(ipld)
+        dag_pb::PbNode::from(ipld)
     }
 
     fn decode(data: &Self::Data) -> Ipld {
@@ -33,7 +33,7 @@ impl ToBytes for DagProtobuf {
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Ipld, Self::Error> {
-        let data = pb_node::PbNode::from_bytes(bytes)?;
+        let data = dag_pb::PbNode::from_bytes(bytes)?;
         Ok(Self::decode(&data))
     }
 }

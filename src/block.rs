@@ -2,7 +2,8 @@
 use crate::codec::{Codec, ToBytes};
 use crate::hash::Hash;
 use crate::untyped::Ipld;
-use cid::{Cid, Prefix};
+use cid::Cid;
+use failure::format_err;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 
@@ -86,13 +87,8 @@ impl<TCodec: Codec + ToBytes, THash> Block<TCodec, THash> {
 impl<TCodec: Codec + ToBytes, THash: Hash> From<&Ipld> for Block<TCodec, THash> {
     fn from(ipld: &Ipld) -> Self {
         let data = TCodec::to_bytes(ipld);
-        let prefix = Prefix {
-            version: TCodec::VERSION,
-            codec: TCodec::CODEC,
-            mh_type: THash::HASH,
-            mh_len: THash::HASH.size() as usize,
-        };
-        let cid = Cid::new_from_prefix(&prefix, &data);
+        let hash = THash::digest(&data);
+        let cid = Cid::new_v1(TCodec::CODEC, hash);
         Block {
             codec: PhantomData,
             hash: PhantomData,
@@ -111,32 +107,31 @@ impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
     type Error = failure::Error;
 
     fn try_from(raw: RawBlock) -> Result<Self, Self::Error> {
-        let prefix = Prefix {
-            version: TCodec::VERSION,
-            codec: TCodec::CODEC,
-            mh_type: THash::HASH,
-            mh_len: THash::HASH.size() as usize,
-        };
-        if raw.cid().prefix() == prefix {
-            Ok(Block {
-                codec: PhantomData,
-                hash: PhantomData,
-                raw,
-            })
-        } else {
-            Err(failure::format_err!("Prefix doesn't match"))
+        if raw.cid().codec() != TCodec::CODEC {
+            return Err(format_err!("Codec doesn't match"))
         }
+        if raw.cid().hash().code() != THash::CODE {
+            return Err(format_err!("Hash code doesn't match"))
+        }
+        if raw.cid().hash() != THash::digest(raw.data()).as_ref() {
+            return Err(format_err!("Block hash does not match block data"))
+        }
+        Ok(Block {
+            codec: PhantomData,
+            hash: PhantomData,
+            raw,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{codec, hash, ipld};
+    use crate::{codec, hash::Sha2_256, ipld};
 
     #[test]
     fn test_block_from_ipld() {
-        let block1 = Block::<codec::DagCbor, hash::SHA2256>::from(ipld!({
+        let block1 = Block::<codec::DagCbor, Sha2_256>::from(ipld!({
             "metadata": {
                 "type": "file",
                 "name": "hello_world.txt",
@@ -144,7 +139,7 @@ mod tests {
             },
             "content": "hello world",
         }));
-        let block2 = Block::<codec::DagJson, hash::SHA2256>::from(ipld!({
+        let block2 = Block::<codec::DagJson, Sha2_256>::from(ipld!({
             "metadata": {
                 "type": "directory",
                 "name": "folder",
@@ -155,7 +150,7 @@ mod tests {
             ]
         }));
         let block3 =
-            Block::<codec::DagJson, hash::SHA2256>::try_from(block2.clone().to_raw()).unwrap();
+            Block::<codec::DagJson, Sha2_256>::try_from(block2.clone().to_raw()).unwrap();
         assert_eq!(block2, block3);
 
         let ipld = block3.ipld().unwrap();

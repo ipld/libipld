@@ -289,7 +289,7 @@ macro_rules! ipld_unexpected {
 #[macro_export]
 macro_rules! cbor_cid {
     ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::SHA2256>::from(&$ipld).cid()
+        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::from(&$ipld).cid()
     };
 }
 
@@ -297,7 +297,7 @@ macro_rules! cbor_cid {
 #[macro_export]
 macro_rules! json_cid {
     ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::SHA2256>::from(&$ipld).cid()
+        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::from(&$ipld).cid()
     };
 }
 
@@ -305,7 +305,7 @@ macro_rules! json_cid {
 #[macro_export]
 macro_rules! pb_cid {
     ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::SHA2256>::from(&$ipld).cid()
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::from(&$ipld).cid()
     };
 }
 
@@ -313,7 +313,7 @@ macro_rules! pb_cid {
 #[macro_export]
 macro_rules! cbor_block {
     ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::SHA2256>::from($crate::ipld!($ipld))
+        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
     };
 }
 
@@ -321,7 +321,7 @@ macro_rules! cbor_block {
 #[macro_export]
 macro_rules! json_block {
     ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::SHA2256>::from($crate::ipld!($ipld))
+        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
     };
 }
 
@@ -329,7 +329,7 @@ macro_rules! json_block {
 #[macro_export]
 macro_rules! pb_block {
     ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::SHA2256>::from($crate::ipld!($ipld))
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
     };
 }
 

@@ -1,9 +1,13 @@
 //! Hash types.
+use multihash::{Multihash, MultihashDigest};
 
 /// Trait for hash type markers.
 pub trait Hash {
-    /// The multihash hasher.
-    const HASH: multihash::Hash;
+    /// The multihash code.
+    const CODE: multihash::Code;
+
+    /// Computes the multihash of a byte slice.
+    fn digest(bytes: &[u8]) -> Multihash;
 }
 
 macro_rules! hash {
@@ -13,15 +17,25 @@ macro_rules! hash {
         pub struct $name;
 
         impl Hash for $name {
-            const HASH: multihash::Hash = multihash::Hash::$name;
+            const CODE: multihash::Code = multihash::Code::$name;
+
+            fn digest(bytes: &[u8]) -> Multihash {
+                multihash::$name::digest(bytes)
+            }
         }
     };
 }
 
-hash!(SHA1);
-hash!(SHA2256);
-hash!(SHA2512);
-hash!(SHA3512);
-hash!(SHA3384);
-hash!(SHA3256);
-hash!(SHA3224);
+hash!(Sha1);
+hash!(Sha2_256);
+hash!(Sha2_512);
+hash!(Sha3_224);
+hash!(Sha3_256);
+hash!(Sha3_384);
+hash!(Sha3_512);
+hash!(Keccak224);
+hash!(Keccak256);
+hash!(Keccak384);
+hash!(Keccak512);
+hash!(Blake2b);
+hash!(Blake2s);

@@ -2,6 +2,7 @@
 use super::*;
 use crate::ipld::*;
 use crate::untyped::Ipld;
+use core::convert::TryFrom;
 use multibase::Base;
 use serde_json::{json, Number, Value};
 
@@ -13,8 +14,13 @@ fn encode(ipld: &Ipld) -> Value {
     match ipld {
         Ipld::Null(IpldNull) => Value::Null,
         Ipld::Bool(IpldBool(b)) => Value::Bool(*b),
-        Ipld::Integer(IpldInteger::U64(i)) => Value::Number(Number::from(*i)),
-        Ipld::Integer(IpldInteger::I64(i)) => Value::Number(Number::from(*i)),
+        Ipld::Integer(IpldInteger(i)) => {
+            if *i >= 0 {
+                Value::Number(Number::from(*i as u64))
+            } else {
+                Value::Number(Number::from(*i as i64))
+            }
+        }
         Ipld::Float(IpldFloat(float)) => {
             let num = Number::from_f64(*float).expect("not NaN");
             Value::Number(num)
@@ -42,10 +48,10 @@ fn decode(json: &Value) -> Ipld {
         Value::Bool(b) => Ipld::Bool(IpldBool(*b)),
         Value::Number(num) => {
             if let Some(i) = num.as_i64() {
-                return Ipld::Integer(IpldInteger::I64(i));
+                return Ipld::Integer(IpldInteger(i as i128));
             }
             if let Some(i) = num.as_u64() {
-                return Ipld::Integer(IpldInteger::U64(i));
+                return Ipld::Integer(IpldInteger(i as i128));
             }
             if let Some(f) = num.as_f64() {
                 return Ipld::Float(IpldFloat(f));
@@ -57,7 +63,7 @@ fn decode(json: &Value) -> Ipld {
         Value::Object(object) => {
             match object.get("/") {
                 Some(Value::String(string)) => {
-                    if let Some(cid) = Cid::from(string.as_str()).ok() {
+                    if let Some(cid) = Cid::try_from(string.as_str()).ok() {
                         return Ipld::Link(IpldLink(cid));
                     }
                 }

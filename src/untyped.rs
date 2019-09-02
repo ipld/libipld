@@ -162,6 +162,7 @@ impl From<&Cid> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hash::{Hash, Sha2_256};
 
     #[test]
     fn ipld_null_from() {
@@ -203,14 +204,9 @@ mod tests {
 
     #[test]
     fn ipld_link_from() {
-        let prefix = cid::Prefix {
-            version: cid::Version::V0,
-            codec: cid::Codec::DagProtobuf,
-            mh_type: multihash::Hash::SHA2256,
-            mh_len: 32,
-        };
         let data = vec![0, 1, 2, 3];
-        let link = Cid::new_from_prefix(&prefix, &data);
+        let hash = Sha2_256::digest(&data);
+        let link = Cid::new_v0(hash).unwrap();
         Ipld::from(link.clone());
         Ipld::from(IpldLink::from(link));
     }

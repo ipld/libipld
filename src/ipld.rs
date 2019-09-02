@@ -35,54 +35,35 @@ derive_from_into!(IpldBool, bool);
 
 /// Represents an integer in `Ipld`.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum IpldInteger {
-    /// Represents an unsigned integer.
-    U64(u64),
-    /// Represents a signed integer.
-    I64(i64),
-}
+pub struct IpldInteger(pub i128);
+derive_from_into!(IpldInteger, i128);
 
 macro_rules! derive_from_into_integer {
-    ($repr:ident, $repr_ty:ty, $type:ty) => {
+    ($type:ty) => {
         impl From<$type> for IpldInteger {
             fn from(integer: $type) -> Self {
-                IpldInteger::$repr(integer as $repr_ty)
+                IpldInteger(integer as i128)
             }
         }
 
         impl Into<$type> for IpldInteger {
             fn into(self) -> $type {
-                match self {
-                    IpldInteger::U64(integer) => integer as $type,
-                    IpldInteger::I64(integer) => integer as $type,
-                }
+                self.0 as $type
             }
         }
     };
 }
 
-macro_rules! derive_from_into_u64 {
-    ($type:ty) => {
-        derive_from_into_integer!(U64, u64, $type);
-    };
-}
-
-macro_rules! derive_from_into_i64 {
-    ($type:ty) => {
-        derive_from_into_integer!(I64, i64, $type);
-    };
-}
-
-derive_from_into_u64!(u8);
-derive_from_into_u64!(u16);
-derive_from_into_u64!(u32);
-derive_from_into_u64!(u64);
-derive_from_into_u64!(usize);
-derive_from_into_i64!(i8);
-derive_from_into_i64!(i16);
-derive_from_into_i64!(i32);
-derive_from_into_i64!(i64);
-derive_from_into_i64!(isize);
+derive_from_into_integer!(u8);
+derive_from_into_integer!(u16);
+derive_from_into_integer!(u32);
+derive_from_into_integer!(u64);
+derive_from_into_integer!(usize);
+derive_from_into_integer!(i8);
+derive_from_into_integer!(i16);
+derive_from_into_integer!(i32);
+derive_from_into_integer!(i64);
+derive_from_into_integer!(isize);
 
 /// Represents a floating point value in `Ipld`.
 #[derive(Clone, Debug, PartialEq)]
@@ -141,6 +122,7 @@ impl From<&Cid> for IpldLink {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hash::{Hash, Sha2_256};
 
     #[test]
     fn from_into_bool() {
@@ -191,14 +173,9 @@ mod tests {
 
     #[test]
     fn from_into_link() {
-        let prefix = cid::Prefix {
-            version: cid::Version::V0,
-            codec: cid::Codec::DagProtobuf,
-            mh_type: multihash::Hash::SHA2256,
-            mh_len: 32,
-        };
         let data = vec![0, 1, 2, 3];
-        let link = Cid::new_from_prefix(&prefix, &data);
+        let hash = Sha2_256::digest(&data);
+        let link = Cid::new_v0(hash).unwrap();
         let ipld = IpldLink::from(link.clone());
         let link2: Cid = ipld.into();
         assert_eq!(link, link2);
