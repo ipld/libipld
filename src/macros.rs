@@ -312,9 +312,9 @@ macro_rules! json_block {
 macro_rules! pb_block {
     ($ipld:tt) => {{
         use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Blake2b>::try_from(
-            $crate::ipld!($ipld),
-        )
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Blake2b>::try_from($crate::ipld!(
+            $ipld
+        ))
     }};
 }
 

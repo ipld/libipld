@@ -2,8 +2,8 @@
 use super::*;
 use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
-use core::convert::TryFrom;
 use cid::Cid;
+use core::convert::TryFrom;
 use serde_cbor::Value;
 use std::collections::{BTreeMap, HashMap};
 
