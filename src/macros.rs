@@ -290,7 +290,7 @@ macro_rules! ipld_unexpected {
 macro_rules! cbor_block {
     ($ipld:tt) => {{
         use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::try_from($crate::ipld!(
+        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Blake2b>::try_from($crate::ipld!(
             $ipld
         ))
     }};
@@ -301,7 +301,7 @@ macro_rules! cbor_block {
 macro_rules! json_block {
     ($ipld:tt) => {{
         use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::try_from($crate::ipld!(
+        $crate::Block::<$crate::codec::DagJson, $crate::hash::Blake2b>::try_from($crate::ipld!(
             $ipld
         ))
     }};
@@ -312,7 +312,7 @@ macro_rules! json_block {
 macro_rules! pb_block {
     ($ipld:tt) => {{
         use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::try_from(
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Blake2b>::try_from(
             $crate::ipld!($ipld),
         )
     }};

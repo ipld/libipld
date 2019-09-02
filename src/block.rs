@@ -131,7 +131,7 @@ impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cbor_block, codec, hash::Sha2_256, ipld, json_block};
+    use crate::{cbor_block, codec, hash::Blake2b, ipld, json_block};
 
     #[test]
     fn test_block_from_ipld() {
@@ -155,7 +155,7 @@ mod tests {
             ]
         })
         .unwrap();
-        let block3 = Block::<codec::DagJson, Sha2_256>::try_from(block2.clone().to_raw()).unwrap();
+        let block3 = Block::<codec::DagJson, Blake2b>::try_from(block2.clone().to_raw()).unwrap();
         assert_eq!(block2, block3);
 
         let ipld = block3.ipld().unwrap();
