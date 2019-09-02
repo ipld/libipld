@@ -109,7 +109,7 @@ fn decode(json: &Value) -> Result<Ipld> {
     Ok(ipld)
 }
 
-impl Codec for DagJson {
+impl IpldCodec for DagJson {
     type Data = serde_json::Value;
 
     const VERSION: cid::Version = cid::Version::V1;
@@ -133,16 +133,6 @@ impl ToString for DagJson {
     fn from_str(string: &str) -> Result<Ipld> {
         let data = serde_json::from_str(string)?;
         Ok(Self::decode(&data)?)
-    }
-}
-
-impl ToBytes for DagJson {
-    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
-        Ok(Self::to_string(ipld)?.into_bytes())
-    }
-
-    fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
-        Self::from_str(std::str::from_utf8(bytes)?)
     }
 }
 

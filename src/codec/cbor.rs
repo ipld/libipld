@@ -78,7 +78,7 @@ fn decode(cbor: &Value) -> Result<Ipld> {
     Ok(ipld)
 }
 
-impl Codec for DagCbor {
+impl IpldCodec for DagCbor {
     type Data = serde_cbor::Value;
 
     const VERSION: cid::Version = cid::Version::V1;

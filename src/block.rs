@@ -1,5 +1,5 @@
 //! Block
-use crate::codec::{Codec, ToBytes};
+use crate::codec::Codec;
 use crate::error::{format_err, Error};
 use crate::hash::Hash;
 use crate::ipld::Ipld;
@@ -77,14 +77,14 @@ impl<TCodec, THash> Block<TCodec, THash> {
     }
 }
 
-impl<TCodec: Codec + ToBytes, THash> Block<TCodec, THash> {
+impl<TCodec: Codec, THash> Block<TCodec, THash> {
     /// Returns the ipld of the block.
     pub fn ipld(&self) -> Result<Ipld, Error> {
         TCodec::from_bytes(self.data())
     }
 }
 
-impl<TCodec: Codec + ToBytes, THash: Hash> TryFrom<&Ipld> for Block<TCodec, THash> {
+impl<TCodec: Codec, THash: Hash> TryFrom<&Ipld> for Block<TCodec, THash> {
     type Error = Error;
 
     fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
@@ -99,7 +99,7 @@ impl<TCodec: Codec + ToBytes, THash: Hash> TryFrom<&Ipld> for Block<TCodec, THas
     }
 }
 
-impl<TCodec: Codec + ToBytes, THash: Hash> TryFrom<Ipld> for Block<TCodec, THash> {
+impl<TCodec: Codec, THash: Hash> TryFrom<Ipld> for Block<TCodec, THash> {
     type Error = Error;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {

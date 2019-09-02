@@ -11,7 +11,7 @@ mod gen;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagProtobuf;
 
-impl Codec for DagProtobuf {
+impl IpldCodec for DagProtobuf {
     type Data = dag_pb::PbNode;
 
     const VERSION: cid::Version = cid::Version::V0;

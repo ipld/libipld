@@ -11,7 +11,7 @@ pub use self::json::DagJson;
 pub use self::pb::DagProtobuf;
 
 /// Codec trait.
-pub trait Codec {
+pub trait IpldCodec {
     /// Data type.
     type Data;
     /// Codec version.
@@ -25,7 +25,7 @@ pub trait Codec {
 }
 
 /// Binary trait.
-pub trait ToBytes: Codec {
+pub trait ToBytes: IpldCodec {
     /// Converts `Ipld` to bytes.
     fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>>;
     /// Parses `Ipld` from bytes.
@@ -33,9 +33,24 @@ pub trait ToBytes: Codec {
 }
 
 /// String trait.
-pub trait ToString: Codec {
+pub trait ToString: IpldCodec {
     /// Converts `Ipld` to string.
     fn to_string(ipld: &Ipld) -> Result<String>;
     /// Parses `Ipld` from a string slice.
     fn from_str(string: &str) -> Result<Ipld>;
 }
+
+impl<T: ToString> ToBytes for T {
+    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
+        Ok(Self::to_string(ipld)?.into_bytes())
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
+        Self::from_str(std::str::from_utf8(bytes)?)
+    }
+}
+
+/// Block codec.
+pub trait Codec: IpldCodec + ToBytes {}
+
+impl<T: IpldCodec + ToBytes> Codec for T {}
