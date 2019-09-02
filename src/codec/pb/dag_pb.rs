@@ -1,8 +1,9 @@
+use super::gen;
+use crate::error::{format_err, Error, Result};
 use crate::ipld;
 use crate::ipld::Ipld;
 use cid::Cid;
 use protobuf::Message;
-use super::gen;
 use std::convert::{TryFrom, TryInto};
 
 #[derive(Clone)]
@@ -42,7 +43,7 @@ fn from_ipld(ipld: Ipld) -> Option<PbLink> {
                     cid: cid.unwrap(),
                     name: name.unwrap(),
                     size: size.unwrap(),
-                })
+                });
             }
         }
         _ => {}
@@ -66,8 +67,10 @@ impl Into<Ipld> for PbNode {
     }
 }
 
-impl From<&Ipld> for PbNode {
-    fn from(ipld: &Ipld) -> Self {
+impl TryFrom<&Ipld> for PbNode {
+    type Error = Error;
+
+    fn try_from(ipld: &Ipld) -> Result<Self> {
         match ipld {
             Ipld::Map(map) => {
                 let links: Vec<Ipld> = map
@@ -76,28 +79,22 @@ impl From<&Ipld> for PbNode {
                     .map(|t| TryInto::try_into(t).ok())
                     .unwrap_or_default()
                     .unwrap_or_default();
-                let links: Vec<PbLink> = links
-                    .into_iter()
-                    .filter_map(from_ipld)
-                    .collect();
+                let links: Vec<PbLink> = links.into_iter().filter_map(from_ipld).collect();
                 let data: Vec<u8> = map
                     .get("Data")
                     .cloned()
                     .map(|t| TryInto::try_into(t).ok())
                     .unwrap_or_default()
                     .unwrap_or_default();
-                PbNode {
-                    links,
-                    data,
-                }
+                Ok(PbNode { links, data })
             }
-            _ => Default::default()
+            _ => Err(format_err!("Expected map")),
         }
     }
 }
 
 impl PbNode {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, failure::Error> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let proto: gen::PBNode = protobuf::parse_from_bytes(bytes)?;
         let data = proto.get_Data().to_vec();
         let mut links = Vec::new();
@@ -105,19 +102,12 @@ impl PbNode {
             let cid = Cid::try_from(link.get_Hash())?.into();
             let name = link.get_Name().to_string();
             let size = link.get_Tsize();
-            links.push(PbLink {
-                cid,
-                name,
-                size,
-            });
+            links.push(PbLink { cid, name, size });
         }
-        Ok(PbNode {
-            links,
-            data,
-        })
+        Ok(PbNode { links, data })
     }
 
-    pub fn into_bytes(self) -> Vec<u8> {
+    pub fn into_bytes(self) -> Result<Vec<u8>> {
         let mut proto = gen::PBNode::new();
         proto.set_Data(self.data);
         for link in self.links {
@@ -127,8 +117,6 @@ impl PbNode {
             pb_link.set_Tsize(link.size);
             proto.mut_Links().push(pb_link);
         }
-        proto
-            .write_to_bytes()
-            .expect("there is no situation in which the protobuf message can be invalid")
+        Ok(proto.write_to_bytes()?)
     }
 }

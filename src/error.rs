@@ -1,6 +1,9 @@
 //! `Ipld` error definitions.
 use failure::Fail;
-pub use failure::Error;
+pub use failure::{format_err, Error};
+
+/// Result alias.
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// `Ipld` type error.
 #[derive(Debug, Fail)]

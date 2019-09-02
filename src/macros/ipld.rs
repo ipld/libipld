@@ -285,52 +285,37 @@ macro_rules! ipld_unexpected {
     () => {};
 }
 
-/// Generates a `cbor` `CID` for a Block.
-#[macro_export]
-macro_rules! cbor_cid {
-    ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::from(&$ipld).cid()
-    };
-}
-
-/// Generates a `json` `CID` for a Block.
-#[macro_export]
-macro_rules! json_cid {
-    ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::from(&$ipld).cid()
-    };
-}
-
-/// Generates a `pb` `CID` for a Block.
-#[macro_export]
-macro_rules! pb_cid {
-    ($ipld:ident) => {
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::from(&$ipld).cid()
-    };
-}
-
 /// Generates a `cbor` Block.
 #[macro_export]
 macro_rules! cbor_block {
-    ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
-    };
+    ($ipld:tt) => {{
+        use core::convert::TryFrom;
+        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Sha2_256>::try_from($crate::ipld!(
+            $ipld
+        ))
+    }};
 }
 
 /// Generates a `json` Block.
 #[macro_export]
 macro_rules! json_block {
-    ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
-    };
+    ($ipld:tt) => {{
+        use core::convert::TryFrom;
+        $crate::Block::<$crate::codec::DagJson, $crate::hash::Sha2_256>::try_from($crate::ipld!(
+            $ipld
+        ))
+    }};
 }
 
 /// Generates a `pb` Block.
 #[macro_export]
 macro_rules! pb_block {
-    ($ipld:tt) => {
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::from($crate::ipld!($ipld))
-    };
+    ($ipld:tt) => {{
+        use core::convert::TryFrom;
+        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Sha2_256>::try_from(
+            $crate::ipld!($ipld),
+        )
+    }};
 }
 
 #[cfg(test)]
@@ -348,13 +333,14 @@ mod tests {
         let _: Ipld = ipld!([]);
         let _: Ipld = ipld!([1, 2, 3]);
         let _: Ipld = ipld!({});
-        let b: Ipld = ipld!({
+        let json = json_block!({
             "bye": null,
             "numbers": [1, 2, 3],
             "a": a,
-        });
+        })
+        .unwrap();
         let _: Ipld = ipld!({
-            "link": json_cid!(b),
+            "link": json.cid(),
         });
     }
 }

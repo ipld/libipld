@@ -1,6 +1,8 @@
 //! Protobuf codec.
 use super::*;
+use crate::error::Result;
 use crate::ipld::Ipld;
+use core::convert::TryFrom;
 
 mod dag_pb;
 mod gen;
@@ -15,46 +17,44 @@ impl Codec for DagProtobuf {
     const VERSION: cid::Version = cid::Version::V0;
     const CODEC: cid::Codec = cid::Codec::DagProtobuf;
 
-    fn encode(ipld: &Ipld) -> Self::Data {
-        dag_pb::PbNode::from(ipld)
+    fn encode(ipld: &Ipld) -> Result<Self::Data> {
+        dag_pb::PbNode::try_from(ipld)
     }
 
-    fn decode(data: &Self::Data) -> Ipld {
-        data.to_owned().into()
+    fn decode(data: &Self::Data) -> Result<Ipld> {
+        Ok(data.to_owned().into())
     }
 }
 
 impl ToBytes for DagProtobuf {
-    type Error = failure::Error;
-
-    fn to_bytes(ipld: &Ipld) -> Vec<u8> {
-        let data = Self::encode(ipld);
+    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
+        let data = Self::encode(ipld)?;
         data.into_bytes()
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Ipld, Self::Error> {
+    fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
         let data = dag_pb::PbNode::from_bytes(bytes)?;
-        Ok(Self::decode(&data))
+        Self::decode(&data)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ipld, pb_cid};
+    use crate::{ipld, pb_block};
 
     #[test]
     fn test_encode_decode() {
-        let link = ipld!(null);
+        let link = pb_block!({}).unwrap();
         let ipld = ipld!({
             "Links": [{
-                "Hash": pb_cid!(link),
+                "Hash": link.cid(),
                 "Name": "hello",
                 "Tsize": 13u64,
             }],
             "Data": vec![0, 1, 2, 3],
         });
-        let ipld2 = DagProtobuf::decode(&DagProtobuf::encode(&ipld));
+        let ipld2 = DagProtobuf::decode(&DagProtobuf::encode(&ipld).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

@@ -1,57 +1,74 @@
 //! CBOR codec.
 use super::*;
+use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
 use serde_cbor::Value;
+use std::collections::{BTreeMap, HashMap};
 
 /// CBOR codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCbor;
 
-fn encode(ipld: &Ipld) -> Value {
-    match ipld {
+fn encode(ipld: &Ipld) -> Result<Value> {
+    let cbor = match ipld {
         Ipld::Null => Value::Null,
         Ipld::Bool(b) => Value::Bool(*b),
         Ipld::Integer(i) => Value::Integer(*i),
         Ipld::Float(f) => Value::Float(*f),
         Ipld::Bytes(b) => Value::Bytes(b.to_owned()),
         Ipld::String(s) => Value::Text(s.to_owned()),
-        Ipld::List(l) => Value::Array(l.iter().map(encode).collect()),
+        Ipld::List(l) => {
+            let mut array = Vec::with_capacity(l.len());
+            for item in l.iter() {
+                array.push(encode(item)?);
+            }
+            Value::Array(array)
+        }
         Ipld::Map(m) => {
-            let cbor_map = m.iter()
-                .map(|(k, v)| (Value::Text(k.to_owned()), encode(v)))
-                .collect();
-            Value::Map(cbor_map)
+            let mut map = BTreeMap::new();
+            for (k, v) in m {
+                map.insert(Value::Text(k.to_owned()), encode(v)?);
+            }
+            Value::Map(map)
         }
-        Ipld::Link(cid) => {
+        Ipld::Link(_cid) => {
             // TODO tag 42
-            Value::Bytes(cid.to_bytes())
+            return Err(format_err!("cids not supported in dag-cbor"));
+            //Value::Bytes(cid.to_bytes())
         }
-    }
+    };
+    Ok(cbor)
 }
 
-fn decode(cbor: &Value) -> Ipld {
-    match cbor {
+fn decode(cbor: &Value) -> Result<Ipld> {
+    let ipld = match cbor {
         Value::Null => Ipld::Null,
         Value::Bool(b) => Ipld::Bool(*b),
         Value::Integer(i) => Ipld::Integer(*i),
         Value::Float(f) => Ipld::Float(*f),
         Value::Bytes(bytes) => Ipld::Bytes(bytes.to_owned()),
         Value::Text(string) => Ipld::String(string.to_owned()),
-        Value::Array(array) => Ipld::List(array.iter().map(decode).collect()),
+        Value::Array(array) => {
+            let mut list = Vec::with_capacity(array.len());
+            for item in array.iter() {
+                list.push(decode(item)?);
+            }
+            Ipld::List(list)
+        }
         Value::Map(object) => {
-            let map = object.iter()
-                .map(|(k, v)| {
-                    if let Value::Text(string) = k {
-                        (string.to_owned(), decode(v))
-                    } else {
-                        panic!("can only use string keys")
-                    }
-                })
-                .collect();
+            let mut map = HashMap::new();
+            for (k, v) in object.iter() {
+                if let Value::Text(s) = k {
+                    map.insert(s.to_owned(), decode(v)?);
+                } else {
+                    return Err(format_err!("only string keys supported"));
+                }
+            }
             Ipld::Map(map)
-        },
-        Value::__Hidden => Ipld::Null,
-    }
+        }
+        Value::__Hidden => return Err(format_err!("__Hidden value not supported")),
+    };
+    Ok(ipld)
 }
 
 impl Codec for DagCbor {
@@ -60,26 +77,24 @@ impl Codec for DagCbor {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    fn encode(ipld: &Ipld) -> Self::Data {
+    fn encode(ipld: &Ipld) -> Result<Self::Data> {
         encode(ipld)
     }
 
-    fn decode(data: &Self::Data) -> Ipld {
+    fn decode(data: &Self::Data) -> Result<Ipld> {
         decode(data)
     }
 }
 
 impl ToBytes for DagCbor {
-    type Error = serde_cbor::error::Error;
-
-    fn to_bytes(ipld: &Ipld) -> Vec<u8> {
-        let data = Self::encode(ipld);
-        serde_cbor::to_vec(&data).expect("cannot fail")
+    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
+        let data = Self::encode(ipld)?;
+        Ok(serde_cbor::to_vec(&data)?)
     }
 
-    fn from_bytes(bytes: &[u8]) -> Result<Ipld, Self::Error> {
+    fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
         let data = serde_cbor::from_slice(bytes)?;
-        Ok(Self::decode(&data))
+        Ok(Self::decode(&data)?)
     }
 }
 
@@ -98,7 +113,7 @@ mod tests {
           "bytes": vec![0, 1, 2, 3],
           //"link": cbor_cid!(link),
         });
-        let ipld2 = DagCbor::decode(&DagCbor::encode(&ipld));
+        let ipld2 = DagCbor::decode(&DagCbor::encode(&ipld).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

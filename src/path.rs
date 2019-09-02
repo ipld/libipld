@@ -6,7 +6,7 @@ pub struct Path(Vec<String>);
 
 impl Path {
     /// Iterate over path segments.
-    pub fn iter(&self) -> impl Iterator<Item=&String> {
+    pub fn iter(&self) -> impl Iterator<Item = &String> {
         self.0.iter()
     }
 }
@@ -25,7 +25,12 @@ impl From<Vec<&str>> for Path {
 
 impl From<&str> for Path {
     fn from(s: &str) -> Self {
-        Path(s.split("/").filter(|s| s != &"").map(|s| s.to_owned()).collect())
+        Path(
+            s.split("/")
+                .filter(|s| s != &"")
+                .map(|s| s.to_owned())
+                .collect(),
+        )
     }
 }
 

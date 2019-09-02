@@ -1,4 +1,5 @@
 //! `Ipld` codecs.
+use crate::error::Result;
 use crate::ipld::Ipld;
 
 pub mod cbor;
@@ -18,27 +19,23 @@ pub trait Codec {
     /// Codec code.
     const CODEC: cid::Codec;
     /// Encode function.
-    fn encode(ipld: &Ipld) -> Self::Data;
+    fn encode(ipld: &Ipld) -> Result<Self::Data>;
     /// Decode function.
-    fn decode(data: &Self::Data) -> Ipld;
+    fn decode(data: &Self::Data) -> Result<Ipld>;
 }
 
 /// Binary trait.
 pub trait ToBytes: Codec {
-    /// Error type.
-    type Error;
     /// Converts `Ipld` to bytes.
-    fn to_bytes(ipld: &Ipld) -> Vec<u8>;
+    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>>;
     /// Parses `Ipld` from bytes.
-    fn from_bytes(bytes: &[u8]) -> Result<Ipld, Self::Error>;
+    fn from_bytes(bytes: &[u8]) -> Result<Ipld>;
 }
 
 /// String trait.
 pub trait ToString: Codec {
-    /// Error type.
-    type Error;
     /// Converts `Ipld` to string.
-    fn to_string(ipld: &Ipld) -> String;
+    fn to_string(ipld: &Ipld) -> Result<String>;
     /// Parses `Ipld` from a string slice.
-    fn from_str(string: &str) -> Result<Ipld, Self::Error>;
+    fn from_str(string: &str) -> Result<Ipld>;
 }

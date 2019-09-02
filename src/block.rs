@@ -1,9 +1,9 @@
 //! Block
 use crate::codec::{Codec, ToBytes};
+use crate::error::{format_err, Error};
 use crate::hash::Hash;
 use crate::ipld::Ipld;
 use cid::Cid;
-use failure::format_err;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 
@@ -79,27 +79,31 @@ impl<TCodec, THash> Block<TCodec, THash> {
 
 impl<TCodec: Codec + ToBytes, THash> Block<TCodec, THash> {
     /// Returns the ipld of the block.
-    pub fn ipld(&self) -> Result<Ipld, TCodec::Error> {
+    pub fn ipld(&self) -> Result<Ipld, Error> {
         TCodec::from_bytes(self.data())
     }
 }
 
-impl<TCodec: Codec + ToBytes, THash: Hash> From<&Ipld> for Block<TCodec, THash> {
-    fn from(ipld: &Ipld) -> Self {
-        let data = TCodec::to_bytes(ipld);
+impl<TCodec: Codec + ToBytes, THash: Hash> TryFrom<&Ipld> for Block<TCodec, THash> {
+    type Error = Error;
+
+    fn try_from(ipld: &Ipld) -> Result<Self, Self::Error> {
+        let data = TCodec::to_bytes(ipld)?;
         let hash = THash::digest(&data);
         let cid = Cid::new_v1(TCodec::CODEC, hash);
-        Block {
+        Ok(Block {
             codec: PhantomData,
             hash: PhantomData,
             raw: RawBlock::new(cid, data),
-        }
+        })
     }
 }
 
-impl<TCodec: Codec + ToBytes, THash: Hash> From<Ipld> for Block<TCodec, THash> {
-    fn from(ipld: Ipld) -> Self {
-        Self::from(&ipld)
+impl<TCodec: Codec + ToBytes, THash: Hash> TryFrom<Ipld> for Block<TCodec, THash> {
+    type Error = Error;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        Self::try_from(&ipld)
     }
 }
 
@@ -108,13 +112,13 @@ impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
 
     fn try_from(raw: RawBlock) -> Result<Self, Self::Error> {
         if raw.cid().codec() != TCodec::CODEC {
-            return Err(format_err!("Codec doesn't match"))
+            return Err(format_err!("Codec doesn't match"));
         }
         if raw.cid().hash().code() != THash::CODE {
-            return Err(format_err!("Hash code doesn't match"))
+            return Err(format_err!("Hash code doesn't match"));
         }
         if raw.cid().hash() != THash::digest(raw.data()).as_ref() {
-            return Err(format_err!("Block hash does not match block data"))
+            return Err(format_err!("Block hash does not match block data"));
         }
         Ok(Block {
             codec: PhantomData,
@@ -127,19 +131,20 @@ impl<TCodec: Codec, THash: Hash> TryFrom<RawBlock> for Block<TCodec, THash> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{codec, hash::Sha2_256, ipld};
+    use crate::{cbor_block, codec, hash::Sha2_256, ipld, json_block};
 
     #[test]
     fn test_block_from_ipld() {
-        let block1 = Block::<codec::DagCbor, Sha2_256>::from(ipld!({
+        let block1 = cbor_block!({
             "metadata": {
                 "type": "file",
                 "name": "hello_world.txt",
                 "size": 11,
             },
             "content": "hello world",
-        }));
-        let block2 = Block::<codec::DagJson, Sha2_256>::from(ipld!({
+        })
+        .unwrap();
+        let block2 = json_block!({
             "metadata": {
                 "type": "directory",
                 "name": "folder",
@@ -148,21 +153,24 @@ mod tests {
             "children": [
                 block1.cid(),
             ]
-        }));
-        let block3 =
-            Block::<codec::DagJson, Sha2_256>::try_from(block2.clone().to_raw()).unwrap();
+        })
+        .unwrap();
+        let block3 = Block::<codec::DagJson, Sha2_256>::try_from(block2.clone().to_raw()).unwrap();
         assert_eq!(block2, block3);
 
         let ipld = block3.ipld().unwrap();
-        assert_eq!(ipld, ipld!({
-            "metadata": {
-                "type": "directory",
-                "name": "folder",
-                "size": 1,
-            },
-            "children": [
-                block1.cid(),
-            ]
-        }));
+        assert_eq!(
+            ipld,
+            ipld!({
+                "metadata": {
+                    "type": "directory",
+                    "name": "folder",
+                    "size": 1,
+                },
+                "children": [
+                    block1.cid(),
+                ]
+            })
+        );
     }
 }

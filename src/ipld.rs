@@ -1,8 +1,8 @@
 //! Untyped `Ipld` representation.
 
-use crate::error::*;
-use core::convert::{TryFrom, TryInto};
+use crate::error::{Error, IpldTypeError};
 use cid::Cid;
+use core::convert::{TryFrom, TryInto};
 use std::collections::HashMap;
 
 /// Untyped `Ipld` representation.
@@ -35,7 +35,7 @@ macro_rules! derive_from {
                 Ipld::$enum(ty.into())
             }
         }
-    }
+    };
 }
 
 macro_rules! derive_try_from {
@@ -50,17 +50,15 @@ macro_rules! derive_try_from {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! derive_ipld {
     ($enum:ident, $type:ty, $error:ident) => {
         derive_from!($enum, $type);
         derive_try_from!($enum, $type, $error);
-    }
+    };
 }
-
-
 
 derive_ipld!(Bool, bool, NotBool);
 derive_ipld!(Integer, i8, NotInteger);
@@ -113,7 +111,6 @@ mod tests {
         assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
         assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
         assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
-
     }
 
     #[test]
@@ -125,7 +122,10 @@ mod tests {
     #[test]
     fn ipld_string_from() {
         assert_eq!(Ipld::String("a string".into()), Ipld::from("a string"));
-        assert_eq!(Ipld::String("a string".into()), Ipld::from("a string".to_string()));
+        assert_eq!(
+            Ipld::String("a string".into()),
+            Ipld::from("a string".to_string())
+        );
     }
 
     #[test]
@@ -144,8 +144,8 @@ mod tests {
 
     #[test]
     fn from_try_into_string() {
-	let string1 = "hello world".to_string();
-	let string2: String = Ipld::from(string1.clone()).try_into().unwrap();
+        let string1 = "hello world".to_string();
+        let string2: String = Ipld::from(string1.clone()).try_into().unwrap();
         assert_eq!(string1, string2);
     }
 }
