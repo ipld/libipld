@@ -1,8 +1,5 @@
 # Rust IPLD library
-TODO list:
-- [] implement DAG (traversal, update).
-- [] revisit typed IPLD.
-- [] `cbor-dag`: use custom tag (42) for CID's.
+Basic rust ipld library supporting `dag-cbor`, `dag-json` and `dag-pb` formats.
 
 ## License
 ISC License
