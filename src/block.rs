@@ -31,7 +31,7 @@ impl RawBlock {
     }
 
     /// Takes a block apart.
-    pub fn into(self) -> (Cid, Vec<u8>) {
+    pub fn split(self) -> (Cid, Vec<u8>) {
         (self.cid, self.data)
     }
 }
@@ -68,7 +68,7 @@ impl<TCodec, THash> Block<TCodec, THash> {
 
     /// Takes a block apart.
     pub fn split(self) -> (Cid, Vec<u8>) {
-        self.raw.into()
+        self.raw.split()
     }
 
     /// Returns the raw block.
