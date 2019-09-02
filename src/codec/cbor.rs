@@ -1,7 +1,6 @@
 //! CBOR codec.
 use super::*;
-use crate::ipld::*;
-use crate::untyped::Ipld;
+use crate::ipld::Ipld;
 use serde_cbor::Value;
 
 /// CBOR codec.
@@ -10,20 +9,20 @@ pub struct DagCbor;
 
 fn encode(ipld: &Ipld) -> Value {
     match ipld {
-        Ipld::Null(IpldNull) => Value::Null,
-        Ipld::Bool(IpldBool(b)) => Value::Bool(*b),
-        Ipld::Integer(IpldInteger(i)) => Value::Integer(*i),
-        Ipld::Float(IpldFloat(float)) => Value::Float(*float),
-        Ipld::Bytes(IpldBytes(bytes)) => Value::Bytes(bytes.to_owned()),
-        Ipld::String(IpldString(string)) => Value::Text(string.to_owned()),
-        Ipld::List(IpldList(list)) => Value::Array(list.iter().map(encode).collect()),
-        Ipld::Map(IpldMap(map)) => {
-            let cbor_map = map.iter()
+        Ipld::Null => Value::Null,
+        Ipld::Bool(b) => Value::Bool(*b),
+        Ipld::Integer(i) => Value::Integer(*i),
+        Ipld::Float(f) => Value::Float(*f),
+        Ipld::Bytes(b) => Value::Bytes(b.to_owned()),
+        Ipld::String(s) => Value::Text(s.to_owned()),
+        Ipld::List(l) => Value::Array(l.iter().map(encode).collect()),
+        Ipld::Map(m) => {
+            let cbor_map = m.iter()
                 .map(|(k, v)| (Value::Text(k.to_owned()), encode(v)))
                 .collect();
             Value::Map(cbor_map)
         }
-        Ipld::Link(IpldLink(cid)) => {
+        Ipld::Link(cid) => {
             // TODO tag 42
             Value::Bytes(cid.to_bytes())
         }
@@ -32,13 +31,13 @@ fn encode(ipld: &Ipld) -> Value {
 
 fn decode(cbor: &Value) -> Ipld {
     match cbor {
-        Value::Null => Ipld::Null(IpldNull),
-        Value::Bool(b) => Ipld::Bool(IpldBool(*b)),
-        Value::Integer(i) => Ipld::Integer(IpldInteger(*i)),
-        Value::Float(f) => Ipld::Float(IpldFloat(*f)),
-        Value::Bytes(bytes) => Ipld::Bytes(IpldBytes(bytes.to_owned())),
-        Value::Text(string) => Ipld::String(IpldString(string.to_owned())),
-        Value::Array(array) => Ipld::List(IpldList(array.iter().map(decode).collect())),
+        Value::Null => Ipld::Null,
+        Value::Bool(b) => Ipld::Bool(*b),
+        Value::Integer(i) => Ipld::Integer(*i),
+        Value::Float(f) => Ipld::Float(*f),
+        Value::Bytes(bytes) => Ipld::Bytes(bytes.to_owned()),
+        Value::Text(string) => Ipld::String(string.to_owned()),
+        Value::Array(array) => Ipld::List(array.iter().map(decode).collect()),
         Value::Map(object) => {
             let map = object.iter()
                 .map(|(k, v)| {
@@ -49,9 +48,9 @@ fn decode(cbor: &Value) -> Ipld {
                     }
                 })
                 .collect();
-            Ipld::Map(IpldMap(map))
+            Ipld::Map(map)
         },
-        Value::__Hidden => Ipld::Null(IpldNull),
+        Value::__Hidden => Ipld::Null,
     }
 }
 

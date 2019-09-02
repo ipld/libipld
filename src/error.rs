@@ -1,34 +1,32 @@
 //! `Ipld` error definitions.
 use failure::Fail;
+pub use failure::Error;
 
 /// `Ipld` type error.
 #[derive(Debug, Fail)]
 pub enum IpldTypeError {
-    /// Expected a `IpldNull`.
-    #[fail(display = "Expected a `IpldNull`")]
-    NotNull,
-    /// Expected a `IpldBool`.
-    #[fail(display = "Expected a `IpldBool`.")]
+    /// Expected a boolean.
+    #[fail(display = "Expected a boolean.")]
     NotBool,
-    /// Expected a `IpldInteger`.
-    #[fail(display = "Expected a `IpldInteger`.")]
+    /// Expected an integer.
+    #[fail(display = "Expected an integer.")]
     NotInteger,
-    /// Expected a `IpldFloat`.
-    #[fail(display = "Expected a `IpldFloat`.")]
+    /// Expected a float.
+    #[fail(display = "Expected a float.")]
     NotFloat,
-    /// Expected a `IpldString`.
-    #[fail(display = "Expected a `IpldString`.")]
+    /// Expected a string.
+    #[fail(display = "Expected a string.")]
     NotString,
-    /// Expected a `IpldBytes`.
-    #[fail(display = "Expected a `IpldBytes`.")]
+    /// Expected bytes.
+    #[fail(display = "Expected bytes.")]
     NotBytes,
-    /// Expected a `IpldList`.
-    #[fail(display = "Expected a `IpldList`.")]
+    /// Expected a list.
+    #[fail(display = "Expected a list.")]
     NotList,
-    /// Expected a `IpldMap`.
-    #[fail(display = "Expected a `IpldMap`.")]
+    /// Expected a map.
+    #[fail(display = "Expected a map.")]
     NotMap,
-    /// Expected a `IpldLink`.
-    #[fail(display = "Expected a `IpldLink`.")]
+    /// Expected a cid.
+    #[fail(display = "Expected a cid.")]
     NotLink,
 }

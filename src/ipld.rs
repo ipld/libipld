@@ -1,121 +1,92 @@
-//! `Ipld` types.
-//!
-//! Every `Ipld` type is required to implement `From` and `Into` for all
-//! relevant Rust types.
-//!
-//! Every `Ipld` type implements `From<Ipld>` and `From<TypedIpld<T>>`.
-use crate::untyped::Ipld;
-pub use cid::Cid;
+//! Untyped `Ipld` representation.
+
+use crate::error::*;
+use core::convert::{TryFrom, TryInto};
+use cid::Cid;
 use std::collections::HashMap;
 
-macro_rules! derive_from_into {
-    ($ipld:ident, $rust:ty) => {
-        impl From<$rust> for $ipld {
-            fn from(ipld: $rust) -> Self {
-                $ipld(ipld)
-            }
-        }
-
-        impl Into<$rust> for $ipld {
-            fn into(self) -> $rust {
-                self.0
-            }
-        }
-    };
-}
-
-/// Represents `null` in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldNull;
-
-/// Represents a `bool` in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldBool(pub bool);
-derive_from_into!(IpldBool, bool);
-
-/// Represents an integer in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldInteger(pub i128);
-derive_from_into!(IpldInteger, i128);
-
-macro_rules! derive_from_into_integer {
-    ($type:ty) => {
-        impl From<$type> for IpldInteger {
-            fn from(integer: $type) -> Self {
-                IpldInteger(integer as i128)
-            }
-        }
-
-        impl Into<$type> for IpldInteger {
-            fn into(self) -> $type {
-                self.0 as $type
-            }
-        }
-    };
-}
-
-derive_from_into_integer!(u8);
-derive_from_into_integer!(u16);
-derive_from_into_integer!(u32);
-derive_from_into_integer!(u64);
-derive_from_into_integer!(usize);
-derive_from_into_integer!(i8);
-derive_from_into_integer!(i16);
-derive_from_into_integer!(i32);
-derive_from_into_integer!(i64);
-derive_from_into_integer!(isize);
-
-/// Represents a floating point value in `Ipld`.
+/// Untyped `Ipld` representation.
 #[derive(Clone, Debug, PartialEq)]
-pub struct IpldFloat(pub f64);
-derive_from_into!(IpldFloat, f64);
+pub enum Ipld {
+    /// Represents the absence of a value or the value undefined.
+    Null,
+    /// Represents a boolean value.
+    Bool(bool),
+    /// Represents an integer.
+    Integer(i128),
+    /// Represents a floating point value.
+    Float(f64),
+    /// Represents an UTF-8 string.
+    String(String),
+    /// Represents a sequence of bytes.
+    Bytes(Vec<u8>),
+    /// Represents a list.
+    List(Vec<Ipld>),
+    /// Represents a map.
+    Map(HashMap<String, Ipld>),
+    /// Represents a link to an Ipld node
+    Link(Cid),
+}
 
-impl From<f32> for IpldFloat {
-    fn from(float: f32) -> Self {
-        IpldFloat(float as f64)
+macro_rules! derive_from {
+    ($enum:ident, $type:ty) => {
+        impl From<$type> for Ipld {
+            fn from(ty: $type) -> Ipld {
+                Ipld::$enum(ty.into())
+            }
+        }
     }
 }
 
-impl Into<f32> for IpldFloat {
-    fn into(self) -> f32 {
-        self.0 as f32
+macro_rules! derive_try_from {
+    ($enum:ident, $type:ty, $error:ident) => {
+        impl TryFrom<Ipld> for $type {
+            type Error = Error;
+
+            fn try_from(ipld: Ipld) -> Result<$type, Self::Error> {
+                match ipld {
+                    Ipld::$enum(ty) => Ok(ty.try_into()?),
+                    _ => Err(IpldTypeError::$error.into()),
+                }
+            }
+        }
     }
 }
 
-/// Represents a `String` in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldString(pub String);
-derive_from_into!(IpldString, String);
-
-impl From<&str> for IpldString {
-    fn from(string: &str) -> Self {
-        IpldString(string.to_string())
+macro_rules! derive_ipld {
+    ($enum:ident, $type:ty, $error:ident) => {
+        derive_from!($enum, $type);
+        derive_try_from!($enum, $type, $error);
     }
 }
 
-/// Represents a sequence of bytes in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldBytes(pub Vec<u8>);
-derive_from_into!(IpldBytes, Vec<u8>);
 
-/// Represents a sequence of `Ipld` elements.
-#[derive(Clone, Debug, PartialEq)]
-pub struct IpldList(pub Vec<Ipld>);
-derive_from_into!(IpldList, Vec<Ipld>);
 
-/// Represents a map of `Ipld` elements.
-#[derive(Clone, Debug, PartialEq)]
-pub struct IpldMap(pub HashMap<String, Ipld>);
-derive_from_into!(IpldMap, HashMap<String, Ipld>);
+derive_ipld!(Bool, bool, NotBool);
+derive_ipld!(Integer, i8, NotInteger);
+derive_ipld!(Integer, i16, NotInteger);
+derive_ipld!(Integer, i32, NotInteger);
+derive_ipld!(Integer, i64, NotInteger);
+derive_ipld!(Integer, i128, NotInteger);
+derive_ipld!(Integer, u8, NotInteger);
+derive_ipld!(Integer, u16, NotInteger);
+derive_ipld!(Integer, u32, NotInteger);
+derive_ipld!(Integer, u64, NotInteger);
+derive_ipld!(Float, f64, NotFloat);
+derive_ipld!(String, String, NotString);
+derive_ipld!(Bytes, Vec<u8>, NotBytes);
+derive_ipld!(List, Vec<Ipld>, NotList);
+derive_ipld!(Map, HashMap<String, Ipld>, NotMap);
+derive_ipld!(Link, Cid, NotLink);
 
-/// Represents a link in `Ipld`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct IpldLink(pub Cid);
-derive_from_into!(IpldLink, Cid);
+derive_from!(Float, f32);
+derive_from!(String, &str);
+derive_from!(Bytes, &[u8]);
+derive_from!(List, &[Ipld]);
 
-impl From<&Cid> for IpldLink {
+impl From<&Cid> for Ipld {
     fn from(cid: &Cid) -> Self {
-        IpldLink::from(cid.to_owned())
+        Ipld::Link(cid.to_owned())
     }
 }
 
@@ -125,59 +96,56 @@ mod tests {
     use crate::hash::{Hash, Sha2_256};
 
     #[test]
-    fn from_into_bool() {
-        let boolean = true;
-        let ipld = IpldBool::from(boolean);
-        let boolean2: bool = ipld.into();
-        assert_eq!(boolean, boolean2);
+    fn ipld_bool_from() {
+        assert_eq!(Ipld::Bool(true), Ipld::from(true));
+        assert_eq!(Ipld::Bool(false), Ipld::from(false));
     }
 
     #[test]
-    fn from_into_integer() {
-        let int: u8 = 1;
-        let ipld = IpldInteger::from(int);
-        let int2: u8 = ipld.into();
-        assert_eq!(int, int2);
+    fn ipld_integer_from() {
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i8));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i64));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i128));
+
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u8));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
+
     }
 
     #[test]
-    fn from_into_float() {
-        let float: f32 = 1.0;
-        let ipld = IpldFloat::from(float);
-        let float2: f32 = ipld.into();
-        assert_eq!(float, float2);
+    fn ipld_float_from() {
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]
-    fn from_into_string() {
-        let string = "a string".to_string();
-        let ipld = IpldString::from(string.clone());
-        let string2: String = ipld.into();
-        assert_eq!(string, string2);
+    fn ipld_string_from() {
+        assert_eq!(Ipld::String("a string".into()), Ipld::from("a string"));
+        assert_eq!(Ipld::String("a string".into()), Ipld::from("a string".to_string()));
     }
 
     #[test]
-    fn string_from_str() {
-        let ipld = IpldString::from("a string");
-        let ipld2 = IpldString::from("a string".to_string());
-        assert_eq!(ipld, ipld2);
+    fn ipld_bytes_from() {
+        assert_eq!(Ipld::Bytes(vec![0, 1, 2, 3]), Ipld::from(&[0, 1, 2, 3][..]));
+        assert_eq!(Ipld::Bytes(vec![0, 1, 2, 3]), Ipld::from(vec![0, 1, 2, 3]));
     }
 
     #[test]
-    fn from_into_bytes() {
-        let bytes: Vec<u8> = vec![0, 1, 2, 3];
-        let ipld = IpldBytes::from(bytes.clone());
-        let bytes2: Vec<u8> = ipld.into();
-        assert_eq!(bytes, bytes2);
-    }
-
-    #[test]
-    fn from_into_link() {
+    fn ipld_link_from() {
         let data = vec![0, 1, 2, 3];
         let hash = Sha2_256::digest(&data);
-        let link = Cid::new_v0(hash).unwrap();
-        let ipld = IpldLink::from(link.clone());
-        let link2: Cid = ipld.into();
-        assert_eq!(link, link2);
+        let cid = Cid::new_v0(hash).unwrap();
+        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
+    }
+
+    #[test]
+    fn from_try_into_string() {
+	let string1 = "hello world".to_string();
+	let string2: String = Ipld::from(string1.clone()).try_into().unwrap();
+        assert_eq!(string1, string2);
     }
 }

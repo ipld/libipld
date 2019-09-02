@@ -1,6 +1,6 @@
 //! Protobuf codec.
 use super::*;
-use crate::untyped::Ipld;
+use crate::ipld::Ipld;
 
 mod dag_pb;
 mod gen;

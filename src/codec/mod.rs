@@ -1,5 +1,5 @@
 //! `Ipld` codecs.
-use crate::Ipld;
+use crate::ipld::Ipld;
 
 pub mod cbor;
 pub mod json;

@@ -230,7 +230,7 @@ macro_rules! ipld_internal {
     //////////////////////////////////////////////////////////////////////////
 
     (null) => {
-        $crate::Ipld::Null($crate::IpldNull)
+        $crate::Ipld::Null
     };
 
     (true) => {
@@ -242,11 +242,11 @@ macro_rules! ipld_internal {
     };
 
     ([]) => {
-        $crate::Ipld::from($crate::IpldList::from(ipld_internal_vec![]))
+        $crate::Ipld::List(ipld_internal_vec![])
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::Ipld::from($crate::IpldList::from(ipld_internal!(@array [] $($tt)+)))
+        $crate::Ipld::from(ipld_internal!(@array [] $($tt)+))
     };
 
     ({}) => {

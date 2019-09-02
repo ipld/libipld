@@ -1,7 +1,7 @@
 //! Block
 use crate::codec::{Codec, ToBytes};
 use crate::hash::Hash;
-use crate::untyped::Ipld;
+use crate::ipld::Ipld;
 use cid::Cid;
 use failure::format_err;
 use std::convert::TryFrom;

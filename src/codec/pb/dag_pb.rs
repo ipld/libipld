@@ -1,6 +1,5 @@
 use crate::ipld;
-use crate::ipld::*;
-use crate::untyped::Ipld;
+use crate::ipld::Ipld;
 use cid::Cid;
 use protobuf::Message;
 use super::gen;
@@ -25,7 +24,7 @@ impl Into<Ipld> for PbLink {
 
 fn from_ipld(ipld: Ipld) -> Option<PbLink> {
     match ipld {
-        Ipld::Map(IpldMap(mut map)) => {
+        Ipld::Map(mut map) => {
             let cid: Option<Cid> = map
                 .remove("Hash")
                 .map(|t| TryInto::try_into(t).ok())
@@ -70,7 +69,7 @@ impl Into<Ipld> for PbNode {
 impl From<&Ipld> for PbNode {
     fn from(ipld: &Ipld) -> Self {
         match ipld {
-            Ipld::Map(IpldMap(map)) => {
+            Ipld::Map(map) => {
                 let links: Vec<Ipld> = map
                     .get("Links")
                     .cloned()
