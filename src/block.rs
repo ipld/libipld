@@ -3,7 +3,7 @@ use crate::codec::{Codec, ToBytes};
 use crate::error::{format_err, Error};
 use crate::hash::Hash;
 use crate::ipld::Ipld;
-use cid::Cid;
+pub use cid::Cid;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 
