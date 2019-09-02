@@ -24,29 +24,26 @@ impl Into<Ipld> for PbLink {
 }
 
 fn from_ipld(ipld: Ipld) -> Option<PbLink> {
-    match ipld {
-        Ipld::Map(mut map) => {
-            let cid: Option<Cid> = map
-                .remove("Hash")
-                .map(|t| TryInto::try_into(t).ok())
-                .unwrap_or_default();
-            let name: Option<String> = map
-                .remove("Name")
-                .map(|t| TryInto::try_into(t).ok())
-                .unwrap_or_default();
-            let size: Option<u64> = map
-                .remove("Tsize")
-                .map(|t| TryInto::try_into(t).ok())
-                .unwrap_or_default();
-            if cid.is_some() && name.is_some() && size.is_some() {
-                return Some(PbLink {
-                    cid: cid.unwrap(),
-                    name: name.unwrap(),
-                    size: size.unwrap(),
-                });
-            }
+    if let Ipld::Map(mut map) = ipld {
+        let cid: Option<Cid> = map
+            .remove("Hash")
+            .map(|t| TryInto::try_into(t).ok())
+            .unwrap_or_default();
+        let name: Option<String> = map
+            .remove("Name")
+            .map(|t| TryInto::try_into(t).ok())
+            .unwrap_or_default();
+        let size: Option<u64> = map
+            .remove("Tsize")
+            .map(|t| TryInto::try_into(t).ok())
+            .unwrap_or_default();
+        if let (Some(cid), Some(name), Some(size)) = (cid, name, size) {
+            return Some(PbLink {
+                cid,
+                name,
+                size,
+            });
         }
-        _ => {}
     }
     None
 }
@@ -99,7 +96,7 @@ impl PbNode {
         let data = proto.get_Data().to_vec();
         let mut links = Vec::new();
         for link in proto.get_Links() {
-            let cid = Cid::try_from(link.get_Hash())?.into();
+            let cid = Cid::try_from(link.get_Hash())?;
             let name = link.get_Name().to_string();
             let size = link.get_Tsize();
             links.push(PbLink { cid, name, size });

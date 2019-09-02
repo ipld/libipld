@@ -16,6 +16,7 @@ macro_rules! hash {
         #[derive(Clone, Debug, Hash, PartialEq, Eq)]
         pub struct $name;
 
+        #[allow(clippy::derive_hash_xor_eq)]
         impl Hash for $name {
             const CODE: multihash::Code = multihash::Code::$name;
 

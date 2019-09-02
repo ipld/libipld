@@ -26,7 +26,7 @@ impl From<Vec<&str>> for Path {
 impl From<&str> for Path {
     fn from(s: &str) -> Self {
         Path(
-            s.split("/")
+            s.split('/')
                 .filter(|s| s != &"")
                 .map(|s| s.to_owned())
                 .collect(),

@@ -38,7 +38,7 @@ impl RawBlock {
 
 impl<TCodec, THash> From<Block<TCodec, THash>> for RawBlock {
     fn from(block: Block<TCodec, THash>) -> Self {
-        block.to_raw()
+        block.into_raw()
     }
 }
 
@@ -72,7 +72,7 @@ impl<TCodec, THash> Block<TCodec, THash> {
     }
 
     /// Returns the raw block.
-    pub fn to_raw(self) -> RawBlock {
+    pub fn into_raw(self) -> RawBlock {
         self.raw
     }
 }

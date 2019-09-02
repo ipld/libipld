@@ -68,10 +68,10 @@ fn decode(json: &Value) -> Result<Ipld> {
         Value::Bool(b) => Ipld::Bool(*b),
         Value::Number(num) => {
             if let Some(i) = num.as_i64() {
-                return Ok(Ipld::Integer(i as i128));
+                return Ok(Ipld::Integer(i.into()));
             }
             if let Some(i) = num.as_u64() {
-                return Ok(Ipld::Integer(i as i128));
+                return Ok(Ipld::Integer(i.into()));
             }
             if let Some(f) = num.as_f64() {
                 return Ok(Ipld::Float(f));
