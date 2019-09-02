@@ -2,7 +2,7 @@
 /// Construct an `Ipld` from a literal.
 ///
 /// ```edition2018
-/// # use rust_ipld::ipld;
+/// # use libipld::ipld;
 /// #
 /// let value = ipld!({
 ///     "code": 200,
@@ -24,12 +24,12 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use serde_json::json;
+/// # use libipld::ipld;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
 ///
-/// let value = json!({
+/// let value = ipld!({
 ///     "code": code,
 ///     "success": code == 200,
 ///     "payload": {
@@ -41,9 +41,9 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use serde_json::json;
+/// # use libipld::ipld;
 /// #
-/// let value = json!([
+/// let value = ipld!([
 ///     "notice",
 ///     "the",
 ///     "trailing",
