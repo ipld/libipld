@@ -2,6 +2,8 @@
 use super::*;
 use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
+use core::convert::TryFrom;
+use cid::Cid;
 use serde_cbor::Value;
 use std::collections::{BTreeMap, HashMap};
 
@@ -31,10 +33,10 @@ fn encode(ipld: &Ipld) -> Result<Value> {
             }
             Value::Map(map)
         }
-        Ipld::Link(_cid) => {
-            // TODO tag 42
-            return Err(format_err!("cids not supported in dag-cbor"));
-            //Value::Bytes(cid.to_bytes())
+        Ipld::Link(cid) => {
+            let mut map = BTreeMap::new();
+            map.insert(Value::Tag(42), Value::Bytes(cid.to_bytes()));
+            Value::Map(map)
         }
     };
     Ok(cbor)
@@ -56,16 +58,21 @@ fn decode(cbor: &Value) -> Result<Ipld> {
             Ipld::List(list)
         }
         Value::Map(object) => {
-            let mut map = HashMap::new();
-            for (k, v) in object.iter() {
-                if let Value::Text(s) = k {
-                    map.insert(s.to_owned(), decode(v)?);
-                } else {
-                    return Err(format_err!("only string keys supported"));
+            if let Some(Value::Bytes(bytes)) = object.get(&Value::Tag(42)) {
+                Ipld::Link(Cid::try_from(bytes.as_slice())?)
+            } else {
+                let mut map = HashMap::with_capacity(object.len());
+                for (k, v) in object.iter() {
+                    if let Value::Text(s) = k {
+                        map.insert(s.to_owned(), decode(v)?);
+                    } else {
+                        return Err(format_err!("only string keys supported"));
+                    }
                 }
+                Ipld::Map(map)
             }
-            Ipld::Map(map)
         }
+        Value::Tag(tag) => return Err(format_err!("unknown tag {}", tag)),
         Value::__Hidden => return Err(format_err!("__Hidden value not supported")),
     };
     Ok(ipld)
@@ -101,17 +108,16 @@ impl ToBytes for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    //use crate::cbor_cid;
-    use crate::ipld;
+    use crate::{cbor_block, ipld};
 
     #[test]
     fn encode_decode_cbor() {
-        //let link = ipld!(null);
+        let link = cbor_block!(null).unwrap();
         let ipld = ipld!({
           "number": 1,
           "list": [true, null],
           "bytes": vec![0, 1, 2, 3],
-          //"link": cbor_cid!(link),
+          "link": link.cid(),
         });
         let ipld2 = DagCbor::decode(&DagCbor::encode(&ipld).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);

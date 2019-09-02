@@ -13,8 +13,7 @@ multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" 
 protobuf = "2"
 serde = "1.0"
 serde_json = "1.0"
-#serde_cbor = { git = "https://github.com/dignifiedquire/cbor", branch = "tags" }
-serde_cbor = { git = "https://github.com/pyfisch/cbor" }
+serde_cbor = { git = "https://github.com/dignifiedquire/cbor", branch = "tags" }
 
 [build-dependencies]
 protoc-rust = "2"
