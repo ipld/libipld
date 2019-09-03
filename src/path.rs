@@ -1,7 +1,7 @@
 //! Path
 
 /// Represents a path in an ipld dag.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Path(Vec<String>);
 
 impl Path {

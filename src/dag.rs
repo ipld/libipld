@@ -1,12 +1,12 @@
 //! Ipld dag.
-use crate::DefaultPrefix;
-use crate::block::{Block, Cid};
+use crate::block::{Block, Cid, Prefix};
 use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
 use crate::path::Path;
 use crate::store::IpldStore;
 
 /// Path in a dag.
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct DagPath(Cid, Path);
 
 impl DagPath {
@@ -16,7 +16,14 @@ impl DagPath {
     }
 }
 
+impl From<Cid> for DagPath {
+    fn from(cid: Cid) -> Self {
+        Self(cid, Default::default())
+    }
+}
+
 /// The DAG.
+#[derive(Debug)]
 pub struct Dag<TStore: IpldStore> {
     store: TStore,
 }
@@ -47,23 +54,23 @@ impl<TStore: IpldStore> Dag<TStore> {
     }
 
     /// Puts ipld into the dag.
-    pub fn put(&mut self, ipld: &Ipld) -> Result<Cid> {
-        self.store.write(Block::new::<DefaultPrefix>(ipld)?)
+    pub fn put<TPrefix: Prefix>(&mut self, ipld: &Ipld) -> Result<Cid> {
+        self.store.write(Block::new::<TPrefix>(ipld)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld;
+    use crate::{DefaultPrefix, ipld};
     use crate::store::mock::Store;
 
     #[test]
     fn test_dag() {
         let store = Store::default();
         let mut dag = Dag::new(store);
-        let cid = dag.put(&ipld!({"a": 3})).unwrap();
-        let root = dag.put(&ipld!({"root": [{"child": &cid}]})).unwrap();
+        let cid = dag.put::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
+        let root = dag.put::<DefaultPrefix>(&ipld!({"root": [{"child": &cid}]})).unwrap();
         let path = DagPath::new(root, "root/0/child/a");
         assert_eq!(dag.get(&path).unwrap(), Ipld::Integer(3));
     }
