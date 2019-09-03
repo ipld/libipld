@@ -10,6 +10,7 @@ pub mod hash;
 pub mod ipld;
 pub mod macros;
 pub mod path;
+pub mod store;
 
 pub use crate::block::*;
 pub use crate::codec::*;
@@ -17,6 +18,7 @@ pub use crate::error::*;
 pub use crate::hash::*;
 pub use crate::ipld::*;
 pub use crate::path::*;
+pub use crate::store::*;
 
 /// Default prefix.
 pub struct DefaultPrefix;
