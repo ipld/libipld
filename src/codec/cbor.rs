@@ -35,7 +35,7 @@ fn encode(ipld: &Ipld) -> Result<Value> {
         }
         Ipld::Link(cid) => {
             let mut map = BTreeMap::new();
-            map.insert(Value::Tag(42), Value::Bytes(cid.to_bytes()));
+            map.insert(Value::Integer(42), Value::Bytes(cid.to_bytes()));
             Value::Map(map)
         }
     };
@@ -58,7 +58,7 @@ fn decode(cbor: &Value) -> Result<Ipld> {
             Ipld::List(list)
         }
         Value::Map(object) => {
-            if let Some(Value::Bytes(bytes)) = object.get(&Value::Tag(42)) {
+            if let Some(Value::Bytes(bytes)) = object.get(&Value::Integer(42)) {
                 Ipld::Link(Cid::try_from(bytes.as_slice())?)
             } else {
                 let mut map = HashMap::with_capacity(object.len());
@@ -66,13 +66,12 @@ fn decode(cbor: &Value) -> Result<Ipld> {
                     if let Value::Text(s) = k {
                         map.insert(s.to_owned(), decode(v)?);
                     } else {
-                        return Err(format_err!("only string keys supported"));
+                        return Err(format_err!("only string keys supported {:?}", k));
                     }
                 }
                 Ipld::Map(map)
             }
         }
-        Value::Tag(tag) => return Err(format_err!("unknown tag {}", tag)),
         Value::__Hidden => return Err(format_err!("__Hidden value not supported")),
     };
     Ok(ipld)
