@@ -5,6 +5,7 @@
 
 pub mod block;
 pub mod codec;
+pub mod dag;
 pub mod error;
 pub mod hash;
 pub mod ipld;
@@ -14,6 +15,7 @@ pub mod store;
 
 pub use crate::block::*;
 pub use crate::codec::*;
+pub use crate::dag::*;
 pub use crate::error::*;
 pub use crate::hash::*;
 pub use crate::ipld::*;
