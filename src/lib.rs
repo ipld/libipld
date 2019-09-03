@@ -17,3 +17,11 @@ pub use crate::error::*;
 pub use crate::hash::*;
 pub use crate::ipld::*;
 pub use crate::path::*;
+
+/// Default prefix.
+pub struct DefaultPrefix;
+
+impl Prefix for DefaultPrefix {
+    type Codec = DagCbor;
+    type Hash = Blake2b;
+}

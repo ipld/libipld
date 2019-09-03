@@ -94,9 +94,9 @@ impl IpldCodec for DagCbor {
 }
 
 impl ToBytes for DagCbor {
-    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
+    fn to_bytes(ipld: &Ipld) -> Result<Box<[u8]>> {
         let data = Self::encode(ipld)?;
-        Ok(serde_cbor::to_vec(&data)?)
+        Ok(serde_cbor::to_vec(&data)?.into_boxed_slice())
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
@@ -108,11 +108,11 @@ impl ToBytes for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cbor_block, ipld};
+    use crate::{block, ipld};
 
     #[test]
     fn encode_decode_cbor() {
-        let link = cbor_block!(null).unwrap();
+        let link = block!(null).to_raw().unwrap();
         let ipld = ipld!({
           "number": 1,
           "list": [true, null],

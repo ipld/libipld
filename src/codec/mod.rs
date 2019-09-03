@@ -27,7 +27,7 @@ pub trait IpldCodec {
 /// Binary trait.
 pub trait ToBytes: IpldCodec {
     /// Converts `Ipld` to bytes.
-    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>>;
+    fn to_bytes(ipld: &Ipld) -> Result<Box<[u8]>>;
     /// Parses `Ipld` from bytes.
     fn from_bytes(bytes: &[u8]) -> Result<Ipld>;
 }
@@ -41,8 +41,8 @@ pub trait ToString: IpldCodec {
 }
 
 impl<T: ToString> ToBytes for T {
-    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
-        Ok(Self::to_string(ipld)?.into_bytes())
+    fn to_bytes(ipld: &Ipld) -> Result<Box<[u8]>> {
+        Ok(Self::to_string(ipld)?.into_bytes().into_boxed_slice())
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Ipld> {

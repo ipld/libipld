@@ -88,10 +88,189 @@ impl From<&Cid> for Ipld {
     }
 }
 
+impl Ipld {
+    /// Returns a bool.
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let Ipld::Bool(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable bool.
+    pub fn as_bool_mut(&mut self) -> Option<&mut bool> {
+        if let Ipld::Bool(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    /// Returns an int.
+    pub fn as_int(&self) -> Option<&i128> {
+        if let Ipld::Integer(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable int.
+    pub fn as_int_mut(&mut self) -> Option<&mut i128> {
+        if let Ipld::Integer(i) = self {
+            Some(i)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a float.
+    pub fn as_float(&self) -> Option<&f64> {
+        if let Ipld::Float(f) = self {
+            Some(f)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable float.
+    pub fn as_float_mut(&mut self) -> Option<&mut f64> {
+        if let Ipld::Float(f) = self {
+            Some(f)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a string.
+    pub fn as_string(&self) -> Option<&String> {
+        if let Ipld::String(s) = self {
+            Some(s)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable string.
+    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+        if let Ipld::String(s) = self {
+            Some(s)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a byte vec.
+    pub fn as_bytes(&self) -> Option<&Vec<u8>> {
+        if let Ipld::Bytes(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable byte vec.
+    pub fn as_bytes_mut(&mut self) -> Option<&mut Vec<u8>> {
+        if let Ipld::Bytes(b) = self {
+            Some(b)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a list.
+    pub fn as_list(&self) -> Option<&Vec<Ipld>> {
+        if let Ipld::List(list) = self {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable list.
+    pub fn as_list_mut(&mut self) -> Option<&mut Vec<Ipld>> {
+        if let Ipld::List(list) = self {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a map.
+    pub fn as_map(&self) -> Option<&HashMap<String, Ipld>> {
+        if let Ipld::Map(map) = self {
+            Some(map)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable map.
+    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<String, Ipld>> {
+        if let Ipld::Map(map) = self {
+            Some(map)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a link.
+    pub fn as_link(&self) -> Option<&Cid> {
+        if let Ipld::Link(cid) = self {
+            Some(cid)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable link.
+    pub fn as_link_mut(&mut self) -> Option<&mut Cid> {
+        if let Ipld::Link(cid) = self {
+            Some(cid)
+        } else {
+            None
+        }
+    }
+
+    /// Indexes into a map or a list.
+    pub fn get<T: AsRef<str>>(&self, index: T) -> Option<&Ipld> {
+        match self {
+            Ipld::List(vec) => {
+                let i: Option<usize> = index.as_ref().parse().ok();
+                if let Some(i) = i {
+                    vec.get(i)
+                } else {
+                    None
+                }
+            }
+            Ipld::Map(map) => map.get(index.as_ref()),
+            _ => None,
+        }
+    }
+
+    /// Mutably indexes into a map or a list.
+    pub fn get_mut<T: AsRef<str>>(&mut self, index: T) -> Option<&mut Ipld> {
+        match self {
+            Ipld::List(vec) => {
+                let i: Option<usize> = index.as_ref().parse().ok();
+                if let Some(i) = i {
+                    vec.get_mut(i)
+                } else {
+                    None
+                }
+            }
+            Ipld::Map(map) => map.get_mut(index.as_ref()),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::hash::{Hash, Sha2_256};
+    use crate::ipld;
 
     #[test]
     fn ipld_bool_from() {
@@ -147,5 +326,18 @@ mod tests {
         let string1 = "hello world".to_string();
         let string2: String = Ipld::from(string1.clone()).try_into().unwrap();
         assert_eq!(string1, string2);
+    }
+
+    #[test]
+    fn index() {
+        let ipld = ipld!([0, 1, 2]);
+        assert_eq!(ipld.get("0").unwrap(), &Ipld::Integer(0));
+        assert_eq!(ipld.get("1").unwrap(), &Ipld::Integer(1));
+        assert_eq!(ipld.get("2").unwrap(), &Ipld::Integer(2));
+
+        let mut ipld = ipld!({});
+        let map = ipld.as_map_mut().unwrap();
+        map.insert("key".into(), "value".into());
+        assert_eq!(ipld.get("key").unwrap(), &Ipld::String("value".into()));
     }
 }

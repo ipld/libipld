@@ -285,42 +285,17 @@ macro_rules! ipld_unexpected {
     () => {};
 }
 
-/// Generates a `cbor` Block.
+/// Creates a block from ipld.
 #[macro_export]
-macro_rules! cbor_block {
-    ($ipld:tt) => {{
-        use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagCbor, $crate::hash::Blake2b>::try_from($crate::ipld!(
-            $ipld
-        ))
-    }};
-}
-
-/// Generates a `json` Block.
-#[macro_export]
-macro_rules! json_block {
-    ($ipld:tt) => {{
-        use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagJson, $crate::hash::Blake2b>::try_from($crate::ipld!(
-            $ipld
-        ))
-    }};
-}
-
-/// Generates a `pb` Block.
-#[macro_export]
-macro_rules! pb_block {
-    ($ipld:tt) => {{
-        use core::convert::TryFrom;
-        $crate::Block::<$crate::codec::DagProtobuf, $crate::hash::Blake2b>::try_from($crate::ipld!(
-            $ipld
-        ))
-    }};
+macro_rules! block {
+    ($tt:tt) => {
+        $crate::block::Block::<$crate::DefaultPrefix>::new($crate::ipld!($tt))
+    };
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Ipld;
+    use crate::ipld::Ipld;
 
     #[test]
     fn test_macro() {
@@ -333,14 +308,15 @@ mod tests {
         let _: Ipld = ipld!([]);
         let _: Ipld = ipld!([1, 2, 3]);
         let _: Ipld = ipld!({});
-        let json = json_block!({
+        let block = block!({
             "bye": null,
             "numbers": [1, 2, 3],
             "a": a,
         })
+        .to_raw()
         .unwrap();
         let _: Ipld = ipld!({
-            "link": json.cid(),
+            "link": block.cid(),
         });
     }
 }

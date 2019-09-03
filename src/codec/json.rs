@@ -139,12 +139,12 @@ impl ToString for DagJson {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ipld, json_block};
+    use crate::{block, ipld};
     use serde_json::json;
 
     #[test]
     fn encode_json() {
-        let link = json_block!(null).unwrap();
+        let link = block!(null).to_raw().unwrap();
         let ipld = ipld!({
             "number": 1,
             "list": [true, null],
@@ -158,7 +158,7 @@ mod tests {
                 "/": { "base64": "AQID" },
             },
             "link": {
-                "/": link.cid().to_string(),
+                "/": link.cid().raw().to_string(),
             }
         });
         let json2 = DagJson::encode(&ipld).unwrap();
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn decode_json() {
-        let link = json_block!(null).unwrap();
+        let link = block!(null).to_raw().unwrap();
         let ipld = ipld!({
             "number": 1,
             "list": [true, null],
@@ -181,7 +181,7 @@ mod tests {
                 "/": { "base64": "AQID" },
             },
             "link": {
-                "/": link.cid().to_string(),
+                "/": link.cid().raw().to_string(),
             }
         });
         let ipld2 = DagJson::decode(&json).unwrap();

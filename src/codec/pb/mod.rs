@@ -27,9 +27,9 @@ impl IpldCodec for DagProtobuf {
 }
 
 impl ToBytes for DagProtobuf {
-    fn to_bytes(ipld: &Ipld) -> Result<Vec<u8>> {
+    fn to_bytes(ipld: &Ipld) -> Result<Box<[u8]>> {
         let data = Self::encode(ipld)?;
-        data.into_bytes()
+        Ok(data.into_bytes()?.into_boxed_slice())
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
@@ -41,11 +41,11 @@ impl ToBytes for DagProtobuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ipld, pb_block};
+    use crate::{block, ipld};
 
     #[test]
     fn test_encode_decode() {
-        let link = pb_block!({}).unwrap();
+        let link = block!({}).to_raw().unwrap();
         let ipld = ipld!({
             "Links": [{
                 "Hash": link.cid(),

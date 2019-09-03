@@ -38,11 +38,7 @@ fn from_ipld(ipld: Ipld) -> Option<PbLink> {
             .map(|t| TryInto::try_into(t).ok())
             .unwrap_or_default();
         if let (Some(cid), Some(name), Some(size)) = (cid, name, size) {
-            return Some(PbLink {
-                cid,
-                name,
-                size,
-            });
+            return Some(PbLink { cid, name, size });
         }
     }
     None
