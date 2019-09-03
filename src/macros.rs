@@ -289,7 +289,7 @@ macro_rules! ipld_unexpected {
 #[macro_export]
 macro_rules! block {
     ($tt:tt) => {
-        $crate::block::Block::<$crate::DefaultPrefix>::new($crate::ipld!($tt))
+        $crate::block::Block::new::<$crate::DefaultPrefix>(&$crate::ipld!($tt))
     };
 }
 
@@ -313,7 +313,6 @@ mod tests {
             "numbers": [1, 2, 3],
             "a": a,
         })
-        .to_raw()
         .unwrap();
         let _: Ipld = ipld!({
             "link": block.cid(),

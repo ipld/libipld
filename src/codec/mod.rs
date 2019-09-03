@@ -1,5 +1,5 @@
 //! `Ipld` codecs.
-use crate::error::Result;
+use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
 
 pub mod cbor;
@@ -54,3 +54,13 @@ impl<T: ToString> ToBytes for T {
 pub trait Codec: IpldCodec + ToBytes {}
 
 impl<T: IpldCodec + ToBytes> Codec for T {}
+
+/// Decode bytes.
+pub fn decode(codec: cid::Codec, data: Box<[u8]>) -> Result<Ipld> {
+    match codec {
+        cid::Codec::DagCBOR => DagCbor::from_bytes(&data),
+        cid::Codec::DagJSON => DagJson::from_bytes(&data),
+        cid::Codec::DagProtobuf => DagProtobuf::from_bytes(&data),
+        _ => Err(format_err!("unsupported codec {:?}", codec)),
+    }
+}

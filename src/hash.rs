@@ -40,3 +40,22 @@ hash!(Keccak384);
 hash!(Keccak512);
 hash!(Blake2b);
 hash!(Blake2s);
+
+/// Compute digest of bytes.
+pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
+    match code {
+        multihash::Code::Sha1 => multihash::Sha1::digest(bytes),
+        multihash::Code::Sha2_256 => multihash::Sha2_256::digest(bytes),
+        multihash::Code::Sha2_512 => multihash::Sha2_512::digest(bytes),
+        multihash::Code::Sha3_224 => multihash::Sha3_224::digest(bytes),
+        multihash::Code::Sha3_256 => multihash::Sha3_256::digest(bytes),
+        multihash::Code::Sha3_384 => multihash::Sha3_384::digest(bytes),
+        multihash::Code::Sha3_512 => multihash::Sha3_512::digest(bytes),
+        multihash::Code::Keccak224 => multihash::Keccak224::digest(bytes),
+        multihash::Code::Keccak256 => multihash::Keccak256::digest(bytes),
+        multihash::Code::Keccak384 => multihash::Keccak384::digest(bytes),
+        multihash::Code::Keccak512 => multihash::Keccak512::digest(bytes),
+        multihash::Code::Blake2b => multihash::Blake2b::digest(bytes),
+        multihash::Code::Blake2s => multihash::Blake2s::digest(bytes),
+    }
+}

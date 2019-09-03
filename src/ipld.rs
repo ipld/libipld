@@ -5,7 +5,7 @@ use cid::Cid;
 use core::convert::{TryFrom, TryInto};
 use std::collections::HashMap;
 
-/// Untyped `Ipld` representation.
+/// Ipld
 #[derive(Clone, Debug, PartialEq)]
 pub enum Ipld {
     /// Represents the absence of a value or the value undefined.

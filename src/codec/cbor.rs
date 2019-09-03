@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn encode_decode_cbor() {
-        let link = block!(null).to_raw().unwrap();
+        let link = block!(null).unwrap();
         let ipld = ipld!({
           "number": 1,
           "list": [true, null],

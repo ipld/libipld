@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn encode_json() {
-        let link = block!(null).to_raw().unwrap();
+        let link = block!(null).unwrap();
         let ipld = ipld!({
             "number": 1,
             "list": [true, null],
@@ -158,7 +158,7 @@ mod tests {
                 "/": { "base64": "AQID" },
             },
             "link": {
-                "/": link.cid().raw().to_string(),
+                "/": link.cid().to_string(),
             }
         });
         let json2 = DagJson::encode(&ipld).unwrap();
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn decode_json() {
-        let link = block!(null).to_raw().unwrap();
+        let link = block!(null).unwrap();
         let ipld = ipld!({
             "number": 1,
             "list": [true, null],
@@ -181,7 +181,7 @@ mod tests {
                 "/": { "base64": "AQID" },
             },
             "link": {
-                "/": link.cid().raw().to_string(),
+                "/": link.cid().to_string(),
             }
         });
         let ipld2 = DagJson::decode(&json).unwrap();

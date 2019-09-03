@@ -45,7 +45,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode() {
-        let link = block!({}).to_raw().unwrap();
+        let link = block!({}).unwrap();
         let ipld = ipld!({
             "Links": [{
                 "Hash": link.cid(),
