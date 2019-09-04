@@ -39,7 +39,14 @@ impl<TStore: IpldStore> Dag<TStore> {
         let mut root = self.store.read(&path.0)?;
         let mut ipld = &root;
         for segment in path.1.iter() {
-            if let Some(next) = ipld.get(segment) {
+            if let Some(next) = match ipld {
+                    Ipld::List(_) => {
+                        let index: usize = segment.parse()?;
+                        ipld.get(index)
+                    },
+                    Ipld::Map(_) => ipld.get(segment.as_str()),
+                    _ => return Err(format_err!("Cannot index into {:?}", ipld)),
+            } {
                 if let Ipld::Link(cid) = next {
                     root = self.store.read(cid)?;
                     ipld = &root;

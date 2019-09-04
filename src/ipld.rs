@@ -232,36 +232,66 @@ impl Ipld {
             None
         }
     }
+}
 
+/// An index into ipld
+pub enum IpldIndex<'a> {
+    /// An index into an ipld list.
+    List(usize),
+    /// An index into an ipld map.
+    Map(&'a str),
+}
+
+impl From<usize> for IpldIndex<'_> {
+    fn from(index: usize) -> Self {
+        Self::List(index)
+    }
+}
+
+impl<'a> From<&'a str> for IpldIndex<'a> {
+    fn from(key: &'a str) -> Self {
+        Self::Map(key)
+    }
+}
+
+impl Ipld {
     /// Indexes into a map or a list.
-    pub fn get<T: AsRef<str>>(&self, index: T) -> Option<&Ipld> {
-        match self {
-            Ipld::List(vec) => {
-                let i: Option<usize> = index.as_ref().parse().ok();
-                if let Some(i) = i {
+    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+        match index.into() {
+            IpldIndex::List(i) => {
+                if let Some(vec) = self.as_list() {
                     vec.get(i)
                 } else {
                     None
                 }
             }
-            Ipld::Map(map) => map.get(index.as_ref()),
-            _ => None,
+            IpldIndex::Map(s) => {
+                if let Some(map) = self.as_map() {
+                    map.get(s)
+                } else {
+                    None
+                }
+            }
         }
     }
 
     /// Mutably indexes into a map or a list.
-    pub fn get_mut<T: AsRef<str>>(&mut self, index: T) -> Option<&mut Ipld> {
-        match self {
-            Ipld::List(vec) => {
-                let i: Option<usize> = index.as_ref().parse().ok();
-                if let Some(i) = i {
+    pub fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld> {
+        match index.into() {
+            IpldIndex::List(i) => {
+                if let Some(vec) = self.as_list_mut() {
                     vec.get_mut(i)
                 } else {
                     None
                 }
             }
-            Ipld::Map(map) => map.get_mut(index.as_ref()),
-            _ => None,
+            IpldIndex::Map(s) => {
+                if let Some(map) = self.as_map_mut() {
+                    map.get_mut(s)
+                } else {
+                    None
+                }
+            }
         }
     }
 }
@@ -331,9 +361,9 @@ mod tests {
     #[test]
     fn index() {
         let ipld = ipld!([0, 1, 2]);
-        assert_eq!(ipld.get("0").unwrap(), &Ipld::Integer(0));
-        assert_eq!(ipld.get("1").unwrap(), &Ipld::Integer(1));
-        assert_eq!(ipld.get("2").unwrap(), &Ipld::Integer(2));
+        assert_eq!(ipld.get(0).unwrap(), &Ipld::Integer(0));
+        assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
+        assert_eq!(ipld.get(2).unwrap(), &Ipld::Integer(2));
 
         let mut ipld = ipld!({});
         let map = ipld.as_map_mut().unwrap();
