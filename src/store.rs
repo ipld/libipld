@@ -50,16 +50,17 @@ impl<T: BlockStore> IpldStore for T {
     }
 }
 
-#[cfg(test)]
 pub mod mock {
+    //! Utilities for testing
     use super::*;
     use std::collections::HashMap;
 
-    pub type Store = HashMap<String, Box<[u8]>>;
+    /// A memory backed store
+    pub type MemStore = HashMap<Box<[u8]>, Box<[u8]>>;
 
-    impl BlockStore for Store {
+    impl BlockStore for MemStore {
         unsafe fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
-            if let Some(data) = self.get(&cid.to_string()) {
+            if let Some(data) = self.get(&cid.to_bytes().into_boxed_slice()) {
                 Ok(data.to_owned())
             } else {
                 Err(format_err!("Block not found"))
@@ -67,12 +68,12 @@ pub mod mock {
         }
 
         unsafe fn write(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
-            self.insert(cid.to_string(), data);
+            self.insert(cid.to_bytes().into_boxed_slice(), data);
             Ok(())
         }
 
         fn delete(&mut self, cid: &Cid) -> Result<()> {
-            self.remove(&cid.to_string());
+            self.remove(&cid.to_bytes().into_boxed_slice());
             Ok(())
         }
     }

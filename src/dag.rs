@@ -74,12 +74,12 @@ impl<TStore: IpldStore> Dag<TStore> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::mock::Store;
+    use crate::store::mock::MemStore;
     use crate::{ipld, DefaultPrefix};
 
     #[test]
     fn test_dag() {
-        let store = Store::default();
+        let store = MemStore::default();
         let mut dag = Dag::new(store);
         let cid = dag.put_block::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
         let root = dag
