@@ -254,9 +254,14 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
     }
 }
 
-impl Ipld {
+/// Indexing into ipld.
+pub trait IpldGet {
     /// Indexes into a map or a list.
-    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld>;
+}
+
+impl IpldGet for Ipld {
+    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
         match index.into() {
             IpldIndex::List(i) => {
                 if let Some(vec) = self.as_list() {
@@ -274,9 +279,22 @@ impl Ipld {
             }
         }
     }
+}
 
+impl IpldGet for Option<&Ipld> {
+    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+        self.map(|ipld| ipld.get(index)).unwrap()
+    }
+}
+
+/// Mutable indexing into ipld.
+pub trait IpldGetMut {
     /// Mutably indexes into a map or a list.
-    pub fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld> {
+    fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld>;
+}
+
+impl IpldGetMut for Ipld {
+    fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld> {
         match index.into() {
             IpldIndex::List(i) => {
                 if let Some(vec) = self.as_list_mut() {
@@ -293,6 +311,18 @@ impl Ipld {
                 }
             }
         }
+    }
+}
+
+/// Mutably indexing into wrappers of a mutable ipld reference.
+pub trait InnerIpldGetMut<'b> {
+    /// Because mut refs are not copy, we need an additional trait.
+    fn get_mut<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Option<&'b mut Ipld>;
+}
+
+impl<'b> InnerIpldGetMut<'b> for Option<&'b mut Ipld> {
+    fn get_mut<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Option<&'b mut Ipld> {
+        self.map(|ipld| ipld.get_mut(index)).unwrap()
     }
 }
 

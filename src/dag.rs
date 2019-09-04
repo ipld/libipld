@@ -1,7 +1,7 @@
 //! Ipld dag.
 use crate::block::{Block, Cid, Prefix};
 use crate::error::{format_err, Result};
-use crate::ipld::Ipld;
+use crate::ipld::{Ipld, IpldGet};
 use crate::path::Path;
 use crate::store::IpldStore;
 
