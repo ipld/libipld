@@ -34,18 +34,23 @@ impl<TStore: IpldStore> Dag<TStore> {
         Self { store }
     }
 
+    /// Retrives a block from the store.
+    pub fn get_block(&self, cid: &Cid) -> Result<Ipld> {
+        self.store.read(cid)
+    }
+
     /// Retrives ipld from the dag.
-    pub fn get(&self, path: &DagPath) -> Result<Ipld> {
+    pub fn get(&self, path: &DagPath) -> Result<Option<Ipld>> {
         let mut root = self.store.read(&path.0)?;
         let mut ipld = &root;
         for segment in path.1.iter() {
             if let Some(next) = match ipld {
-                    Ipld::List(_) => {
-                        let index: usize = segment.parse()?;
-                        ipld.get(index)
-                    },
-                    Ipld::Map(_) => ipld.get(segment.as_str()),
-                    _ => return Err(format_err!("Cannot index into {:?}", ipld)),
+                Ipld::List(_) => {
+                    let index: usize = segment.parse()?;
+                    ipld.get(index)
+                }
+                Ipld::Map(_) => ipld.get(segment.as_str()),
+                _ => return Err(format_err!("Cannot index into {:?}", ipld)),
             } {
                 if let Ipld::Link(cid) = next {
                     root = self.store.read(cid)?;
@@ -54,14 +59,14 @@ impl<TStore: IpldStore> Dag<TStore> {
                     ipld = next;
                 }
             } else {
-                return Err(format_err!("Could not find {} in {:?}", segment, ipld));
+                return Ok(None);
             }
         }
-        Ok(ipld.to_owned())
+        Ok(Some(ipld.to_owned()))
     }
 
     /// Puts ipld into the dag.
-    pub fn put<TPrefix: Prefix>(&mut self, ipld: &Ipld) -> Result<Cid> {
+    pub fn put_block<TPrefix: Prefix>(&mut self, ipld: &Ipld) -> Result<Cid> {
         self.store.write(Block::new::<TPrefix>(ipld)?)
     }
 }
@@ -69,16 +74,18 @@ impl<TStore: IpldStore> Dag<TStore> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{DefaultPrefix, ipld};
     use crate::store::mock::Store;
+    use crate::{ipld, DefaultPrefix};
 
     #[test]
     fn test_dag() {
         let store = Store::default();
         let mut dag = Dag::new(store);
-        let cid = dag.put::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
-        let root = dag.put::<DefaultPrefix>(&ipld!({"root": [{"child": &cid}]})).unwrap();
+        let cid = dag.put_block::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
+        let root = dag
+            .put_block::<DefaultPrefix>(&ipld!({"root": [{"child": &cid}]}))
+            .unwrap();
         let path = DagPath::new(&root, "root/0/child/a");
-        assert_eq!(dag.get(&path).unwrap(), Ipld::Integer(3));
+        assert_eq!(dag.get(&path).unwrap(), Some(Ipld::Integer(3)));
     }
 }
