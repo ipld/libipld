@@ -7,17 +7,17 @@ use crate::store::IpldStore;
 
 /// Path in a dag.
 #[derive(Clone, Debug, PartialEq, Hash)]
-pub struct DagPath(Cid, Path);
+pub struct DagPath<'a>(&'a Cid, Path);
 
-impl DagPath {
+impl<'a> DagPath<'a> {
     /// Create a new dag path.
-    pub fn new<T: Into<Path>>(cid: Cid, path: T) -> Self {
+    pub fn new<T: Into<Path>>(cid: &'a Cid, path: T) -> Self {
         Self(cid, path.into())
     }
 }
 
-impl From<Cid> for DagPath {
-    fn from(cid: Cid) -> Self {
+impl<'a> From<&'a Cid> for DagPath<'a> {
+    fn from(cid: &'a Cid) -> Self {
         Self(cid, Default::default())
     }
 }
@@ -78,7 +78,7 @@ mod tests {
         let mut dag = Dag::new(store);
         let cid = dag.put::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
         let root = dag.put::<DefaultPrefix>(&ipld!({"root": [{"child": &cid}]})).unwrap();
-        let path = DagPath::new(root, "root/0/child/a");
+        let path = DagPath::new(&root, "root/0/child/a");
         assert_eq!(dag.get(&path).unwrap(), Ipld::Integer(3));
     }
 }
