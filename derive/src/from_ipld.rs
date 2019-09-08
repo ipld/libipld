@@ -28,7 +28,7 @@ fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
             let name = var_ident.to_string();
             let fields = from_fields(quote!(#ident::#var_ident), &var.fields);
             quote! {
-                if let Some(ipld) = map.get_mut(#name) {
+                if let Some(ipld) = map.get_mut(&#name.into()) {
                     return #fields;
                 }
             }
@@ -61,7 +61,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                     let ident = field.ident.as_ref().unwrap().to_owned();
                     let name = ident.to_string();
                     quote! {
-                        #ident: if let Some(ipld) = map.remove(#name) {
+                        #ident: if let Some(ipld) = map.remove(&#name.into()) {
                             ipld.try_into()?
                         } else {
                             return Err(failure::format_err!("Expected key #name"));
