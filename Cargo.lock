@@ -110,7 +110,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "cid"
 version = "0.3.1"
-source = "git+https://github.com/dvc94ch/rust-cid?branch=cli#51693e8783c83a1343c0f052ac197be4bfaf2887"
+source = "git+https://github.com/dvc94ch/rust-cid?branch=cli#2d98ddd539b65aff008f1f5973d97327c65c9d8c"
 dependencies = [
  "integer-encoding 1.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "multibase 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -606,7 +606,7 @@ dependencies = [
 [[package]]
 name = "serde_cbor"
 version = "0.10.1"
-source = "git+https://github.com/pyfisch/cbor#d27e97da6648547badb2df87423b5a346efe00d8"
+source = "git+https://github.com/pyfisch/cbor#d7696470f55502df08633e6f651a7e8bdcc34336"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "half 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",

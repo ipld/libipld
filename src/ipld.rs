@@ -1,6 +1,6 @@
 //! Untyped `Ipld` representation.
 
-use crate::error::{Error, IpldTypeError};
+use crate::error::{Error, IpldKeyTypeError, IpldTypeError};
 use cid::Cid;
 use core::convert::{TryFrom, TryInto};
 use std::collections::HashMap;
@@ -23,29 +23,75 @@ pub enum Ipld {
     /// Represents a list.
     List(Vec<Ipld>),
     /// Represents a map.
-    Map(HashMap<String, Ipld>),
+    Map(HashMap<IpldKey, Ipld>),
     /// Represents a link to an Ipld node
     Link(Cid),
 }
 
+/// Ipld key
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum IpldKey {
+    /// Represents the absence of a value or the value undefined.
+    Null,
+    /// Represents a boolean value.
+    Bool(bool),
+    /// Represents an integer.
+    Integer(i128),
+    /// Represents an UTF-8 string.
+    String(String),
+    /// Represents a sequence of bytes.
+    Bytes(Vec<u8>),
+    /// Represents a link to an Ipld node
+    Link(Cid),
+}
+
+impl From<IpldKey> for Ipld {
+    fn from(key: IpldKey) -> Self {
+        match key {
+            IpldKey::Null => Ipld::Null,
+            IpldKey::Bool(b) => Ipld::Bool(b),
+            IpldKey::Integer(i) => Ipld::Integer(i),
+            IpldKey::String(s) => Ipld::String(s),
+            IpldKey::Bytes(b) => Ipld::Bytes(b),
+            IpldKey::Link(c) => Ipld::Link(c),
+        }
+    }
+}
+
+impl TryFrom<Ipld> for IpldKey {
+    type Error = IpldKeyTypeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            Ipld::Null => Ok(IpldKey::Null),
+            Ipld::Bool(b) => Ok(IpldKey::Bool(b)),
+            Ipld::Integer(i) => Ok(IpldKey::Integer(i)),
+            Ipld::String(s) => Ok(IpldKey::String(s)),
+            Ipld::Bytes(b) => Ok(IpldKey::Bytes(b)),
+            Ipld::Link(c) => Ok(IpldKey::Link(c)),
+            _ => Err(IpldKeyTypeError),
+        }
+    }
+}
+
 macro_rules! derive_from {
-    ($enum:ident, $type:ty) => {
-        impl From<$type> for Ipld {
-            fn from(ty: $type) -> Ipld {
-                Ipld::$enum(ty.into())
+    ($name:ident, $enum:ident, $type:ty) => {
+        impl From<$type> for $name {
+            fn from(ty: $type) -> $name {
+                $name::$enum(ty.into())
             }
         }
     };
 }
 
 macro_rules! derive_try_from {
-    ($enum:ident, $type:ty, $error:ident) => {
-        impl TryFrom<Ipld> for $type {
+    ($name:ident, $enum:ident, $type:ty, $error:ident) => {
+        impl TryFrom<$name> for $type {
             type Error = Error;
 
-            fn try_from(ipld: Ipld) -> Result<$type, Self::Error> {
+            fn try_from(ipld: $name) -> Result<$type, Self::Error> {
                 match ipld {
-                    Ipld::$enum(ty) => Ok(ty.try_into()?),
+                    $name::$enum(ty) => Ok(ty.try_into()?),
                     _ => Err(IpldTypeError::$error.into()),
                 }
             }
@@ -53,40 +99,88 @@ macro_rules! derive_try_from {
     };
 }
 
-macro_rules! derive_ipld {
+macro_rules! derive_nokey {
     ($enum:ident, $type:ty, $error:ident) => {
-        derive_from!($enum, $type);
-        derive_try_from!($enum, $type, $error);
+        derive_from!(Ipld, $enum, $type);
+        derive_try_from!(Ipld, $enum, $type, $error);
     };
 }
 
-derive_ipld!(Bool, bool, NotBool);
-derive_ipld!(Integer, i8, NotInteger);
-derive_ipld!(Integer, i16, NotInteger);
-derive_ipld!(Integer, i32, NotInteger);
-derive_ipld!(Integer, i64, NotInteger);
-derive_ipld!(Integer, i128, NotInteger);
-derive_ipld!(Integer, u8, NotInteger);
-derive_ipld!(Integer, u16, NotInteger);
-derive_ipld!(Integer, u32, NotInteger);
-derive_ipld!(Integer, u64, NotInteger);
-derive_ipld!(Float, f64, NotFloat);
-derive_ipld!(String, String, NotString);
-derive_ipld!(Bytes, Vec<u8>, NotBytes);
-derive_ipld!(List, Vec<Ipld>, NotList);
-derive_ipld!(Map, HashMap<String, Ipld>, NotMap);
-derive_ipld!(Link, Cid, NotLink);
+macro_rules! derive_from_nokey {
+    ($enum:ident, $type:ty) => {
+        derive_from!(Ipld, $enum, $type);
+    };
+}
 
-derive_from!(Float, f32);
-derive_from!(String, &str);
-derive_from!(Bytes, &[u8]);
-derive_from!(List, &[Ipld]);
+macro_rules! derive_key {
+    ($enum:ident, $type:ty, $error:ident) => {
+        derive_from!(Ipld, $enum, $type);
+        derive_from!(IpldKey, $enum, $type);
+        derive_try_from!(Ipld, $enum, $type, $error);
+        derive_try_from!(IpldKey, $enum, $type, $error);
+    };
+}
 
-impl From<&Cid> for Ipld {
-    fn from(cid: &Cid) -> Self {
-        Ipld::Link(cid.to_owned())
+macro_rules! derive_from_key {
+    ($enum:ident, $type:ty) => {
+        derive_from!(Ipld, $enum, $type);
+        derive_from!(IpldKey, $enum, $type);
+    };
+}
+
+// Types that can be used as keys
+derive_key!(Bool, bool, NotBool);
+derive_key!(Integer, i8, NotInteger);
+derive_key!(Integer, i16, NotInteger);
+derive_key!(Integer, i32, NotInteger);
+derive_key!(Integer, i64, NotInteger);
+derive_key!(Integer, i128, NotInteger);
+derive_key!(Integer, u8, NotInteger);
+derive_key!(Integer, u16, NotInteger);
+derive_key!(Integer, u32, NotInteger);
+derive_key!(Integer, u64, NotInteger);
+derive_key!(String, String, NotString);
+derive_key!(Bytes, Vec<u8>, NotBytes);
+derive_key!(Link, Cid, NotLink);
+
+// Additional From implementations
+derive_from_key!(String, &str);
+derive_from_key!(Bytes, &[u8]);
+derive_from_key!(Link, &Cid);
+
+// Types that cannot be used as keys
+derive_nokey!(Float, f64, NotFloat);
+derive_nokey!(List, Vec<Ipld>, NotList);
+derive_nokey!(Map, HashMap<IpldKey, Ipld>, NotMap);
+
+// Additional From implementations
+derive_from_nokey!(Float, f32);
+derive_from_nokey!(List, &[Ipld]);
+
+/*
+impl<T: Into<Ipld>> From<Vec<T>> for Ipld {
+    fn from(vec: Vec<T>) -> Self {
+        Ipld::List(vec.into_iter().map(Into::into).collect())
     }
 }
+
+impl<A: Into<IpldKey>, B: Into<Ipld>> From<HashMap<A, B>> for Ipld {
+    fn from(map: HashMap<A, B>) -> Self {
+        Ipld::Map(map.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
+    }
+}
+
+impl<A: From<IpldKey>, B: From<Ipld>> TryInto<HashMap<A, B>> for Ipld {
+    type Error = Error;
+
+    fn try_into(self) -> Result<HashMap<A, B>, Self::Error> {
+        match self {
+            Ipld::Map(map) => Ok(map.into_iter().map(|(k, v)| (k.into(), v.into())).collect()),
+            _ => Err(IpldTypeError::NotMap.into()),
+        }
+    }
+}
+*/
 
 impl Ipld {
     /// Returns a bool.
@@ -198,7 +292,7 @@ impl Ipld {
     }
 
     /// Returns a map.
-    pub fn as_map(&self) -> Option<&HashMap<String, Ipld>> {
+    pub fn as_map(&self) -> Option<&HashMap<IpldKey, Ipld>> {
         if let Ipld::Map(map) = self {
             Some(map)
         } else {
@@ -207,7 +301,7 @@ impl Ipld {
     }
 
     /// Returns a mutable map.
-    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<String, Ipld>> {
+    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<IpldKey, Ipld>> {
         if let Ipld::Map(map) = self {
             Some(map)
         } else {
@@ -235,33 +329,39 @@ impl Ipld {
 }
 
 /// An index into ipld
-pub enum IpldIndex<'a> {
+pub enum IpldIndex {
     /// An index into an ipld list.
     List(usize),
     /// An index into an ipld map.
-    Map(&'a str),
+    Map(IpldKey),
 }
 
-impl From<usize> for IpldIndex<'_> {
+impl From<usize> for IpldIndex {
     fn from(index: usize) -> Self {
         Self::List(index)
     }
 }
 
-impl<'a> From<&'a str> for IpldIndex<'a> {
-    fn from(key: &'a str) -> Self {
+impl From<IpldKey> for IpldIndex {
+    fn from(key: IpldKey) -> Self {
         Self::Map(key)
+    }
+}
+
+impl From<&str> for IpldIndex {
+    fn from(key: &str) -> Self {
+        Self::Map(IpldKey::String(key.into()))
     }
 }
 
 /// Indexing into ipld.
 pub trait IpldGet {
     /// Indexes into a map or a list.
-    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld>;
+    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld>;
 }
 
 impl IpldGet for Ipld {
-    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld> {
         match index.into() {
             IpldIndex::List(i) => {
                 if let Some(vec) = self.as_list() {
@@ -270,9 +370,9 @@ impl IpldGet for Ipld {
                     None
                 }
             }
-            IpldIndex::Map(s) => {
+            IpldIndex::Map(ref key) => {
                 if let Some(map) = self.as_map() {
-                    map.get(s)
+                    map.get(key)
                 } else {
                     None
                 }
@@ -282,7 +382,7 @@ impl IpldGet for Ipld {
 }
 
 impl IpldGet for Option<&Ipld> {
-    fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld> {
         self.map(|ipld| ipld.get(index)).unwrap()
     }
 }
@@ -290,22 +390,22 @@ impl IpldGet for Option<&Ipld> {
 /// Mutable indexing into ipld.
 pub trait IpldGetMut {
     /// Mutably indexes into a map or a list.
-    fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld>;
+    fn get_mut(&mut self, index: &IpldIndex) -> Option<&mut Ipld>;
 }
 
 impl IpldGetMut for Ipld {
-    fn get_mut<'a, T: Into<IpldIndex<'a>>>(&mut self, index: T) -> Option<&mut Ipld> {
-        match index.into() {
+    fn get_mut(&mut self, index: &IpldIndex) -> Option<&mut Ipld> {
+        match index {
             IpldIndex::List(i) => {
                 if let Some(vec) = self.as_list_mut() {
-                    vec.get_mut(i)
+                    vec.get_mut(*i)
                 } else {
                     None
                 }
             }
-            IpldIndex::Map(s) => {
+            IpldIndex::Map(ref key) => {
                 if let Some(map) = self.as_map_mut() {
-                    map.get_mut(s)
+                    map.get_mut(key)
                 } else {
                     None
                 }
@@ -315,13 +415,13 @@ impl IpldGetMut for Ipld {
 }
 
 /// Mutably indexing into wrappers of a mutable ipld reference.
-pub trait InnerIpldGetMut<'b> {
+pub trait InnerIpldGetMut<'a> {
     /// Because mut refs are not copy, we need an additional trait.
-    fn get_mut<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Option<&'b mut Ipld>;
+    fn get_mut(self, index: &IpldIndex) -> Option<&'a mut Ipld>;
 }
 
-impl<'b> InnerIpldGetMut<'b> for Option<&'b mut Ipld> {
-    fn get_mut<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Option<&'b mut Ipld> {
+impl<'a> InnerIpldGetMut<'a> for Option<&'a mut Ipld> {
+    fn get_mut(self, index: &IpldIndex) -> Option<&'a mut Ipld> {
         self.map(|ipld| ipld.get_mut(index)).unwrap()
     }
 }

@@ -1,7 +1,7 @@
 //! JSON codec.
 use super::*;
 use crate::error::{format_err, Result};
-use crate::ipld::Ipld;
+use crate::ipld::{Ipld, IpldKey};
 use cid::Cid;
 use core::convert::TryFrom;
 use multibase::Base;
@@ -34,11 +34,9 @@ fn encode(ipld: &Ipld) -> Result<Value> {
             };
             Value::Number(num)
         }
-        Ipld::Bytes(b) => {
-            json!({
-                "/": { "base64": multibase::encode(Base::Base64UpperNoPad, b) }
-            })
-        }
+        Ipld::Bytes(b) => json!({
+            "/": { "base64": multibase::encode(Base::Base64UpperNoPad, b) }
+        }),
         Ipld::String(s) => Value::String(s.to_owned()),
         Ipld::List(list) => {
             let mut array = Vec::with_capacity(list.len());
@@ -50,7 +48,13 @@ fn encode(ipld: &Ipld) -> Result<Value> {
         Ipld::Map(map) => {
             let object = map
                 .iter()
-                .map(|(k, v)| Ok((k.to_owned(), encode(v)?)))
+                .map(|(k, v)| {
+                    if let IpldKey::String(key) = k {
+                        Ok((key.into(), encode(v)?))
+                    } else {
+                        Err(format_err!("Unsupported key type."))
+                    }
+                })
                 .collect::<Result<_>>()?;
             Value::Object(object)
         }
@@ -97,7 +101,7 @@ fn decode(json: &Value) -> Result<Ipld> {
             None => {
                 let mut map = HashMap::with_capacity(object.len());
                 for (k, v) in object.iter() {
-                    map.insert(k.to_owned(), decode(v)?);
+                    map.insert(k.to_owned().into(), decode(v)?);
                 }
                 Ipld::Map(map)
             }

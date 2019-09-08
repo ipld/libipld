@@ -3,7 +3,7 @@ use super::*;
 use crate::error::{format_err, Result};
 use crate::ipld::Ipld;
 use cid::Cid;
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, HashMap};
 
@@ -29,7 +29,7 @@ fn encode(ipld: &Ipld) -> Result<Value> {
         Ipld::Map(m) => {
             let mut map = BTreeMap::new();
             for (k, v) in m {
-                map.insert(Value::Text(k.to_owned()), encode(v)?);
+                map.insert(encode(&k.to_owned().into())?, encode(v)?);
             }
             Value::Map(map)
         }
@@ -63,11 +63,7 @@ fn decode(cbor: &Value) -> Result<Ipld> {
             } else {
                 let mut map = HashMap::with_capacity(object.len());
                 for (k, v) in object.iter() {
-                    if let Value::Text(s) = k {
-                        map.insert(s.to_owned(), decode(v)?);
-                    } else {
-                        return Err(format_err!("only string keys supported {:?}", k));
-                    }
+                    map.insert(decode(k)?.try_into()?, decode(v)?);
                 }
                 Ipld::Map(map)
             }

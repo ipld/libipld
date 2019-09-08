@@ -26,15 +26,15 @@ impl Into<Ipld> for PbLink {
 fn from_ipld(ipld: Ipld) -> Option<PbLink> {
     if let Ipld::Map(mut map) = ipld {
         let cid: Option<Cid> = map
-            .remove("Hash")
+            .remove(&"Hash".into())
             .map(|t| TryInto::try_into(t).ok())
             .unwrap_or_default();
         let name: Option<String> = map
-            .remove("Name")
+            .remove(&"Name".into())
             .map(|t| TryInto::try_into(t).ok())
             .unwrap_or_default();
         let size: Option<u64> = map
-            .remove("Tsize")
+            .remove(&"Tsize".into())
             .map(|t| TryInto::try_into(t).ok())
             .unwrap_or_default();
         if let (Some(cid), Some(name), Some(size)) = (cid, name, size) {
@@ -67,14 +67,14 @@ impl TryFrom<&Ipld> for PbNode {
         match ipld {
             Ipld::Map(map) => {
                 let links: Vec<Ipld> = map
-                    .get("Links")
+                    .get(&"Links".into())
                     .cloned()
                     .map(|t| TryInto::try_into(t).ok())
                     .unwrap_or_default()
                     .unwrap_or_default();
                 let links: Vec<PbLink> = links.into_iter().filter_map(from_ipld).collect();
                 let data: Vec<u8> = map
-                    .get("Data")
+                    .get(&"Data".into())
                     .cloned()
                     .map(|t| TryInto::try_into(t).ok())
                     .unwrap_or_default()

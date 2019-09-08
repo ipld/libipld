@@ -33,3 +33,8 @@ pub enum IpldTypeError {
     #[fail(display = "Expected a cid.")]
     NotLink,
 }
+
+/// Not a key type error.
+#[derive(Debug, Fail)]
+#[fail(display = "Expected key type.")]
+pub struct IpldKeyTypeError;
