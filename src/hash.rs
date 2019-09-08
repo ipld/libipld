@@ -40,6 +40,8 @@ hash!(Keccak384);
 hash!(Keccak512);
 hash!(Blake2b);
 hash!(Blake2s);
+hash!(Murmur3_32);
+hash!(Murmur3_128X64);
 
 /// Compute digest of bytes.
 pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
@@ -57,5 +59,7 @@ pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
         multihash::Code::Keccak512 => multihash::Keccak512::digest(bytes),
         multihash::Code::Blake2b => multihash::Blake2b::digest(bytes),
         multihash::Code::Blake2s => multihash::Blake2s::digest(bytes),
+        multihash::Code::Murmur3_32 => multihash::Murmur3_32::digest(bytes),
+        multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
     }
 }

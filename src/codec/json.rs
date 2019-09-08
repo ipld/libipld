@@ -35,9 +35,8 @@ fn encode(ipld: &Ipld) -> Result<Value> {
             Value::Number(num)
         }
         Ipld::Bytes(b) => {
-            let alphabet = Base::Base64.alphabet();
             json!({
-                "/": { "base64": base_x::encode(alphabet, b) }
+                "/": { "base64": multibase::encode(Base::Base64UpperNoPad, b) }
             })
         }
         Ipld::String(s) => Value::String(s.to_owned()),
@@ -90,8 +89,7 @@ fn decode(json: &Value) -> Result<Ipld> {
             Some(Value::String(string)) => Ipld::Link(Cid::try_from(string.as_str())?),
             Some(Value::Object(object)) => {
                 if let Value::String(string) = &object["base64"] {
-                    let alphabet = Base::Base64.alphabet();
-                    Ipld::Bytes(base_x::decode(alphabet, &string)?)
+                    Ipld::Bytes(multibase::decode(&string)?.1)
                 } else {
                     return Err(format_err!("expected base64 key"));
                 }
@@ -155,7 +153,7 @@ mod tests {
             "number": 1,
             "list": [true, null],
             "bytes": {
-                "/": { "base64": "AQID" },
+                "/": { "base64": "mAAECAw" },
             },
             "link": {
                 "/": link.cid().to_string(),
@@ -178,7 +176,7 @@ mod tests {
             "number": 1,
             "list": [true, null],
             "bytes": {
-                "/": { "base64": "AQID" },
+                "/": { "base64": "mAAECAw" },
             },
             "link": {
                 "/": link.cid().to_string(),
