@@ -20,7 +20,8 @@ fn from_struct(ident: &Ident, data: &DataStruct) -> TokenStream {
 }
 
 fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
-    let vars: Vec<TokenStream> = data.variants
+    let vars: Vec<TokenStream> = data
+        .variants
         .iter()
         .map(|var| {
             let var_ident = &var.ident;
@@ -53,7 +54,8 @@ fn from_union(_ident: &Ident, _data: &DataUnion) -> TokenStream {
 fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
     match fields {
         Fields::Named(fields) => {
-            let fields: Vec<TokenStream> = fields.named
+            let fields: Vec<TokenStream> = fields
+                .named
                 .iter()
                 .map(|field| {
                     let ident = field.ident.as_ref().unwrap().to_owned();
@@ -75,11 +77,12 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                 } else {
                     return Err(failure::format_err!("Expected map."));
                 }
-            }             
+            }
         }
         Fields::Unnamed(fields) => {
             let len = fields.unnamed.len();
-            let fields: Vec<TokenStream> = fields.unnamed
+            let fields: Vec<TokenStream> = fields
+                .unnamed
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
@@ -99,8 +102,6 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                 }
             }
         }
-        Fields::Unit => {
-            quote!(Ok(#ident))
-        }
+        Fields::Unit => quote!(Ok(#ident)),
     }
 }

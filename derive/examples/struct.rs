@@ -35,32 +35,35 @@ fn main() -> Result<(), Error> {
     println!("{:?}", ipld);
     let data2 = NamedStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
-    
+
     let data = TupleStruct::default();
     let ipld = data.clone().into_ipld();
     println!("{:?}", ipld);
     let data2 = TupleStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
-    
+
     let data = UnitStruct::default();
     let ipld = data.clone().into_ipld();
     println!("{:?}", ipld);
     let data2 = UnitStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
-    
+
     let data = Enum::A;
     let ipld = data.clone().into_ipld();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;
     assert_eq!(data, data2);
-    
+
     let data = Enum::B(true, 42);
     let ipld = data.clone().into_ipld();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;
     assert_eq!(data, data2);
-    
-    let data = Enum::C { boolean: true, int: 42 };
+
+    let data = Enum::C {
+        boolean: true,
+        int: 42,
+    };
     let ipld = data.clone().into_ipld();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;

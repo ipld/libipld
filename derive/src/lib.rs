@@ -13,7 +13,7 @@ pub fn derive_ipld(input: TokenStream) -> TokenStream {
     let ident = &input.ident;
     let from_ipld = crate::from_ipld::from_ipld(&input.ident, &input.data);
     let into_ipld = crate::into_ipld::into_ipld(&input.ident, &input.data);
-    
+
     let expanded = quote! {
         impl #ident {
             #into_ipld

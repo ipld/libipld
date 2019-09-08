@@ -25,7 +25,8 @@ fn from_struct(ident: &Ident, data: &DataStruct) -> TokenStream {
 }
 
 fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
-    let vars: Vec<TokenStream> = data.variants
+    let vars: Vec<TokenStream> = data
+        .variants
         .iter()
         .map(|var| {
             let var_ident = &var.ident;
@@ -50,11 +51,10 @@ fn from_union(_ident: &Ident, _input: &DataUnion) -> TokenStream {
 fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream) {
     match fields {
         Fields::Named(fields) => {
-            let idents: Vec<Ident> = fields.named
+            let idents: Vec<Ident> = fields
+                .named
                 .iter()
-                .map(|field| {
-                    field.ident.as_ref().unwrap().to_owned()
-                })
+                .map(|field| field.ident.as_ref().unwrap().to_owned())
                 .collect();
             let ipld: Vec<TokenStream> = idents
                 .iter()
@@ -65,11 +65,12 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                 .collect();
             (
                 quote!(#ident { #(#idents),* }),
-                quote!(libipld::ipld!({ #(#ipld),* }))
+                quote!(libipld::ipld!({ #(#ipld),* })),
             )
-        },
+        }
         Fields::Unnamed(fields) => {
-            let idents: Vec<Ident> = fields.unnamed
+            let idents: Vec<Ident> = fields
+                .unnamed
                 .iter()
                 .enumerate()
                 .map(|(i, _)| {
@@ -80,20 +81,13 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                 .collect();
             let ipld: Vec<TokenStream> = idents
                 .iter()
-                .map(|ident| {
-                    quote!(libipld::Ipld::from(#ident))
-                })
+                .map(|ident| quote!(libipld::Ipld::from(#ident)))
                 .collect();
             (
                 quote!(#ident(#(#idents),*)),
-                quote!(libipld::ipld!([ #(#ipld),* ]))
+                quote!(libipld::ipld!([ #(#ipld),* ])),
             )
-        },
-        Fields::Unit => {
-            (
-                quote!(#ident),
-                quote!(libipld::Ipld::Null),
-            )
-        },
+        }
+        Fields::Unit => (quote!(#ident), quote!(libipld::Ipld::Null)),
     }
 }
