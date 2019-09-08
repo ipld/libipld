@@ -14,5 +14,6 @@ syn = "1.0"
 
 [dev-dependencies]
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
+failure = "*"
 libipld = { path = ".." }
 trybuild = "1.0"

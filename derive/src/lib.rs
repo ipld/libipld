@@ -10,14 +10,12 @@ use syn::{parse_macro_input, DeriveInput};
 #[proc_macro_derive(Ipld)]
 pub fn derive_ipld(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    let name = input.ident;
-    let from_ipld = crate::from_ipld::from_ipld(&input.data);
-    let into_ipld = crate::into_ipld::into_ipld(&input.data);
+    let ident = &input.ident;
+    let from_ipld = crate::from_ipld::from_ipld(&input.ident, &input.data);
+    let into_ipld = crate::into_ipld::into_ipld(&input.ident, &input.data);
     
     let expanded = quote! {
-        use libipld::Ipld;
-
-        impl #name {
+        impl #ident {
             #into_ipld
             #from_ipld
         }
@@ -31,6 +29,6 @@ mod tests {
     #[test]
     fn test() {
         let t = trybuild::TestCases::new();
-        t.pass("tests/struct.rs");
+        t.pass("examples/struct.rs");
     }
 }
