@@ -5,17 +5,11 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
+byteorder = "*"
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
 failure = "0.1"
 multibase = { git = "https://github.com/dvc94ch/rust-multibase", branch = "cli" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
-protobuf = "2"
-serde = "1.0"
-serde_cbor = { git = "https://github.com/pyfisch/cbor" }
-serde_json = "1.0"
-
-[build-dependencies]
-protoc-rust = "2"
 
 [workspace]
 members = [
