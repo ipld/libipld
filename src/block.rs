@@ -1,8 +1,8 @@
 //! Block
-use crate::codec::{Codec, IpldCodec, ToBytes};
+use crate::codec::Codec;
 use crate::error::Result;
 use crate::hash::Hash;
-use crate::ipld::Ipld;
+use crate::ipld::IpldRef;
 pub use cid::Cid;
 
 /// The prefix of a block includes all information to serialize and deserialize
@@ -23,8 +23,8 @@ pub struct Block {
 
 impl Block {
     /// Creates a raw block from binary data.
-    pub fn new<TPrefix: Prefix>(ipld: &Ipld) -> Result<Self> {
-        let data = TPrefix::Codec::to_bytes(ipld)?;
+    pub fn new<'a, TPrefix: Prefix>(ipld: IpldRef<'a>) -> Result<Self> {
+        let data = TPrefix::Codec::encode(ipld)?;
         let hash = TPrefix::Hash::digest(&data);
         let cid = Cid::new_v1(TPrefix::Codec::CODEC, hash);
         Ok(Self { cid, data })

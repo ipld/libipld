@@ -34,7 +34,7 @@ impl<T: BlockStore> IpldStore for T {
         if cid.hash() != hash.as_ref() {
             return Err(format_err!("Invalid data"));
         }
-        let ipld = decode(cid.codec(), data)?;
+        let ipld = decode(cid.codec(), &data)?;
         Ok(ipld)
     }
 
@@ -53,14 +53,19 @@ impl<T: BlockStore> IpldStore for T {
 pub mod mock {
     //! Utilities for testing
     use super::*;
+    use multibase::Base;
     use std::collections::HashMap;
 
     /// A memory backed store
-    pub type MemStore = HashMap<Box<[u8]>, Box<[u8]>>;
+    pub type MemStore = HashMap<String, Box<[u8]>>;
 
+    fn key(cid: &Cid) -> String {
+        multibase::encode(Base::Base64UpperNoPad, cid.to_bytes())
+    }
+    
     impl BlockStore for MemStore {
         unsafe fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
-            if let Some(data) = self.get(&cid.to_bytes().into_boxed_slice()) {
+            if let Some(data) = self.get(&key(cid)) {
                 Ok(data.to_owned())
             } else {
                 Err(format_err!("Block not found"))
@@ -68,12 +73,12 @@ pub mod mock {
         }
 
         unsafe fn write(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
-            self.insert(cid.to_bytes().into_boxed_slice(), data);
+            self.insert(key(cid), data);
             Ok(())
         }
 
         fn delete(&mut self, cid: &Cid) -> Result<()> {
-            self.remove(&cid.to_bytes().into_boxed_slice());
+            self.remove(&key(cid));
             Ok(())
         }
     }

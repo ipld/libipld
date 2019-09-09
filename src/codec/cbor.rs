@@ -1,17 +1,13 @@
 //! CBOR codec.
-use super::*;
-use crate::error::{format_err, Result};
-use crate::ipld::Ipld;
-use cid::Cid;
-use core::convert::{TryFrom, TryInto};
-use serde_cbor::Value;
-use std::collections::{BTreeMap, HashMap};
+use crate::codec::Codec;
+use crate::error::Result;
+use crate::ipld::{Ipld, IpldRef};
 
 /// CBOR codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCbor;
 
-fn encode(ipld: &Ipld) -> Result<Value> {
+/*fn encode(ipld: &Ipld) -> Result<Value> {
     let cbor = match ipld {
         Ipld::Null => Value::Null,
         Ipld::Bool(b) => Value::Bool(*b),
@@ -71,32 +67,18 @@ fn decode(cbor: &Value) -> Result<Ipld> {
         Value::__Hidden => return Err(format_err!("__Hidden value not supported")),
     };
     Ok(ipld)
-}
+}*/
 
-impl IpldCodec for DagCbor {
-    type Data = serde_cbor::Value;
-
+impl Codec for DagCbor {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    fn encode(ipld: &Ipld) -> Result<Self::Data> {
-        encode(ipld)
+    fn encode<'a>(_ipld: IpldRef<'a>) -> Result<Box<[u8]>> {
+        Ok(Default::default())
     }
 
-    fn decode(data: &Self::Data) -> Result<Ipld> {
-        decode(data)
-    }
-}
-
-impl ToBytes for DagCbor {
-    fn to_bytes(ipld: &Ipld) -> Result<Box<[u8]>> {
-        let data = Self::encode(ipld)?;
-        Ok(serde_cbor::to_vec(&data)?.into_boxed_slice())
-    }
-
-    fn from_bytes(bytes: &[u8]) -> Result<Ipld> {
-        let data = serde_cbor::from_slice(bytes)?;
-        Ok(Self::decode(&data)?)
+    fn decode(_data: &[u8]) -> Result<Ipld> {
+        Ok(Ipld::Null)
     }
 }
 
@@ -114,7 +96,7 @@ mod tests {
           "bytes": vec![0, 1, 2, 3],
           "link": link.cid(),
         });
-        let ipld2 = DagCbor::decode(&DagCbor::encode(&ipld).unwrap()).unwrap();
+        let ipld2 = DagCbor::decode(&DagCbor::encode(ipld.as_ref()).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

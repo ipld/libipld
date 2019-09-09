@@ -250,12 +250,12 @@ macro_rules! ipld_internal {
     };
 
     ({}) => {
-        $crate::Ipld::from(std::collections::HashMap::new())
+        $crate::Ipld::from(std::collections::BTreeMap::new())
     };
 
     ({ $($tt:tt)+ }) => {
         $crate::Ipld::from({
-            let mut object = std::collections::HashMap::new();
+            let mut object = std::collections::BTreeMap::new();
             ipld_internal!(@object object () ($($tt)+) ($($tt)+));
             object
         })
@@ -289,7 +289,7 @@ macro_rules! ipld_unexpected {
 #[macro_export]
 macro_rules! block {
     ($tt:tt) => {
-        $crate::block::Block::new::<$crate::DefaultPrefix>(&$crate::ipld!($tt))
+        $crate::block::Block::new::<$crate::DefaultPrefix>($crate::ipld!($tt).as_ref())
     };
 }
 

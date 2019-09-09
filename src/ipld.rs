@@ -1,9 +1,9 @@
-//! Untyped `Ipld` representation.
+//! Ipld representation.
 
 use crate::error::{Error, IpldKeyTypeError, IpldTypeError};
 use cid::Cid;
 use core::convert::{TryFrom, TryInto};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
@@ -23,37 +23,51 @@ pub enum Ipld {
     /// Represents a list.
     List(Vec<Ipld>),
     /// Represents a map.
-    Map(HashMap<IpldKey, Ipld>),
+    Map(BTreeMap<IpldKey, Ipld>),
     /// Represents a link to an Ipld node
     Link(Cid),
 }
 
-/// Ipld key
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum IpldKey {
+/// Ipld ref
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum IpldRef<'a> {
     /// Represents the absence of a value or the value undefined.
     Null,
     /// Represents a boolean value.
     Bool(bool),
     /// Represents an integer.
     Integer(i128),
+    /// Represents a floating point value.
+    Float(f64),
+    /// Represents an UTF-8 string.
+    String(&'a str),
+    /// Represents a sequence of bytes.
+    Bytes(&'a [u8]),
+    /// Represents a list.
+    List(&'a [Ipld]),
+    /// Represents a map.
+    Map(&'a BTreeMap<IpldKey, Ipld>),
+    /// Represents a link to an Ipld node
+    Link(&'a Cid),
+}
+
+/// Ipld key
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum IpldKey {
+    /// Represents an integer.
+    Integer(i128),
     /// Represents an UTF-8 string.
     String(String),
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
-    /// Represents a link to an Ipld node
-    Link(Cid),
 }
 
 impl From<IpldKey> for Ipld {
     fn from(key: IpldKey) -> Self {
         match key {
-            IpldKey::Null => Ipld::Null,
-            IpldKey::Bool(b) => Ipld::Bool(b),
             IpldKey::Integer(i) => Ipld::Integer(i),
             IpldKey::String(s) => Ipld::String(s),
             IpldKey::Bytes(b) => Ipld::Bytes(b),
-            IpldKey::Link(c) => Ipld::Link(c),
         }
     }
 }
@@ -63,12 +77,9 @@ impl TryFrom<Ipld> for IpldKey {
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
-            Ipld::Null => Ok(IpldKey::Null),
-            Ipld::Bool(b) => Ok(IpldKey::Bool(b)),
             Ipld::Integer(i) => Ok(IpldKey::Integer(i)),
             Ipld::String(s) => Ok(IpldKey::String(s)),
             Ipld::Bytes(b) => Ok(IpldKey::Bytes(b)),
-            Ipld::Link(c) => Ok(IpldKey::Link(c)),
             _ => Err(IpldKeyTypeError),
         }
     }
@@ -106,12 +117,6 @@ macro_rules! derive_nokey {
     };
 }
 
-macro_rules! derive_from_nokey {
-    ($enum:ident, $type:ty) => {
-        derive_from!(Ipld, $enum, $type);
-    };
-}
-
 macro_rules! derive_key {
     ($enum:ident, $type:ty, $error:ident) => {
         derive_from!(Ipld, $enum, $type);
@@ -121,15 +126,32 @@ macro_rules! derive_key {
     };
 }
 
-macro_rules! derive_from_key {
-    ($enum:ident, $type:ty) => {
-        derive_from!(Ipld, $enum, $type);
-        derive_from!(IpldKey, $enum, $type);
+macro_rules! derive_from_ref {
+    ($name:ident, $enum:ident, $type:ty) => {
+        impl<'a> From<&'a $type> for $name<'a> {
+            fn from(ty: &'a $type) -> $name<'a> {
+                $name::$enum(ty.into())
+            }
+        }
     };
 }
 
-// Types that can be used as keys
-derive_key!(Bool, bool, NotBool);
+macro_rules! derive_ref_key {
+    ($enum:ident, $type:ty) => {
+        derive_from_ref!(IpldRef, $enum, $type);
+        derive_from!(Ipld, $enum, &$type);
+        derive_from!(IpldKey, $enum, &$type);
+    }
+}
+
+macro_rules! derive_ref_nokey {
+    ($enum:ident, $type:ty) => {
+        derive_from_ref!(IpldRef, $enum, $type);
+        derive_from!(Ipld, $enum, &$type);
+    }
+}
+
+derive_nokey!(Bool, bool, NotBool);
 derive_key!(Integer, i8, NotInteger);
 derive_key!(Integer, i16, NotInteger);
 derive_key!(Integer, i32, NotInteger);
@@ -139,290 +161,87 @@ derive_key!(Integer, u8, NotInteger);
 derive_key!(Integer, u16, NotInteger);
 derive_key!(Integer, u32, NotInteger);
 derive_key!(Integer, u64, NotInteger);
+//derive_nokey!(Float, f32, NotFloat);
+derive_nokey!(Float, f64, NotFloat);
 derive_key!(String, String, NotString);
 derive_key!(Bytes, Vec<u8>, NotBytes);
-derive_key!(Link, Cid, NotLink);
-
-// Additional From implementations
-derive_from_key!(String, &str);
-derive_from_key!(Bytes, &[u8]);
-derive_from_key!(Link, &Cid);
-
-// Types that cannot be used as keys
-derive_nokey!(Float, f64, NotFloat);
 derive_nokey!(List, Vec<Ipld>, NotList);
-derive_nokey!(Map, HashMap<IpldKey, Ipld>, NotMap);
+derive_nokey!(Map, BTreeMap<IpldKey, Ipld>, NotMap);
+derive_nokey!(Link, Cid, NotLink);
 
-// Additional From implementations
-derive_from_nokey!(Float, f32);
-derive_from_nokey!(List, &[Ipld]);
-
-/*
-impl<T: Into<Ipld>> From<Vec<T>> for Ipld {
-    fn from(vec: Vec<T>) -> Self {
-        Ipld::List(vec.into_iter().map(Into::into).collect())
-    }
-}
-
-impl<A: Into<IpldKey>, B: Into<Ipld>> From<HashMap<A, B>> for Ipld {
-    fn from(map: HashMap<A, B>) -> Self {
-        Ipld::Map(map.into_iter().map(|(k, v)| (k.into(), v.into())).collect())
-    }
-}
-
-impl<A: From<IpldKey>, B: From<Ipld>> TryInto<HashMap<A, B>> for Ipld {
-    type Error = Error;
-
-    fn try_into(self) -> Result<HashMap<A, B>, Self::Error> {
-        match self {
-            Ipld::Map(map) => Ok(map.into_iter().map(|(k, v)| (k.into(), v.into())).collect()),
-            _ => Err(IpldTypeError::NotMap.into()),
-        }
-    }
-}
-*/
-
-impl Ipld {
-    /// Returns a bool.
-    pub fn as_bool(&self) -> Option<&bool> {
-        if let Ipld::Bool(b) = self {
-            Some(b)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable bool.
-    pub fn as_bool_mut(&mut self) -> Option<&mut bool> {
-        if let Ipld::Bool(b) = self {
-            Some(b)
-        } else {
-            None
-        }
-    }
-
-    /// Returns an int.
-    pub fn as_int(&self) -> Option<&i128> {
-        if let Ipld::Integer(i) = self {
-            Some(i)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable int.
-    pub fn as_int_mut(&mut self) -> Option<&mut i128> {
-        if let Ipld::Integer(i) = self {
-            Some(i)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a float.
-    pub fn as_float(&self) -> Option<&f64> {
-        if let Ipld::Float(f) = self {
-            Some(f)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable float.
-    pub fn as_float_mut(&mut self) -> Option<&mut f64> {
-        if let Ipld::Float(f) = self {
-            Some(f)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a string.
-    pub fn as_string(&self) -> Option<&String> {
-        if let Ipld::String(s) = self {
-            Some(s)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable string.
-    pub fn as_string_mut(&mut self) -> Option<&mut String> {
-        if let Ipld::String(s) = self {
-            Some(s)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a byte vec.
-    pub fn as_bytes(&self) -> Option<&Vec<u8>> {
-        if let Ipld::Bytes(b) = self {
-            Some(b)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable byte vec.
-    pub fn as_bytes_mut(&mut self) -> Option<&mut Vec<u8>> {
-        if let Ipld::Bytes(b) = self {
-            Some(b)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a list.
-    pub fn as_list(&self) -> Option<&Vec<Ipld>> {
-        if let Ipld::List(list) = self {
-            Some(list)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable list.
-    pub fn as_list_mut(&mut self) -> Option<&mut Vec<Ipld>> {
-        if let Ipld::List(list) = self {
-            Some(list)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a map.
-    pub fn as_map(&self) -> Option<&HashMap<IpldKey, Ipld>> {
-        if let Ipld::Map(map) = self {
-            Some(map)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable map.
-    pub fn as_map_mut(&mut self) -> Option<&mut HashMap<IpldKey, Ipld>> {
-        if let Ipld::Map(map) = self {
-            Some(map)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a link.
-    pub fn as_link(&self) -> Option<&Cid> {
-        if let Ipld::Link(cid) = self {
-            Some(cid)
-        } else {
-            None
-        }
-    }
-
-    /// Returns a mutable link.
-    pub fn as_link_mut(&mut self) -> Option<&mut Cid> {
-        if let Ipld::Link(cid) = self {
-            Some(cid)
-        } else {
-            None
-        }
-    }
-}
+derive_ref_key!(String, str);
+derive_ref_key!(Bytes, [u8]);
+derive_ref_nokey!(List, [Ipld]);
+derive_ref_nokey!(Link, Cid);
 
 /// An index into ipld
-pub enum IpldIndex {
+pub enum IpldIndex<'a> {
     /// An index into an ipld list.
     List(usize),
-    /// An index into an ipld map.
+    /// An owned index into an ipld map.
     Map(IpldKey),
+    /// An index into an ipld map.
+    MapRef(&'a IpldKey),
 }
 
-impl From<usize> for IpldIndex {
+impl<'a> From<usize> for IpldIndex<'a> {
     fn from(index: usize) -> Self {
         Self::List(index)
     }
 }
 
-impl From<IpldKey> for IpldIndex {
+impl<'a> From<IpldKey> for IpldIndex<'a> {
     fn from(key: IpldKey) -> Self {
         Self::Map(key)
     }
 }
 
-impl From<&str> for IpldIndex {
+impl<'a> From<&'a IpldKey> for IpldIndex<'a> {
+    fn from(key: &'a IpldKey) -> Self {
+        Self::MapRef(key)
+    }
+}
+
+impl<'a> From<&str> for IpldIndex<'a> {
     fn from(key: &str) -> Self {
         Self::Map(IpldKey::String(key.into()))
     }
 }
 
-/// Indexing into ipld.
-pub trait IpldGet {
-    /// Indexes into a map or a list.
-    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld>;
-}
-
-impl IpldGet for Ipld {
-    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld> {
-        match index.into() {
-            IpldIndex::List(i) => {
-                if let Some(vec) = self.as_list() {
-                    vec.get(i)
-                } else {
-                    None
+impl Ipld {
+    /// Indexes into a ipld list or map.
+    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
+        match self {
+            Ipld::List(l) => {
+                match index.into() {
+                    IpldIndex::List(i) => l.get(i),
+                    _ => None,
                 }
             }
-            IpldIndex::Map(ref key) => {
-                if let Some(map) = self.as_map() {
-                    map.get(key)
-                } else {
-                    None
+            Ipld::Map(m) => {
+                match index.into() {
+                    IpldIndex::Map(ref key) => m.get(key),
+                    IpldIndex::MapRef(key) => m.get(key),
+                    _ => None,
                 }
             }
+            _ => None,
         }
     }
-}
 
-impl IpldGet for Option<&Ipld> {
-    fn get<T: Into<IpldIndex>>(&self, index: T) -> Option<&Ipld> {
-        self.map(|ipld| ipld.get(index)).unwrap()
-    }
-}
-
-/// Mutable indexing into ipld.
-pub trait IpldGetMut {
-    /// Mutably indexes into a map or a list.
-    fn get_mut(&mut self, index: &IpldIndex) -> Option<&mut Ipld>;
-}
-
-impl IpldGetMut for Ipld {
-    fn get_mut(&mut self, index: &IpldIndex) -> Option<&mut Ipld> {
-        match index {
-            IpldIndex::List(i) => {
-                if let Some(vec) = self.as_list_mut() {
-                    vec.get_mut(*i)
-                } else {
-                    None
-                }
-            }
-            IpldIndex::Map(ref key) => {
-                if let Some(map) = self.as_map_mut() {
-                    map.get_mut(key)
-                } else {
-                    None
-                }
-            }
+    /// Returns a ipld reference.
+    pub fn as_ref<'a>(&'a self) -> IpldRef<'a> {
+        match self {
+            Ipld::Null => IpldRef::Null,
+            Ipld::Bool(b) => IpldRef::Bool(*b),
+            Ipld::Integer(i) => IpldRef::Integer(*i),
+            Ipld::Float(f) => IpldRef::Float(*f),
+            Ipld::String(ref s) => IpldRef::String(s),
+            Ipld::Bytes(ref b) => IpldRef::Bytes(b),
+            Ipld::List(ref l) => IpldRef::List(l),
+            Ipld::Map(ref m) => IpldRef::Map(m),
+            Ipld::Link(ref c) => IpldRef::Link(c),
         }
-    }
-}
-
-/// Mutably indexing into wrappers of a mutable ipld reference.
-pub trait InnerIpldGetMut<'a> {
-    /// Because mut refs are not copy, we need an additional trait.
-    fn get_mut(self, index: &IpldIndex) -> Option<&'a mut Ipld>;
-}
-
-impl<'a> InnerIpldGetMut<'a> for Option<&'a mut Ipld> {
-    fn get_mut(self, index: &IpldIndex) -> Option<&'a mut Ipld> {
-        self.map(|ipld| ipld.get_mut(index)).unwrap()
     }
 }
 
@@ -454,7 +273,7 @@ mod tests {
 
     #[test]
     fn ipld_float_from() {
-        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
+        //assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
         assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
@@ -495,9 +314,11 @@ mod tests {
         assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
         assert_eq!(ipld.get(2).unwrap(), &Ipld::Integer(2));
 
-        let mut ipld = ipld!({});
-        let map = ipld.as_map_mut().unwrap();
-        map.insert("key".into(), "value".into());
-        assert_eq!(ipld.get("key").unwrap(), &Ipld::String("value".into()));
+        let ipld = ipld!({
+            "a": 0,
+            "b": 1,
+            "c": 2,
+        });
+        assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
     }
 }
