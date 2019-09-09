@@ -2,7 +2,8 @@
 use core::convert::TryInto;
 use failure::Error;
 use ipld_derive::Ipld;
-//use std::collections::HashMap;
+use libipld::{Ipld, IpldKey};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
 struct NamedStruct {
@@ -11,8 +12,8 @@ struct NamedStruct {
     float: f64,
     string: String,
     bytes: Vec<u8>,
-    //list: Vec<u32>,
-    //map: HashMap<String, Vec<u8>>,
+    list: Vec<Ipld>,
+    map: HashMap<IpldKey, Ipld>,
     //link: Cid,
 }
 
