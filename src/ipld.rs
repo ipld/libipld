@@ -1,6 +1,6 @@
 //! Ipld representation.
 
-use crate::error::{Error, IpldKeyTypeError, IpldTypeError};
+use crate::error::IpldError;
 use cid::Cid;
 use core::convert::{TryFrom, TryInto};
 use std::collections::BTreeMap;
@@ -77,14 +77,14 @@ impl From<IpldKey> for Ipld {
 }
 
 impl TryFrom<Ipld> for IpldKey {
-    type Error = IpldKeyTypeError;
+    type Error = IpldError;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
             Ipld::Integer(i) => Ok(IpldKey::Integer(i)),
             Ipld::String(s) => Ok(IpldKey::String(s)),
             Ipld::Bytes(b) => Ok(IpldKey::Bytes(b)),
-            _ => Err(IpldKeyTypeError),
+            _ => Err(IpldError::NotKey),
         }
     }
 }
@@ -102,12 +102,17 @@ macro_rules! derive_from {
 macro_rules! derive_try_from {
     ($name:ident, $enum:ident, $type:ty, $error:ident) => {
         impl TryFrom<$name> for $type {
-            type Error = Error;
+            type Error = IpldError;
 
             fn try_from(ipld: $name) -> Result<$type, Self::Error> {
                 match ipld {
-                    $name::$enum(ty) => Ok(ty.try_into()?),
-                    _ => Err(IpldTypeError::$error.into()),
+                    $name::$enum(ty) => {
+                        match ty.try_into() {
+                            Ok(res) => Ok(res),
+                            Err(err) => Err(IpldError::Other(err.into())),
+                        }
+                    }
+                    _ => Err(IpldError::$error),
                 }
             }
         }

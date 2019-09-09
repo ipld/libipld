@@ -9,7 +9,8 @@ pub fn from_ipld(ident: &Ident, data: &Data) -> TokenStream {
         Data::Union(data) => from_union(ident, data),
     };
     quote! {
-        fn from_ipld(mut ipld: libipld::Ipld) -> Result<Self, failure::Error> {
+        fn from_ipld(mut ipld: libipld::Ipld) -> core::result::Result<Self, libipld::IpldError> {
+            use core::convert::TryInto;
             #inner
         }
     }
@@ -38,17 +39,15 @@ fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
         let map = if let Ipld::Map(ref mut map) = ipld {
             map
         } else {
-            return Err(failure::format_err!("Expected map."));
+            return Err(libipld::IpldError::NotMap);
         };
         #(#vars)*
-        Err(failure::format_err!("No variant matched."))
+        Err(libipld::IpldError::KeyNotFound)
     }
 }
 
 fn from_union(_ident: &Ident, _data: &DataUnion) -> TokenStream {
-    quote! {
-        Err(failure::format_err!("Unions not supported."))
-    }
+    panic!("Unions not supported.");
 }
 
 fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
@@ -64,7 +63,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                         #ident: if let Some(ipld) = map.remove(&#name.into()) {
                             ipld.try_into()?
                         } else {
-                            return Err(failure::format_err!("Expected key #name"));
+                            return Err(libipld::IpldError::KeyNotFound);
                         }
                     }
                 })
@@ -75,7 +74,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                         #(#fields),*
                     })
                 } else {
-                    return Err(failure::format_err!("Expected map."));
+                    return Err(libipld::IpldError::NotMap);
                 }
             }
         }
@@ -94,11 +93,11 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
             quote! {
                 if let Ipld::List(list) = ipld {
                     if list.len() != #len {
-                        return Err(failure::format_err!("List has wrong length."));
+                        return Err(libipld::IpldError::IndexNotFound);
                     }
                     Ok(#ident(#(#fields),*))
                 } else {
-                    return Err(failure::format_err!("Expected list."));
+                    return Err(libipld::IpldError::NotList);
                 }
             }
         }

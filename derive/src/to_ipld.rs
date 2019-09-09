@@ -49,7 +49,7 @@ fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
 }
 
 fn from_union(_ident: &Ident, _input: &DataUnion) -> TokenStream {
-    quote!(libipld::Ipld::Null)
+    panic!("Unions not supported.");
 }
 
 fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream) {

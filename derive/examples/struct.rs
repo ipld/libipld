@@ -1,8 +1,6 @@
 //use cid::Cid;
-use core::convert::TryInto;
-use failure::Error;
 use ipld_derive::Ipld;
-use libipld::{Ipld, IpldKey};
+use libipld::{Ipld, IpldKey, IpldError};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
@@ -30,7 +28,7 @@ enum Enum {
     C { boolean: bool, int: u32 },
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), IpldError> {
     let data = NamedStruct::default();
     let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);

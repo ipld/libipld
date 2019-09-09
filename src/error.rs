@@ -7,7 +7,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 /// `Ipld` type error.
 #[derive(Debug, Fail)]
-pub enum IpldTypeError {
+pub enum IpldError {
     /// Expected a boolean.
     #[fail(display = "Expected a boolean.")]
     NotBool,
@@ -32,9 +32,22 @@ pub enum IpldTypeError {
     /// Expected a cid.
     #[fail(display = "Expected a cid.")]
     NotLink,
+    /// Expected a key.
+    #[fail(display = "Expected a key.")]
+    NotKey,
+    /// Index not found.
+    #[fail(display = "Index not found.")]
+    IndexNotFound,
+    /// Key not found.
+    #[fail(display = "Key not found.")]
+    KeyNotFound,
+    /// Other.
+    #[fail(display = "{}", _0)]
+    Other(Error),
 }
 
-/// Not a key type error.
-#[derive(Debug, Fail)]
-#[fail(display = "Expected key type.")]
-pub struct IpldKeyTypeError;
+impl From<Error> for IpldError {
+    fn from(err: Error) -> Self {
+        IpldError::Other(err)
+    }
+}

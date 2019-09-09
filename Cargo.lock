@@ -235,7 +235,6 @@ name = "ipld-derive"
 version = "0.1.0"
 dependencies = [
  "cid 0.3.1 (git+https://github.com/dvc94ch/rust-cid?branch=cli)",
- "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "libipld 0.1.0",
  "proc-macro2 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
