@@ -35,7 +35,7 @@ fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
         })
         .collect();
     quote! {
-        let map = if let Some(map) = ipld.as_map_mut() {
+        let map = if let Ipld::Map(ref mut map) = ipld {
             map
         } else {
             return Err(failure::format_err!("Expected map."));
@@ -70,7 +70,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                 })
                 .collect();
             quote! {
-                if let Some(map) = ipld.as_map_mut() {
+                if let Ipld::Map(ref mut map) = ipld {
                     Ok(#ident {
                         #(#fields),*
                     })
@@ -92,7 +92,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> TokenStream {
                 })
                 .collect();
             quote! {
-                if let Some(list) = ipld.as_list_mut() {
+                if let Ipld::List(list) = ipld {
                     if list.len() != #len {
                         return Err(failure::format_err!("List has wrong length."));
                     }

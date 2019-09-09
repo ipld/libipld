@@ -2,14 +2,14 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::*;
 
-pub fn into_ipld(ident: &Ident, data: &Data) -> TokenStream {
+pub fn to_ipld(ident: &Ident, data: &Data) -> TokenStream {
     let inner = match data {
         Data::Struct(data) => from_struct(ident, data),
         Data::Enum(data) => from_enum(ident, data),
         Data::Union(data) => from_union(ident, data),
     };
     quote! {
-        fn into_ipld(self) -> libipld::Ipld {
+        fn to_ipld<'a>(&'a self) -> libipld::IpldRef<'a> {
             #inner
         }
     }
@@ -33,7 +33,11 @@ fn from_enum(ident: &Ident, data: &DataEnum) -> TokenStream {
             let name = var_ident.to_string();
             let (matches, returns) = from_fields(quote!(#ident::#var_ident), &var.fields);
             quote! {
-                #matches => libipld::ipld!({#name: #returns})
+                #matches => {
+                    let mut tmpmap = std::collections::BTreeMap::new();
+                    tmpmap.insert(libipld::IpldKey::from(#name), #returns);
+                    libipld::IpldRef::OwnedMap(tmpmap)
+                }
             }
         })
         .collect();
@@ -60,15 +64,20 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                 .iter()
                 .map(|ident| {
                     let name = ident.to_string();
-                    quote!(#name: libipld::Ipld::from(#ident))
+                    quote!(tmpmap.insert(libipld::IpldKey::from(#name), libipld::IpldRef::from(#ident));)
                 })
                 .collect();
             (
                 quote!(#ident { #(#idents),* }),
-                quote!(libipld::ipld!({ #(#ipld),* })),
+                quote!({
+                    let mut tmpmap = std::collections::BTreeMap::new();
+                    #(#ipld)*
+                    libipld::IpldRef::OwnedMap(tmpmap)
+                })
             )
         }
         Fields::Unnamed(fields) => {
+            let len = fields.unnamed.len();
             let idents: Vec<Ident> = fields
                 .unnamed
                 .iter()
@@ -81,13 +90,17 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                 .collect();
             let ipld: Vec<TokenStream> = idents
                 .iter()
-                .map(|ident| quote!(libipld::Ipld::from(#ident)))
+                .map(|ident| quote!(tmplist.push(libipld::IpldRef::from(#ident));))
                 .collect();
             (
                 quote!(#ident(#(#idents),*)),
-                quote!(libipld::ipld!([ #(#ipld),* ])),
+                quote!({
+                    let mut tmplist = Vec::with_capacity(#len);
+                    #(#ipld)*
+                    libipld::IpldRef::OwnedList(tmplist)
+                })
             )
         }
-        Fields::Unit => (quote!(#ident), quote!(libipld::Ipld::Null)),
+        Fields::Unit => (quote!(#ident), quote!(libipld::IpldRef::Null)),
     }
 }

@@ -3,7 +3,7 @@ use core::convert::TryInto;
 use failure::Error;
 use ipld_derive::Ipld;
 use libipld::{Ipld, IpldKey};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
 struct NamedStruct {
@@ -13,7 +13,7 @@ struct NamedStruct {
     string: String,
     bytes: Vec<u8>,
     list: Vec<Ipld>,
-    map: HashMap<IpldKey, Ipld>,
+    map: BTreeMap<IpldKey, Ipld>,
     //link: Cid,
 }
 
@@ -32,31 +32,31 @@ enum Enum {
 
 fn main() -> Result<(), Error> {
     let data = NamedStruct::default();
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = NamedStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
 
     let data = TupleStruct::default();
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = TupleStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
 
     let data = UnitStruct::default();
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = UnitStruct::from_ipld(ipld)?;
     assert_eq!(data, data2);
 
     let data = Enum::A;
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;
     assert_eq!(data, data2);
 
     let data = Enum::B(true, 42);
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;
     assert_eq!(data, data2);
@@ -65,7 +65,7 @@ fn main() -> Result<(), Error> {
         boolean: true,
         int: 42,
     };
-    let ipld = data.clone().into_ipld();
+    let ipld = data.to_ipld().to_owned();
     println!("{:?}", ipld);
     let data2 = Enum::from_ipld(ipld)?;
     assert_eq!(data, data2);

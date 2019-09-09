@@ -29,7 +29,7 @@ pub enum Ipld {
 }
 
 /// Ipld ref
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum IpldRef<'a> {
     /// Represents the absence of a value or the value undefined.
     Null,
@@ -45,8 +45,12 @@ pub enum IpldRef<'a> {
     Bytes(&'a [u8]),
     /// Represents a list.
     List(&'a [Ipld]),
+    /// Represents an owned list.
+    OwnedList(Vec<IpldRef<'a>>),
     /// Represents a map.
     Map(&'a BTreeMap<IpldKey, Ipld>),
+    /// Represents an owned map.
+    OwnedMap(BTreeMap<IpldKey, IpldRef<'a>>),
     /// Represents a link to an Ipld node
     Link(&'a Cid),
 }
@@ -151,6 +155,28 @@ macro_rules! derive_ref_nokey {
     }
 }
 
+macro_rules! derive_from_ref_copy {
+    ($name:ident, $enum:ident, $type:ty) => {
+        impl<'a> From<&'a $type> for $name<'a> {
+            fn from(ty: &'a $type) -> $name<'a> {
+                $name::$enum((*ty).into())
+            }
+        }
+    };
+}
+
+macro_rules! derive_ref_copy {
+    ($enum:ident, $type:ty) => {
+        derive_from_ref_copy!(IpldRef, $enum, $type);
+    }
+}
+
+macro_rules! derive_ref {
+    ($enum:ident, $type:ty) => {
+        derive_from_ref!(IpldRef, $enum, $type);
+    }
+}
+
 derive_nokey!(Bool, bool, NotBool);
 derive_key!(Integer, i8, NotInteger);
 derive_key!(Integer, i16, NotInteger);
@@ -169,10 +195,51 @@ derive_nokey!(List, Vec<Ipld>, NotList);
 derive_nokey!(Map, BTreeMap<IpldKey, Ipld>, NotMap);
 derive_nokey!(Link, Cid, NotLink);
 
+derive_ref_copy!(Bool, bool);
+derive_ref_copy!(Integer, i8);
+derive_ref_copy!(Integer, i16);
+derive_ref_copy!(Integer, i32);
+derive_ref_copy!(Integer, i64);
+derive_ref_copy!(Integer, u8);
+derive_ref_copy!(Integer, u16);
+derive_ref_copy!(Integer, u32);
+derive_ref_copy!(Integer, u64);
+derive_ref_copy!(Float, f64);
 derive_ref_key!(String, str);
 derive_ref_key!(Bytes, [u8]);
 derive_ref_nokey!(List, [Ipld]);
+derive_ref!(Map, BTreeMap<IpldKey, Ipld>);
 derive_ref_nokey!(Link, Cid);
+
+impl<'a> From<&'a String> for IpldRef<'a> {
+    fn from(s: &'a String) -> Self {
+        IpldRef::String(s.as_str())
+    }
+}
+
+impl<'a> From<&'a Vec<u8>> for IpldRef<'a> {
+    fn from(b: &'a Vec<u8>) -> Self {
+        IpldRef::Bytes(b.as_slice())
+    }
+}
+
+impl<'a> From<&'a Vec<Ipld>> for IpldRef<'a> {
+    fn from(l: &'a Vec<Ipld>) -> Self {
+        IpldRef::List(l.as_slice())
+    }
+}
+
+impl<'a> From<Vec<IpldRef<'a>>> for IpldRef<'a> {
+    fn from(l: Vec<IpldRef<'a>>) -> Self {
+        IpldRef::OwnedList(l)
+    }
+}
+
+impl<'a> From<BTreeMap<IpldKey, IpldRef<'a>>> for IpldRef<'a> {
+    fn from(m: BTreeMap<IpldKey, IpldRef<'a>>) -> Self {
+        IpldRef::OwnedMap(m)
+    }
+}
 
 /// An index into ipld
 pub enum IpldIndex<'a> {
@@ -241,6 +308,25 @@ impl Ipld {
             Ipld::List(ref l) => IpldRef::List(l),
             Ipld::Map(ref m) => IpldRef::Map(m),
             Ipld::Link(ref c) => IpldRef::Link(c),
+        }
+    }
+}
+
+impl<'a> IpldRef<'a> {
+    /// Turns an ipld reference into an owned ipld.
+    pub fn to_owned(self) -> Ipld {
+        match self {
+            IpldRef::Null => Ipld::Null,
+            IpldRef::Bool(b) => Ipld::Bool(b),
+            IpldRef::Integer(i) => Ipld::Integer(i),
+            IpldRef::Float(f) => Ipld::Float(f),
+            IpldRef::String(s) => Ipld::String(s.to_string()),
+            IpldRef::Bytes(b) => Ipld::Bytes(b.to_vec()),
+            IpldRef::List(l) => Ipld::List(l.to_vec()),
+            IpldRef::OwnedList(l) => Ipld::List(l.into_iter().map(|v| v.to_owned()).collect()),
+            IpldRef::Map(m) => Ipld::Map((*m).clone()),
+            IpldRef::OwnedMap(m) => Ipld::Map(m.into_iter().map(|(k, v)| (k, v.to_owned())).collect()),
+            IpldRef::Link(c) => Ipld::Link((*c).clone()),
         }
     }
 }
