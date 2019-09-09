@@ -62,7 +62,7 @@ pub mod mock {
     fn key(cid: &Cid) -> String {
         multibase::encode(Base::Base64UpperNoPad, cid.to_bytes())
     }
-    
+
     impl BlockStore for MemStore {
         unsafe fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
             if let Some(data) = self.get(&key(cid)) {

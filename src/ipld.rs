@@ -106,12 +106,10 @@ macro_rules! derive_try_from {
 
             fn try_from(ipld: $name) -> Result<$type, Self::Error> {
                 match ipld {
-                    $name::$enum(ty) => {
-                        match ty.try_into() {
-                            Ok(res) => Ok(res),
-                            Err(err) => Err(IpldError::Other(err.into())),
-                        }
-                    }
+                    $name::$enum(ty) => match ty.try_into() {
+                        Ok(res) => Ok(res),
+                        Err(err) => Err(IpldError::Other(err.into())),
+                    },
                     _ => Err(IpldError::$error),
                 }
             }
@@ -150,14 +148,14 @@ macro_rules! derive_ref_key {
         derive_from_ref!(IpldRef, $enum, $type);
         derive_from!(Ipld, $enum, &$type);
         derive_from!(IpldKey, $enum, &$type);
-    }
+    };
 }
 
 macro_rules! derive_ref_nokey {
     ($enum:ident, $type:ty) => {
         derive_from_ref!(IpldRef, $enum, $type);
         derive_from!(Ipld, $enum, &$type);
-    }
+    };
 }
 
 macro_rules! derive_from_ref_copy {
@@ -173,13 +171,13 @@ macro_rules! derive_from_ref_copy {
 macro_rules! derive_ref_copy {
     ($enum:ident, $type:ty) => {
         derive_from_ref_copy!(IpldRef, $enum, $type);
-    }
+    };
 }
 
 macro_rules! derive_ref {
     ($enum:ident, $type:ty) => {
         derive_from_ref!(IpldRef, $enum, $type);
-    }
+    };
 }
 
 derive_nokey!(Bool, bool, NotBool);
@@ -284,19 +282,15 @@ impl Ipld {
     /// Indexes into a ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
         match self {
-            Ipld::List(l) => {
-                match index.into() {
-                    IpldIndex::List(i) => l.get(i),
-                    _ => None,
-                }
-            }
-            Ipld::Map(m) => {
-                match index.into() {
-                    IpldIndex::Map(ref key) => m.get(key),
-                    IpldIndex::MapRef(key) => m.get(key),
-                    _ => None,
-                }
-            }
+            Ipld::List(l) => match index.into() {
+                IpldIndex::List(i) => l.get(i),
+                _ => None,
+            },
+            Ipld::Map(m) => match index.into() {
+                IpldIndex::Map(ref key) => m.get(key),
+                IpldIndex::MapRef(key) => m.get(key),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -330,7 +324,9 @@ impl<'a> IpldRef<'a> {
             IpldRef::List(l) => Ipld::List(l.to_vec()),
             IpldRef::OwnedList(l) => Ipld::List(l.into_iter().map(|v| v.to_owned()).collect()),
             IpldRef::Map(m) => Ipld::Map((*m).clone()),
-            IpldRef::OwnedMap(m) => Ipld::Map(m.into_iter().map(|(k, v)| (k, v.to_owned())).collect()),
+            IpldRef::OwnedMap(m) => {
+                Ipld::Map(m.into_iter().map(|(k, v)| (k, v.to_owned())).collect())
+            }
             IpldRef::Link(c) => Ipld::Link((*c).clone()),
         }
     }

@@ -73,7 +73,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                     let mut tmpmap = std::collections::BTreeMap::new();
                     #(#ipld)*
                     libipld::IpldRef::OwnedMap(tmpmap)
-                })
+                }),
             )
         }
         Fields::Unnamed(fields) => {
@@ -98,7 +98,7 @@ fn from_fields(ident: TokenStream, fields: &Fields) -> (TokenStream, TokenStream
                     let mut tmplist = Vec::with_capacity(#len);
                     #(#ipld)*
                     libipld::IpldRef::OwnedList(tmplist)
-                })
+                }),
             )
         }
         Fields::Unit => (quote!(#ident), quote!(libipld::IpldRef::Null)),

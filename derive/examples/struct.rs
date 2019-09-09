@@ -1,6 +1,6 @@
 //use cid::Cid;
 use ipld_derive::Ipld;
-use libipld::{Ipld, IpldKey, IpldError};
+use libipld::{Ipld, IpldError, IpldKey};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]

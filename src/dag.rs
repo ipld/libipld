@@ -81,7 +81,9 @@ mod tests {
     fn test_dag() {
         let store = MemStore::default();
         let mut dag = Dag::new(store);
-        let cid = dag.put_block::<DefaultPrefix>(ipld!({"a": 3}).as_ref()).unwrap();
+        let cid = dag
+            .put_block::<DefaultPrefix>(ipld!({"a": 3}).as_ref())
+            .unwrap();
         let root = dag
             .put_block::<DefaultPrefix>(ipld!({"root": [{"child": &cid}]}).as_ref())
             .unwrap();
