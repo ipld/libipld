@@ -1,5 +1,4 @@
-//! CBOR codec.
-use crate::codec::Codec;
+//! CBOR encoder.
 use crate::error::{format_err, Result};
 use crate::ipld::{Ipld, IpldKey, IpldRef};
 use byteorder::{BigEndian, ByteOrder};
@@ -8,11 +7,7 @@ use core::convert::TryInto;
 use std::collections::BTreeMap;
 use std::io::Write;
 
-/// CBOR codec.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct DagCbor;
-
-struct Encoder<W> {
+pub struct Encoder<W> {
     writer: W,
 }
 
@@ -69,8 +64,21 @@ impl<W: Write> Encoder<W> {
         Ok(())
     }
 
-    fn encode_null(&mut self) -> Result<()> {
-        self.writer.write_all(&[0xf6])?;
+    #[allow(clippy::float_cmp)]
+    fn write_f32(&mut self, value: f32) -> Result<()> {
+        if value.is_infinite() {
+            if value.is_sign_positive() {
+                self.writer.write_all(&[0xf9, 0x7c, 0x00])?;
+            } else {
+                self.writer.write_all(&[0xf9, 0xfc, 0x00])?;
+            }
+        } else if value.is_nan() {
+            self.writer.write_all(&[0xf9, 0x7e, 0x00])?;
+        } else {
+            let mut buf = [0xfa, 0, 0, 0, 0];
+            BigEndian::write_f32(&mut buf[1..], value);
+            self.writer.write_all(&buf)?;
+        }
         Ok(())
     }
 
@@ -94,9 +102,22 @@ impl<W: Write> Encoder<W> {
         }
         Ok(())
     }
+    
+    #[allow(clippy::float_cmp)]
+    fn encode_float(&mut self, value: f64) -> Result<()> {
+        if !value.is_finite() || f64::from(value as f32) == value {
+            self.write_f32(value as f32)?;
+        } else {
+            let mut buf = [0xfb, 0, 0, 0, 0, 0, 0, 0, 0];
+            BigEndian::write_f64(&mut buf[1..], value);
+            self.writer.write_all(&buf)?;
+        }
+        Ok(())
+    }
 
-    fn encode_float(&mut self, _value: f64) -> Result<()> {
-        unimplemented!()
+    fn encode_null(&mut self) -> Result<()> {
+        self.writer.write_all(&[0xf6])?;
+        Ok(())
     }
 
     fn encode_bytes(&mut self, value: &[u8]) -> Result<()> {
@@ -194,69 +215,3 @@ impl<W: Write> Encoder<W> {
     }
 }
 
-/*
-fn decode(cbor: &Value) -> Result<Ipld> {
-    let ipld = match cbor {
-        Value::Null => Ipld::Null,
-        Value::Bool(b) => Ipld::Bool(*b),
-        Value::Integer(i) => Ipld::Integer(*i),
-        Value::Float(f) => Ipld::Float(*f),
-        Value::Bytes(bytes) => Ipld::Bytes(bytes.to_owned()),
-        Value::Text(string) => Ipld::String(string.to_owned()),
-        Value::Array(array) => {
-            let mut list = Vec::with_capacity(array.len());
-            for item in array.iter() {
-                list.push(decode(item)?);
-            }
-            Ipld::List(list)
-        }
-        Value::Map(object) => {
-            if let Some(Value::Bytes(bytes)) = object.get(&Value::Integer(42)) {
-                Ipld::Link(Cid::try_from(bytes.as_slice())?)
-            } else {
-                let mut map = HashMap::with_capacity(object.len());
-                for (k, v) in object.iter() {
-                    map.insert(decode(k)?.try_into()?, decode(v)?);
-                }
-                Ipld::Map(map)
-            }
-        }
-        Value::__Hidden => return Err(format_err!("__Hidden value not supported")),
-    };
-    Ok(ipld)
-}*/
-
-impl Codec for DagCbor {
-    const VERSION: cid::Version = cid::Version::V1;
-    const CODEC: cid::Codec = cid::Codec::DagCBOR;
-
-    fn encode<'a>(ipld: IpldRef<'a>) -> Result<Box<[u8]>> {
-        let mut bytes = Vec::new();
-        let mut enc = Encoder::new(&mut bytes);
-        enc.encode(ipld)?;
-        Ok(bytes.into_boxed_slice())
-    }
-
-    fn decode(_data: &[u8]) -> Result<Ipld> {
-        Ok(Ipld::Null)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{block, ipld};
-
-    #[test]
-    fn encode_decode_cbor() {
-        let link = block!(null).unwrap();
-        let ipld = ipld!({
-          "number": 1,
-          "list": [true, null],
-          "bytes": vec![0, 1, 2, 3],
-          "link": link.cid(),
-        });
-        let ipld2 = DagCbor::decode(&DagCbor::encode(ipld.as_ref()).unwrap()).unwrap();
-        assert_eq!(ipld, ipld2);
-    }
-}
