@@ -1,6 +1,6 @@
 //! CBOR decoder
 use crate::error::Result;
-use crate::ipld::{Ipld, IpldKey};
+use crate::ipld::Ipld;
 use byteorder::{BigEndian, ByteOrder};
 use cid::Cid;
 use core::convert::TryFrom;
@@ -103,8 +103,8 @@ impl<R: Read> Decoder<R> {
         Ok(Cid::try_from(bytes)?)
     }
 
-    fn parse_map(&mut self, len: usize) -> Result<BTreeMap<IpldKey, Ipld>> {
-        let mut map: BTreeMap<IpldKey, Ipld> = BTreeMap::new();
+    fn parse_map(&mut self, len: usize) -> Result<BTreeMap<String, Ipld>> {
+        let mut map: BTreeMap<String, Ipld> = BTreeMap::new();
         for _ in 0..len {
             let key = self.parse_key()?;
             let value = self.parse_ipld()?;
@@ -125,17 +125,43 @@ impl<R: Read> Decoder<R> {
         Ok(BigEndian::read_f64(&buf))
     }
 
-    fn parse_key(&mut self) -> Result<IpldKey> {
-        let ipld = self.parse_ipld()?;
-        let key = IpldKey::try_from(ipld)?;
-        Ok(key)
+    fn parse_key(&mut self) -> Result<String> {
+        let byte = self.parse_u8()?;
+        let string = match byte {
+            // Major type 3: a text string
+            0x60..=0x77 => {
+                let len = byte - 0x60;
+                self.parse_str(len as usize)?
+            }
+            0x78 => {
+                let len = self.parse_u8()?;
+                self.parse_str(len as usize)?
+            }
+            0x79 => {
+                let len = self.parse_u16()?;
+                self.parse_str(len as usize)?
+            }
+            0x7a => {
+                let len = self.parse_u32()?;
+                self.parse_str(len as usize)?
+            }
+            0x7b => {
+                let len = self.parse_u64()?;
+                if len > usize::max_value() as u64 {
+                    return Err(CborError::LengthOutOfRange.into());
+                }
+                self.parse_str(len as usize)?
+            }
+            _ => return Err(CborError::UnexpectedCode.into()),
+        };
+        Ok(string)
     }
 
     fn parse_ipld(&mut self) -> Result<Ipld> {
         let byte = self.parse_u8()?;
         let ipld = match byte {
             // Major type 0: an unsigned integer
-            0x00..=0x17 => Ipld::from(byte),
+            0x00..=0x17 => Ipld::Integer(byte as i128),
             0x18 => Ipld::Integer(self.parse_u8()? as i128),
             0x19 => Ipld::Integer(self.parse_u16()? as i128),
             0x1a => Ipld::Integer(self.parse_u32()? as i128),

@@ -234,11 +234,11 @@ macro_rules! ipld_internal {
     };
 
     (true) => {
-        $crate::Ipld::from(true)
+        $crate::Ipld::Bool(true)
     };
 
     (false) => {
-        $crate::Ipld::from(false)
+        $crate::Ipld::Bool(false)
     };
 
     ([]) => {
@@ -246,15 +246,15 @@ macro_rules! ipld_internal {
     };
 
     ([ $($tt:tt)+ ]) => {
-        $crate::Ipld::from(ipld_internal!(@array [] $($tt)+))
+        $crate::Ipld::List(ipld_internal!(@array [] $($tt)+))
     };
 
     ({}) => {
-        $crate::Ipld::from(std::collections::BTreeMap::new())
+        $crate::Ipld::Map(std::collections::BTreeMap::new())
     };
 
     ({ $($tt:tt)+ }) => {
-        $crate::Ipld::from({
+        $crate::Ipld::Map({
             let mut object = std::collections::BTreeMap::new();
             ipld_internal!(@object object () ($($tt)+) ($($tt)+));
             object
@@ -264,7 +264,10 @@ macro_rules! ipld_internal {
     // Any Serialize type: numbers, strings, struct literals, variables etc.
     // Must be below every other rule.
     ($other:expr) => {
-        $crate::Ipld::from($other)
+        {
+            use $crate::convert::ToIpld;
+            $other.to_ipld().to_owned()
+        }
     };
 }
 

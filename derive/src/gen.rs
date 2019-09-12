@@ -74,7 +74,7 @@ impl BindingRepr {
             Self::Map => {
                 let fields = bindings.iter().enumerate().map(|(i, binding)| {
                     let key = field_key(i, binding.ast());
-                    quote!(map.insert(IpldKey::from(#key), IpldRef::from(#binding));)
+                    quote!(map.insert(#key.into(), #binding.to_ipld());)
                 });
                 quote!({
                     let mut map = BTreeMap::new();
@@ -86,7 +86,7 @@ impl BindingRepr {
                 let len = bindings.len();
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(list.push(IpldRef::from(#binding));));
+                    .map(|binding| quote!(list.push(#binding.to_ipld());));
                 quote!({
                     let mut list = Vec::with_capacity(#len);
                     #(#fields)*
@@ -102,8 +102,8 @@ impl BindingRepr {
                 let construct = variant.construct(|field, i| {
                     let key = field_key(i, field);
                     quote!({
-                        if let Some(ipld) = map.remove(&#key.into()) {
-                            ipld.try_into()?
+                        if let Some(ipld) = map.remove(#key) {
+                            FromIpld::from_ipld(ipld)?
                         } else {
                             return Err(IpldError::KeyNotFound);
                         }
@@ -121,7 +121,7 @@ impl BindingRepr {
                 let len = variant.bindings().len();
                 let construct = variant.construct(|_field, i| {
                     quote! {
-                        list[#i].clone().try_into()?
+                        FromIpld::from_ipld(list[#i].clone())?
                     }
                 });
                 quote! {
@@ -156,7 +156,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     let mut map = BTreeMap::new();
-                    map.insert(IpldKey::from(#name), #bindings);
+                    map.insert(#name.into(), #bindings);
                     IpldRef::OwnedMap(map)
                 }
             }
@@ -171,7 +171,7 @@ impl VariantRepr {
             Self::Keyed => {
                 let name = variant.ast().ident.to_string();
                 quote! {
-                    if let Some(ipld) = map.get_mut(&#name.into()) {
+                    if let Some(ipld) = map.get_mut(#name) {
                         return {#bindings};
                     }
                 }

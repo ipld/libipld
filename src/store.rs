@@ -1,5 +1,6 @@
 //! Traits for implementing a block store.
-use crate::codec::{decode, Codec, FromIpld, ToIpld};
+use crate::codec::{decode, Codec};
+use crate::convert::{FromIpld, ToIpld};
 use crate::error::{format_err, Result};
 use crate::hash::{digest, Hash};
 pub use cid::Cid;

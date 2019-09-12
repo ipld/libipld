@@ -1,6 +1,6 @@
 //! CBOR encoder.
 use crate::error::{format_err, Result};
-use crate::ipld::{Ipld, IpldKey, IpldRef};
+use crate::ipld::{Ipld, IpldRef};
 use byteorder::{BigEndian, ByteOrder};
 use cid::Cid;
 use core::convert::TryInto;
@@ -148,30 +148,22 @@ impl<W: Write> Encoder<W> {
         Ok(())
     }
 
-    fn encode_map(&mut self, value: &BTreeMap<IpldKey, Ipld>) -> Result<()> {
+    fn encode_map(&mut self, value: &BTreeMap<String, Ipld>) -> Result<()> {
         self.write_u64(5, value.len().try_into()?)?;
         for (k, v) in value {
-            self.encode_key(k)?;
+            self.encode_str(k)?;
             self.encode_ipld(v)?;
         }
         Ok(())
     }
 
-    fn encode_map_ref<'a>(&mut self, value: &BTreeMap<IpldKey, IpldRef<'a>>) -> Result<()> {
+    fn encode_map_ref<'a>(&mut self, value: &BTreeMap<String, IpldRef<'a>>) -> Result<()> {
         self.write_u64(5, value.len().try_into()?)?;
         for (k, v) in value {
-            self.encode_key(k)?;
+            self.encode_str(k)?;
             self.encode_ipld_ref(v)?;
         }
         Ok(())
-    }
-
-    fn encode_key(&mut self, ipld: &IpldKey) -> Result<()> {
-        match ipld {
-            IpldKey::Integer(i) => self.encode_int(*i),
-            IpldKey::Bytes(b) => self.encode_bytes(b),
-            IpldKey::String(s) => self.encode_str(s),
-        }
     }
 
     fn encode_link(&mut self, cid: &Cid) -> Result<()> {

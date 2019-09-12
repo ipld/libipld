@@ -12,7 +12,7 @@ fn ipld_derive(s: Structure) -> TokenStream {
     s.gen_impl(quote! {
         use core::convert::TryInto;
         use core::result::Result;
-        use libipld::{Ipld, IpldError, IpldKey, IpldRef, ToIpld, FromIpld};
+        use libipld::{Ipld, IpldError, IpldRef, ToIpld, FromIpld};
         use std::collections::BTreeMap;
 
         gen impl ToIpld for @Self {

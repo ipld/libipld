@@ -51,3 +51,9 @@ impl From<Error> for IpldError {
         IpldError::Other(err)
     }
 }
+
+impl From<core::convert::Infallible> for IpldError {
+    fn from(_: core::convert::Infallible) -> Self {
+        unreachable!();
+    }
+}

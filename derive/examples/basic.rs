@@ -1,6 +1,6 @@
 //use cid::Cid;
 use ipld_derive::Ipld;
-use libipld::{FromIpld, Ipld, IpldError, IpldKey, ToIpld};
+use libipld::{FromIpld, Ipld, IpldError, ToIpld};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
@@ -11,9 +11,8 @@ struct NamedStruct {
     string: String,
     bytes: Vec<u8>,
     list: Vec<Ipld>,
-    map: BTreeMap<IpldKey, Ipld>,
+    map: BTreeMap<String, Ipld>,
     //link: Cid,
-    //nested: Ipld,
 }
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
@@ -27,6 +26,13 @@ enum Enum {
     A,
     B(bool, u32),
     C { boolean: bool, int: u32 },
+}
+
+#[derive(Clone, Debug, Ipld, PartialEq)]
+struct Nested {
+    ipld: Ipld,
+    list_of_derived: Vec<Enum>,
+    map_of_derived: BTreeMap<String, NamedStruct>,
 }
 
 fn main() -> Result<(), IpldError> {

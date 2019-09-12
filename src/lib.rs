@@ -4,6 +4,7 @@
 #![deny(warnings)]
 
 pub mod codec;
+pub mod convert;
 pub mod dag;
 pub mod error;
 pub mod hash;
@@ -13,6 +14,7 @@ pub mod path;
 pub mod store;
 
 pub use crate::codec::*;
+pub use crate::convert::*;
 pub use crate::dag::*;
 pub use crate::error::*;
 pub use crate::hash::*;
