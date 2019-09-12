@@ -62,6 +62,15 @@ pub enum BindingRepr {
 
 impl BindingRepr {
     pub fn from_variant(variant: &VariantInfo) -> Self {
+        for attr in variant.ast().attrs {
+            if let Some(Attr::Repr(repr)) = Attr::from_attr(attr) {
+                return match repr.as_str() {
+                    "map" => Self::Map,
+                    "list" => Self::List,
+                    _ => panic!("unsupported repr"),
+                }
+            }
+        }
         match variant.ast().fields {
             Fields::Named(_) => Self::Map,
             Fields::Unnamed(_) => Self::List,
@@ -141,6 +150,19 @@ impl BindingRepr {
 
 impl VariantRepr {
     pub fn from_structure(s: &Structure) -> Self {
+        for attr in &s.ast().attrs {
+            if let Some(Attr::Repr(repr)) = Attr::from_attr(attr) {
+                match repr.as_str() {
+                    "kinded" => {
+                        return Self::Kinded;
+                    }
+                    "keyed" => {
+                        return Self::Keyed;
+                    }
+                    _ => {}
+                }
+            }
+        }
         match &s.ast().data {
             Data::Struct(_) => Self::Kinded,
             Data::Enum(_) => Self::Keyed,
