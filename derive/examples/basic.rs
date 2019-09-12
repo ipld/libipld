@@ -1,6 +1,6 @@
 //use cid::Cid;
 use ipld_derive::Ipld;
-use libipld::{Ipld, IpldError, IpldKey};
+use libipld::{FromIpld, Ipld, IpldError, IpldKey, ToIpld};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]
@@ -13,6 +13,7 @@ struct NamedStruct {
     list: Vec<Ipld>,
     map: BTreeMap<IpldKey, Ipld>,
     //link: Cid,
+    //nested: Ipld,
 }
 
 #[derive(Clone, Debug, Default, Ipld, PartialEq)]

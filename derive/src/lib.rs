@@ -1,27 +1,28 @@
-extern crate proc_macro;
-
-mod from_ipld;
-mod to_ipld;
-
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput};
+use synstructure::{decl_derive, Structure};
 
-#[proc_macro_derive(Ipld)]
-pub fn derive_ipld(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let ident = &input.ident;
-    let from_ipld = crate::from_ipld::from_ipld(&input.ident, &input.data);
-    let to_ipld = crate::to_ipld::to_ipld(&input.ident, &input.data);
+decl_derive!([Ipld, attributes(ipld)] => ipld_derive);
 
-    let expanded = quote! {
-        impl #ident {
+mod gen;
+
+fn ipld_derive(s: Structure) -> TokenStream {
+    let to_ipld = gen::to_ipld(&s);
+    let from_ipld = gen::from_ipld(&s);
+    s.gen_impl(quote! {
+        use core::convert::TryInto;
+        use core::result::Result;
+        use libipld::{Ipld, IpldError, IpldKey, IpldRef, ToIpld, FromIpld};
+        use std::collections::BTreeMap;
+
+        gen impl ToIpld for @Self {
             #to_ipld
+        }
+
+        gen impl FromIpld for @Self {
             #from_ipld
         }
-    };
-
-    TokenStream::from(expanded)
+    })
 }
 
 #[cfg(test)]
@@ -29,6 +30,6 @@ mod tests {
     #[test]
     fn test() {
         let t = trybuild::TestCases::new();
-        t.pass("examples/struct.rs");
+        t.pass("examples/basic.rs");
     }
 }
