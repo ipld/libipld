@@ -1,5 +1,5 @@
 //! `Ipld` codecs.
-use crate::error::{format_err, Result};
+use crate::error::{format_err, IpldError, Result};
 use crate::ipld::{Ipld, IpldRef};
 
 pub mod cbor;
@@ -24,5 +24,29 @@ pub fn decode(codec: cid::Codec, data: &[u8]) -> Result<Ipld> {
         cid::Codec::DagCBOR => DagCbor::decode(&data),
 
         _ => Err(format_err!("unsupported codec {:?}", codec)),
+    }
+}
+
+/// Serialize to ipld.
+pub trait ToIpld {
+    /// Returns an ipld reference.
+    fn to_ipld<'a>(&'a self) -> IpldRef<'a>;
+}
+
+/// Deserialize from ipld.
+pub trait FromIpld: Sized {
+    /// Returns an ipld error or a new instance.
+    fn from_ipld(ipld: Ipld) -> core::result::Result<Self, IpldError>;
+}
+
+impl ToIpld for Ipld {
+    fn to_ipld<'a>(&'a self) -> IpldRef<'a> {
+        self.as_ref()
+    }
+}
+
+impl FromIpld for Ipld {
+    fn from_ipld(ipld: Ipld) -> core::result::Result<Self, IpldError> {
+        Ok(ipld)
     }
 }

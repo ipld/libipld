@@ -1,9 +1,8 @@
 //! Ipld dag.
-use crate::block::{Block, Cid, Prefix};
 use crate::error::{format_err, Result};
-use crate::ipld::{Ipld, IpldRef};
+use crate::ipld::Ipld;
 use crate::path::Path;
-use crate::store::IpldStore;
+use crate::store::{Cid, IpldStore, Prefix};
 
 /// Path in a dag.
 #[derive(Clone, Debug, PartialEq, Hash)]
@@ -35,7 +34,7 @@ impl<TStore: IpldStore> Dag<TStore> {
     }
 
     /// Retrives a block from the store.
-    pub fn get_block(&self, cid: &Cid) -> Result<Ipld> {
+    pub fn get_ipld(&self, cid: &Cid) -> Result<Ipld> {
         self.store.read(cid)
     }
 
@@ -66,8 +65,8 @@ impl<TStore: IpldStore> Dag<TStore> {
     }
 
     /// Puts ipld into the dag.
-    pub fn put_block<'a, TPrefix: Prefix>(&mut self, ipld: IpldRef<'a>) -> Result<Cid> {
-        self.store.write(Block::new::<TPrefix>(ipld)?)
+    pub fn put_ipld<TPrefix: Prefix>(&mut self, ipld: &Ipld) -> Result<Cid> {
+        self.store.write::<TPrefix, _>(ipld)
     }
 }
 
@@ -81,11 +80,9 @@ mod tests {
     fn test_dag() {
         let store = MemStore::default();
         let mut dag = Dag::new(store);
-        let cid = dag
-            .put_block::<DefaultPrefix>(ipld!({"a": 3}).as_ref())
-            .unwrap();
+        let cid = dag.put_ipld::<DefaultPrefix>(&ipld!({"a": 3})).unwrap();
         let root = dag
-            .put_block::<DefaultPrefix>(ipld!({"root": [{"child": &cid}]}).as_ref())
+            .put_ipld::<DefaultPrefix>(&ipld!({"root": [{"child": &cid}]}))
             .unwrap();
         let path = DagPath::new(&root, "root/0/child/a");
         assert_eq!(dag.get(&path).unwrap(), Some(Ipld::Integer(3)));

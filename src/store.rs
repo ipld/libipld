@@ -1,9 +1,17 @@
 //! Traits for implementing a block store.
-use crate::block::{Block, Cid};
-use crate::codec::decode;
+use crate::codec::{decode, Codec, FromIpld, ToIpld};
 use crate::error::{format_err, Result};
-use crate::hash::digest;
-use crate::ipld::Ipld;
+use crate::hash::{digest, Hash};
+pub use cid::Cid;
+
+/// The prefix of a block includes all information to serialize and deserialize
+/// to/from ipld.
+pub trait Prefix {
+    /// The codec to use for encoding ipld.
+    type Codec: Codec;
+    /// The hash to use to compute the cid.
+    type Hash: Hash;
+}
 
 /// Implementable by ipld storage backends.
 pub trait BlockStore: Default {
@@ -20,26 +28,29 @@ pub trait BlockStore: Default {
 /// Auto implemented trait for all block stores.
 pub trait IpldStore: Default {
     /// Reads the block with cid.
-    fn read(&self, cid: &Cid) -> Result<Ipld>;
+    fn read<D: FromIpld>(&self, cid: &Cid) -> Result<D>;
     /// Writes a raw block.
-    fn write(&mut self, block: Block) -> Result<Cid>;
+    fn write<TPrefix: Prefix, S: ToIpld>(&mut self, s: &S) -> Result<Cid>;
     /// Deletes the block with cid.
     fn delete(&mut self, cid: &Cid) -> Result<()>;
 }
 
 impl<T: BlockStore> IpldStore for T {
-    fn read(&self, cid: &Cid) -> Result<Ipld> {
+    fn read<D: FromIpld>(&self, cid: &Cid) -> Result<D> {
         let data = unsafe { BlockStore::read(self, cid)? };
         let hash = digest(cid.hash().code(), &data);
         if cid.hash() != hash.as_ref() {
             return Err(format_err!("Invalid data"));
         }
         let ipld = decode(cid.codec(), &data)?;
-        Ok(ipld)
+        let d = D::from_ipld(ipld)?;
+        Ok(d)
     }
 
-    fn write(&mut self, block: Block) -> Result<Cid> {
-        let (cid, data) = block.split();
+    fn write<TPrefix: Prefix, S: ToIpld>(&mut self, s: &S) -> Result<Cid> {
+        let data = TPrefix::Codec::encode(s.to_ipld())?;
+        let hash = TPrefix::Hash::digest(&data);
+        let cid = Cid::new_v1(TPrefix::Codec::CODEC, hash);
         unsafe { BlockStore::write(self, &cid, data)? };
         Ok(cid)
     }

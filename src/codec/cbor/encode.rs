@@ -102,7 +102,7 @@ impl<W: Write> Encoder<W> {
         }
         Ok(())
     }
-    
+
     #[allow(clippy::float_cmp)]
     fn encode_float(&mut self, value: f64) -> Result<()> {
         if !value.is_finite() || f64::from(value as f32) == value {
@@ -214,4 +214,3 @@ impl<W: Write> Encoder<W> {
         self.encode_ipld_ref(&ipld)
     }
 }
-

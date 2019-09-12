@@ -31,17 +31,17 @@ impl Codec for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{block, ipld};
+    use crate::ipld;
+    use cid::Cid;
 
     #[test]
     fn encode_decode_cbor() {
-        let link = block!(null).unwrap();
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],
           "bytes": vec![0, 1, 2, 3],
           "map": { "float": 0.0, "string": "hello" },
-          "link": link.cid(),
+          "link": Cid::random(),
         });
         let ipld2 = DagCbor::decode(&DagCbor::encode(ipld.as_ref()).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);

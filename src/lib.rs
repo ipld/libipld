@@ -3,7 +3,6 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-pub mod block;
 pub mod codec;
 pub mod dag;
 pub mod error;
@@ -13,7 +12,6 @@ pub mod macros;
 pub mod path;
 pub mod store;
 
-pub use crate::block::*;
 pub use crate::codec::*;
 pub use crate::dag::*;
 pub use crate::error::*;

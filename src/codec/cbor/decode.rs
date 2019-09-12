@@ -46,7 +46,7 @@ impl<R: Read> Decoder<R> {
         taken.read_to_end(&mut bytes)?;
         Ok(bytes)
     }
-    
+
     fn parse_u8(&mut self) -> Result<u8> {
         let mut buf = [0; 1];
         self.reader.read_exact(&mut buf)?;
@@ -74,13 +74,13 @@ impl<R: Read> Decoder<R> {
     fn parse_bytes(&mut self, len: usize) -> Result<Vec<u8>> {
         self.read(len)
     }
-    
+
     fn parse_str(&mut self, len: usize) -> Result<String> {
         let bytes = self.read(len)?;
         let string = std::str::from_utf8(&bytes)?;
         Ok(string.to_string())
     }
-    
+
     fn parse_list(&mut self, len: usize) -> Result<Vec<Ipld>> {
         let mut list: Vec<Ipld> = Vec::with_capacity(len);
         for _ in 0..len {
@@ -102,7 +102,7 @@ impl<R: Read> Decoder<R> {
         let bytes = self.parse_bytes(len as usize)?;
         Ok(Cid::try_from(bytes)?)
     }
-    
+
     fn parse_map(&mut self, len: usize) -> Result<BTreeMap<IpldKey, Ipld>> {
         let mut map: BTreeMap<IpldKey, Ipld> = BTreeMap::new();
         for _ in 0..len {
@@ -130,7 +130,7 @@ impl<R: Read> Decoder<R> {
         let key = IpldKey::try_from(ipld)?;
         Ok(key)
     }
-    
+
     fn parse_ipld(&mut self) -> Result<Ipld> {
         let byte = self.parse_u8()?;
         let ipld = match byte {
@@ -306,5 +306,4 @@ impl<R: Read> Decoder<R> {
         };
         Ok(ipld)
     }
-
 }

@@ -55,6 +55,18 @@ pub enum IpldRef<'a> {
     Link(&'a Cid),
 }
 
+impl<'a> From<&'a Ipld> for IpldRef<'a> {
+    fn from(ipld: &'a Ipld) -> Self {
+        ipld.as_ref()
+    }
+}
+
+impl<'a> From<IpldRef<'a>> for Ipld {
+    fn from(ipld: IpldRef<'a>) -> Self {
+        ipld.to_owned()
+    }
+}
+
 /// Ipld key
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum IpldKey {

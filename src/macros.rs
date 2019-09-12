@@ -285,17 +285,10 @@ macro_rules! ipld_unexpected {
     () => {};
 }
 
-/// Creates a block from ipld.
-#[macro_export]
-macro_rules! block {
-    ($tt:tt) => {
-        $crate::block::Block::new::<$crate::DefaultPrefix>($crate::ipld!($tt).as_ref())
-    };
-}
-
 #[cfg(test)]
 mod tests {
     use crate::ipld::Ipld;
+    use cid::Cid;
 
     #[test]
     fn test_macro() {
@@ -308,14 +301,11 @@ mod tests {
         let _: Ipld = ipld!([]);
         let _: Ipld = ipld!([1, 2, 3]);
         let _: Ipld = ipld!({});
-        let block = block!({
+        let _: Ipld = ipld!({
             "bye": null,
             "numbers": [1, 2, 3],
             "a": a,
-        })
-        .unwrap();
-        let _: Ipld = ipld!({
-            "link": block.cid(),
         });
+        let _: Ipld = ipld!(Cid::random());
     }
 }
