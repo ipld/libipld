@@ -1,9 +1,48 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use syn::{Data, Field, Fields};
+use syn::{Attribute, Data, Field, Fields};
 use synstructure::{BindingInfo, Structure, VariantInfo};
 
+pub enum Attr {
+    Name(String),
+    Repr(String),
+}
+
+impl Attr {
+    pub fn from_attr(attr: &Attribute) -> Option<Self> {
+        if attr.path.segments[0].ident != "ipld" {
+            return None;
+        }
+        if let TokenTree::Group(group) = attr.tokens.clone().into_iter().next().unwrap() {
+            let key = if let TokenTree::Ident(key) = group.stream().into_iter().nth(0).unwrap() {
+                key.to_string()
+            } else {
+                panic!("invalid attr");
+            };
+            let value =
+                if let TokenTree::Literal(value) = group.stream().into_iter().nth(2).unwrap() {
+                    let value = value.to_string();
+                    value[1..(value.len() - 1)].to_string()
+                } else {
+                    panic!("invalid attr");
+                };
+            match key.as_str() {
+                "name" => return Some(Self::Name(value)),
+                "repr" => return Some(Self::Repr(value)),
+                attr => panic!("Unknown attr {}", attr),
+            }
+        } else {
+            panic!("invalid attr");
+        }
+    }
+}
+
 fn field_key(i: usize, field: &Field) -> String {
+    for attr in &field.attrs {
+        if let Some(Attr::Name(name)) = Attr::from_attr(attr) {
+            return name;
+        }
+    }
     field
         .ident
         .as_ref()

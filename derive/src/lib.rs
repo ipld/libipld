@@ -31,5 +31,6 @@ mod tests {
     fn test() {
         let t = trybuild::TestCases::new();
         t.pass("examples/basic.rs");
+        t.pass("examples/rename_fields.rs");
     }
 }
