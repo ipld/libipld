@@ -46,7 +46,7 @@ derive_to_ipld!(Integer, i32, clone);
 derive_to_ipld!(Integer, i64, clone);
 derive_to_ipld!(Integer, i128, clone);
 derive_to_ipld!(Integer, isize, clone);
-//derive_to_ipld!(Integer, u8, clone);
+derive_to_ipld!(Integer, u8, clone);
 derive_to_ipld!(Integer, u16, clone);
 derive_to_ipld!(Integer, u32, clone);
 derive_to_ipld!(Integer, u64, clone);
@@ -57,8 +57,8 @@ derive_to_ipld!(String, String, as_str);
 derive_to_ipld!(String, &str, clone);
 derive_to_ipld!(Bytes, Vec<u8>, as_slice);
 derive_to_ipld!(Bytes, &[u8], clone);
-//derive_to_ipld!(List, Vec<Ipld>, as_slice);
-//derive_to_ipld!(Map, BTreeMap<String, Ipld>, borrow);
+derive_to_ipld!(List, Vec<Ipld>, as_slice);
+derive_to_ipld!(Map, BTreeMap<String, Ipld>, borrow);
 derive_to_ipld!(Link, Cid, borrow);
 derive_to_ipld!(Link, &Cid, clone);
 
@@ -86,7 +86,7 @@ derive_from_ipld!(Integer, i32, NotInteger);
 derive_from_ipld!(Integer, i64, NotInteger);
 derive_from_ipld!(Integer, i128, NotInteger);
 derive_from_ipld!(Integer, isize, NotInteger);
-//derive_from_ipld!(Integer, u8, NotInteger);
+derive_from_ipld!(Integer, u8, NotInteger);
 derive_from_ipld!(Integer, u16, NotInteger);
 derive_from_ipld!(Integer, u32, NotInteger);
 derive_from_ipld!(Integer, u64, NotInteger);
@@ -95,11 +95,11 @@ derive_from_ipld!(Integer, usize, NotInteger);
 derive_from_ipld!(Float, f64, NotFloat);
 derive_from_ipld!(String, String, NotString);
 derive_from_ipld!(Bytes, Vec<u8>, NotBytes);
-//derive_from_ipld!(List, Vec<Ipld>, NotList);
-//derive_from_ipld!(Map, BTreeMap<String, Ipld>, NotMap);
+derive_from_ipld!(List, Vec<Ipld>, NotList);
+derive_from_ipld!(Map, BTreeMap<String, Ipld>, NotMap);
 derive_from_ipld!(Link, Cid, NotLink);
 
-impl<T: ToIpld> ToIpld for Vec<T> {
+/*impl<T: ToIpld> ToIpld for Vec<T> {
     fn to_ipld<'a>(&'a self) -> IpldRef<'a> {
         IpldRef::OwnedList(self.iter().map(ToIpld::to_ipld).collect())
     }
@@ -133,4 +133,4 @@ impl<V: FromIpld> FromIpld for BTreeMap<String, V> {
             Err(IpldError::NotMap)
         }
     }
-}
+}*/
