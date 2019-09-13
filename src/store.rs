@@ -1,18 +1,11 @@
 //! Traits for implementing a block store.
-use crate::codec::{decode, Codec};
-use crate::convert::{FromIpld, ToIpld};
+use crate::codec::decode;
+use crate::codec::cbor::WriteCbor;
+use crate::convert::FromIpld;
 use crate::error::{format_err, Result};
 use crate::hash::{digest, Hash};
-pub use cid::Cid;
-
-/// The prefix of a block includes all information to serialize and deserialize
-/// to/from ipld.
-pub trait Prefix {
-    /// The codec to use for encoding ipld.
-    type Codec: Codec;
-    /// The hash to use to compute the cid.
-    type Hash: Hash;
-}
+use crate::ipld::Cid;
+use cid::Codec;
 
 /// Implementable by ipld storage backends.
 pub trait BlockStore: Default {
@@ -31,7 +24,7 @@ pub trait IpldStore: Default {
     /// Reads the block with cid.
     fn read<D: FromIpld>(&self, cid: &Cid) -> Result<D>;
     /// Writes a raw block.
-    fn write<TPrefix: Prefix, S: ToIpld>(&mut self, s: &S) -> Result<Cid>;
+    fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid>;
     /// Deletes the block with cid.
     fn delete(&mut self, cid: &Cid) -> Result<()>;
 }
@@ -48,11 +41,12 @@ impl<T: BlockStore> IpldStore for T {
         Ok(d)
     }
 
-    fn write<TPrefix: Prefix, S: ToIpld>(&mut self, s: &S) -> Result<Cid> {
-        let data = TPrefix::Codec::encode(s.to_ipld())?;
-        let hash = TPrefix::Hash::digest(&data);
-        let cid = Cid::new_v1(TPrefix::Codec::CODEC, hash);
-        unsafe { BlockStore::write(self, &cid, data)? };
+    fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid> {
+        let mut data = Vec::new();
+        c.write_cbor(&mut data)?;
+        let hash = H::digest(&data);
+        let cid = Cid::new_v1(Codec::DagCBOR, hash);
+        unsafe { BlockStore::write(self, &cid, data.into_boxed_slice())? };
         Ok(cid)
     }
 

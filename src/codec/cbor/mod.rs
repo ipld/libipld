@@ -1,23 +1,24 @@
 //! CBOR codec.
 use crate::codec::Codec;
 use crate::error::Result;
-use crate::ipld::{Ipld, IpldRef};
+use crate::ipld::Ipld;
 
-mod decode;
-mod encode;
+pub mod decode;
+pub mod encode;
+
+pub use encode::WriteCbor;
 
 /// CBOR codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct DagCbor;
+pub struct DagCborCodec;
 
-impl Codec for DagCbor {
+impl Codec for DagCborCodec {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    fn encode<'a>(ipld: IpldRef<'a>) -> Result<Box<[u8]>> {
+    fn encode(ipld: &Ipld) -> Result<Box<[u8]>> {
         let mut bytes = Vec::new();
-        let mut enc = encode::Encoder::new(&mut bytes);
-        enc.encode(ipld)?;
+        ipld.write_cbor(&mut bytes)?;
         Ok(bytes.into_boxed_slice())
     }
 
@@ -43,7 +44,7 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": Cid::random(),
         });
-        let ipld2 = DagCbor::decode(&DagCbor::encode(ipld.as_ref()).unwrap()).unwrap();
+        let ipld2 = DagCborCodec::decode(&DagCborCodec::encode(&ipld).unwrap()).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

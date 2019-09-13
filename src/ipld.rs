@@ -182,7 +182,10 @@ mod tests {
 
     #[test]
     fn ipld_string_from() {
-        assert_eq!(Ipld::String("a string".into()), "a string".to_ipld().to_owned());
+        assert_eq!(
+            Ipld::String("a string".into()),
+            "a string".to_ipld().to_owned()
+        );
         assert_eq!(
             Ipld::String("a string".into()),
             Ipld::from("a string".to_string().to_ipld().to_owned())
@@ -191,8 +194,14 @@ mod tests {
 
     #[test]
     fn ipld_bytes_from() {
-        assert_eq!(Ipld::Bytes(vec![0, 1, 2, 3]), (&[0u8, 1u8, 2u8, 3u8][..]).to_ipld().to_owned());
-        assert_eq!(Ipld::Bytes(vec![0, 1, 2, 3]), vec![0u8, 1u8, 2u8, 3u8].to_ipld().to_owned());
+        assert_eq!(
+            Ipld::Bytes(vec![0, 1, 2, 3]),
+            (&[0u8, 1u8, 2u8, 3u8][..]).to_ipld().to_owned()
+        );
+        assert_eq!(
+            Ipld::Bytes(vec![0, 1, 2, 3]),
+            vec![0u8, 1u8, 2u8, 3u8].to_ipld().to_owned()
+        );
     }
 
     #[test]

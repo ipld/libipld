@@ -1,4 +1,5 @@
 //! CBOR decoder
+#![allow(missing_docs)]
 use crate::error::Result;
 use crate::ipld::Ipld;
 use byteorder::{BigEndian, ByteOrder};

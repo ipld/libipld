@@ -1,10 +1,10 @@
 //! `Ipld` codecs.
 use crate::error::{format_err, Result};
-use crate::ipld::{Ipld, IpldRef};
+use crate::ipld::Ipld;
 
 pub mod cbor;
 
-pub use self::cbor::DagCbor;
+pub use self::cbor::DagCborCodec;
 
 /// Codec trait.
 pub trait Codec {
@@ -13,7 +13,7 @@ pub trait Codec {
     /// Codec code.
     const CODEC: cid::Codec;
     /// Encode function.
-    fn encode<'a>(ipld: IpldRef<'a>) -> Result<Box<[u8]>>;
+    fn encode(ipld: &Ipld) -> Result<Box<[u8]>>;
     /// Decode function.
     fn decode(data: &[u8]) -> Result<Ipld>;
 }
@@ -21,8 +21,7 @@ pub trait Codec {
 /// Decode bytes.
 pub fn decode(codec: cid::Codec, data: &[u8]) -> Result<Ipld> {
     match codec {
-        cid::Codec::DagCBOR => DagCbor::decode(&data),
-
+        cid::Codec::DagCBOR => DagCborCodec::decode(&data),
         _ => Err(format_err!("unsupported codec {:?}", codec)),
     }
 }

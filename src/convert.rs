@@ -36,7 +36,7 @@ macro_rules! derive_to_ipld {
                 IpldRef::$enum(self.$fn() as _)
             }
         }
-    }
+    };
 }
 
 derive_to_ipld!(Bool, bool, clone);
@@ -69,14 +69,14 @@ macro_rules! derive_from_ipld {
                 if let Ipld::$enum(inner) = ipld {
                     match inner.try_into() {
                         Ok(res) => Ok(res),
-                        Err(err) => Err(IpldError::Other(err.into()))
+                        Err(err) => Err(IpldError::Other(err.into())),
                     }
                 } else {
                     Err(IpldError::$err)
                 }
             }
         }
-    }
+    };
 }
 
 derive_from_ipld!(Bool, bool, NotBool);

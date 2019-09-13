@@ -22,10 +22,5 @@ pub use crate::ipld::*;
 pub use crate::path::*;
 pub use crate::store::*;
 
-/// Default prefix.
-pub struct DefaultPrefix;
-
-impl Prefix for DefaultPrefix {
-    type Codec = DagCbor;
-    type Hash = Blake2b;
-}
+/// Default hash used.
+pub type DefaultHash = Blake2b;
