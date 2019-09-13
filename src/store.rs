@@ -1,10 +1,9 @@
 //! Traits for implementing a block store.
+use crate::codec::cbor::{ReadCbor, WriteCbor};
 use crate::codec::decode;
-use crate::codec::cbor::WriteCbor;
-use crate::convert::FromIpld;
 use crate::error::{format_err, Result};
 use crate::hash::{digest, Hash};
-use crate::ipld::Cid;
+use crate::ipld::{Cid, Ipld};
 use cid::Codec;
 
 /// Implementable by ipld storage backends.
@@ -22,7 +21,9 @@ pub trait BlockStore: Default {
 /// Auto implemented trait for all block stores.
 pub trait IpldStore: Default {
     /// Reads the block with cid.
-    fn read<D: FromIpld>(&self, cid: &Cid) -> Result<D>;
+    fn read_ipld(&self, cid: &Cid) -> Result<Ipld>;
+    /// Reads the block with cid.
+    fn read_cbor<C: ReadCbor>(&self, cid: &Cid) -> Result<C>;
     /// Writes a raw block.
     fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid>;
     /// Deletes the block with cid.
@@ -30,15 +31,26 @@ pub trait IpldStore: Default {
 }
 
 impl<T: BlockStore> IpldStore for T {
-    fn read<D: FromIpld>(&self, cid: &Cid) -> Result<D> {
+    fn read_ipld(&self, cid: &Cid) -> Result<Ipld> {
         let data = unsafe { BlockStore::read(self, cid)? };
         let hash = digest(cid.hash().code(), &data);
         if cid.hash() != hash.as_ref() {
-            return Err(format_err!("Invalid data"));
+            return Err(format_err!("Invalid hash"));
         }
-        let ipld = decode(cid.codec(), &data)?;
-        let d = D::from_ipld(ipld)?;
-        Ok(d)
+        decode(cid.codec(), &data)
+    }
+
+    fn read_cbor<C: ReadCbor>(&self, cid: &Cid) -> Result<C> {
+        if cid.codec() != cid::Codec::DagCBOR {
+            return Err(format_err!("Not cbor codec"));
+        }
+        let data = unsafe { BlockStore::read(self, cid)? };
+        let hash = digest(cid.hash().code(), &data);
+        if cid.hash() != hash.as_ref() {
+            return Err(format_err!("Invalid hash"));
+        }
+        let mut data_ref: &[u8] = &data;
+        C::read_cbor(&mut data_ref)
     }
 
     fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid> {

@@ -8,20 +8,21 @@ mod gen;
 
 fn dag_cbor_derive(s: Structure) -> TokenStream {
     let write_cbor = gen::write_cbor(&s);
-    //let from_ipld = gen::from_ipld(&s);
+    let read_cbor = gen::read_cbor(&s);
     s.gen_impl(quote! {
         use libipld::{Ipld, IpldError, Result};
-        use libipld::cbor::WriteCbor;
+        use libipld::cbor::{ReadCbor, WriteCbor};
         use libipld::cbor::encode::write_u64;
-        use std::io::Write;
+        use libipld::cbor::decode::read_u8;
+        use std::io::{Read, Write};
 
         gen impl WriteCbor for @Self {
             #write_cbor
         }
 
-        /*gen impl FromIpld for @Self {
-            #from_ipld
-        }*/
+        gen impl ReadCbor for @Self {
+            #read_cbor
+        }
     })
 }
 

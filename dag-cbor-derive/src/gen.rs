@@ -1,6 +1,6 @@
 use proc_macro2::{TokenStream, TokenTree};
 use quote::quote;
-use syn::{Attribute, Data, Field, Fields};
+use syn::{Attribute, Data, Fields};
 use synstructure::{BindingInfo, Structure, VariantInfo};
 
 pub enum Attr {
@@ -37,17 +37,27 @@ impl Attr {
     }
 }
 
-fn field_key(i: usize, field: &Field) -> String {
-    for attr in &field.attrs {
-        if let Some(Attr::Name(name)) = Attr::from_attr(attr) {
-            return name;
-        }
-    }
-    field
-        .ident
-        .as_ref()
-        .map(|ident| ident.to_string())
-        .unwrap_or_else(|| i.to_string())
+fn field_keys<'a>(bindings: &'a [BindingInfo]) -> Vec<(String, &'a BindingInfo<'a>)> {
+    let mut keys: Vec<(String, &BindingInfo)> = bindings
+        .iter()
+        .enumerate()
+        .map(|(i, binding)| {
+            let field = binding.ast();
+            for attr in &field.attrs {
+                if let Some(Attr::Name(name)) = Attr::from_attr(attr) {
+                    return (name, binding);
+                }
+            }
+            let key = field
+                .ident
+                .as_ref()
+                .map(|ident| ident.to_string())
+                .unwrap_or_else(|| i.to_string());
+            (key, binding)
+        })
+        .collect();
+    keys.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+    keys
 }
 
 pub enum VariantRepr {
@@ -82,15 +92,7 @@ impl BindingRepr {
         let len = bindings.len() as u64;
         match self {
             Self::Map => {
-                let mut keys: Vec<(String, &BindingInfo)> = bindings
-                    .iter()
-                    .enumerate()
-                    .map(|(i, binding)| {
-                        let key = field_key(i, binding.ast());
-                        (key, binding)
-                    })
-                    .collect();
-                keys.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+                let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
                         #key.write_cbor(w)?;
@@ -115,42 +117,58 @@ impl BindingRepr {
     }
 
     pub fn parse(&self, variant: &VariantInfo) -> TokenStream {
+        let len = variant.bindings().len();
         match self {
             Self::Map => {
-                let construct = variant.construct(|field, i| {
-                    let key = field_key(i, field);
-                    quote!({
-                        if let Some(ipld) = map.remove(#key) {
-                            FromIpld::from_ipld(ipld)?
-                        } else {
-                            return Err(IpldError::KeyNotFound);
+                let keys = field_keys(variant.bindings());
+                let fields = keys.into_iter().map(|(key, binding)| {
+                    quote! {
+                        let string = String::read_cbor(r)?;
+                        if string.as_str() != #key {
+                            return Err(IpldError::KeyNotFound.into());
                         }
-                    })
+                        let #binding = ReadCbor::read_cbor(r)?;
+                    }
+                });
+                let construct = variant.construct(|_field, i| {
+                    let binding = &variant.bindings()[i];
+                    quote!(#binding)
                 });
                 quote! {
-                    if let Ipld::Map(ref mut map) = ipld {
-                        Ok(#construct)
-                    } else {
-                        Err(IpldError::NotMap)
+                    let major = read_u8(r)?;
+                    let len = match major {
+                       0xa0..=0xb7 => major as usize - 0xa0,
+                       0xb8 => read_u8(r)? as usize,
+                       _ => return Err(IpldError::NotMap.into()),
+                    };
+                    if len != #len {
+                        return Err(IpldError::KeyNotFound.into());
                     }
+                    #(#fields)*
+                    Ok(#construct)
                 }
             }
             Self::List => {
-                let len = variant.bindings().len();
+                let fields = variant
+                    .bindings()
+                    .iter()
+                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r)?;));
                 let construct = variant.construct(|_field, i| {
-                    quote! {
-                        FromIpld::from_ipld(list[#i].clone())?
-                    }
+                    let binding = &variant.bindings()[i];
+                    quote!(#binding)
                 });
                 quote! {
-                    if let Ipld::List(list) = ipld {
-                        if list.len() != #len {
-                            return Err(IpldError::IndexNotFound);
-                        }
-                        Ok(#construct)
-                    } else {
-                        Err(IpldError::NotList)
+                    let major = read_u8(r)?;
+                    let len = match major {
+                       0x80..=0x97 => major as usize - 0x80,
+                       0x98 => read_u8(r)? as usize,
+                       _ => return Err(IpldError::NotList.into()),
+                    };
+                    if len != #len {
+                        return Err(IpldError::IndexNotFound.into());
                     }
+                    #(#fields)*
+                    Ok(#construct)
                 }
             }
         }
@@ -202,12 +220,12 @@ impl VariantRepr {
             Self::Keyed => {
                 let name = variant.ast().ident.to_string();
                 quote! {
-                    if let Some(ipld) = map.get_mut(#name) {
+                    if key.as_str() == #name {
                         return {#bindings};
                     }
                 }
             }
-            Self::Kinded => bindings,
+            Self::Kinded => quote!(#bindings),
         }
     }
 }
@@ -226,26 +244,26 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
     }
 }
 
-pub fn from_ipld(s: &Structure) -> TokenStream {
+pub fn read_cbor(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
     let variants: Vec<TokenStream> = s.variants().iter().map(|var| var_repr.parse(var)).collect();
     let body = match var_repr {
         VariantRepr::Keyed => {
             quote! {
-                let map = if let Ipld::Map(ref mut map) = ipld {
-                    map
-                } else {
-                    return Err(IpldError::NotMap);
-                };
+                let major = read_u8(r)?;
+                if major != 0xa1 {
+                    return Err(IpldError::NotMap.into());
+                }
+                let key = String::read_cbor(r)?;
                 #(#variants)*
-                Err(IpldError::KeyNotFound)
+                Err(IpldError::KeyNotFound.into())
             }
         }
         VariantRepr::Kinded => quote!(#(#variants)*),
     };
 
     quote! {
-       fn from_ipld(mut ipld: libipld::Ipld) -> core::result::Result<Self, IpldError> {
+       fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
            #body
        }
     }

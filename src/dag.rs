@@ -36,12 +36,12 @@ impl<TStore: IpldStore> Dag<TStore> {
 
     /// Retrives a block from the store.
     pub fn get_ipld(&self, cid: &Cid) -> Result<Ipld> {
-        self.store.read(cid)
+        self.store.read_ipld(cid)
     }
 
     /// Retrives ipld from the dag.
     pub fn get(&self, path: &DagPath) -> Result<Option<Ipld>> {
-        let mut root = self.store.read(&path.0)?;
+        let mut root = self.store.read_ipld(&path.0)?;
         let mut ipld = &root;
         for segment in path.1.iter() {
             if let Some(next) = match ipld {
@@ -53,7 +53,7 @@ impl<TStore: IpldStore> Dag<TStore> {
                 _ => return Err(format_err!("Cannot index into {:?}", ipld)),
             } {
                 if let Ipld::Link(cid) = next {
-                    root = self.store.read(cid)?;
+                    root = self.store.read_ipld(cid)?;
                     ipld = &root;
                 } else {
                     ipld = next;
@@ -74,9 +74,9 @@ impl<TStore: IpldStore> Dag<TStore> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::mock::MemStore;
-    use crate::ipld;
     use crate::hash::Blake2b;
+    use crate::ipld;
+    use crate::store::mock::MemStore;
 
     #[test]
     fn test_dag() {

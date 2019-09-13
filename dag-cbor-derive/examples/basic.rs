@@ -1,6 +1,7 @@
 //use cid::Cid;
 use dag_cbor_derive::DagCbor;
-use libipld::{Ipld, Result, codec::cbor::WriteCbor};
+use libipld::codec::cbor::{ReadCbor, WriteCbor};
+use libipld::{Ipld, Result};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
@@ -39,32 +40,32 @@ fn main() -> Result<()> {
     let mut bytes = Vec::new();
     let data = NamedStruct::default();
     data.write_cbor(&mut bytes)?;
-    /*let data2 = NamedStruct::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = NamedStruct::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     let mut bytes = Vec::new();
     let data = TupleStruct::default();
     data.write_cbor(&mut bytes)?;
-    /*let data2 = TupleStruct::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = TupleStruct::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     let mut bytes = Vec::new();
     let data = UnitStruct::default();
     data.write_cbor(&mut bytes)?;
-    /*let data2 = UnitStruct::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = UnitStruct::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     let mut bytes = Vec::new();
     let data = Enum::A;
     data.write_cbor(&mut bytes)?;
-    /*let data2 = Enum::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     let mut bytes = Vec::new();
     let data = Enum::B(true, 42);
     data.write_cbor(&mut bytes)?;
-    /*let data2 = Enum::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     let mut bytes = Vec::new();
     let data = Enum::C {
@@ -72,8 +73,8 @@ fn main() -> Result<()> {
         int: 42,
     };
     data.write_cbor(&mut bytes)?;
-    /*let data2 = Enum::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 use dag_cbor_derive::DagCbor;
-use libipld::{Codec, DagCborCodec, ipld, Result};
-use libipld::codec::cbor::WriteCbor;
+use libipld::codec::cbor::{ReadCbor, WriteCbor};
+use libipld::{ipld, Codec, DagCborCodec, Result};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 struct RenameFields {
@@ -19,7 +19,7 @@ fn main() -> Result<()> {
         "hashAlg": "murmur3",
     });
     assert_eq!(ipld, expect);
-    /*let data2 = RenameFields::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    let data2 = RenameFields::read_cbor(&mut bytes.as_slice())?;
+    assert_eq!(data, data2);
     Ok(())
 }

@@ -6,8 +6,8 @@ use crate::ipld::Ipld;
 pub mod decode;
 pub mod encode;
 
-pub use encode::WriteCbor;
 pub use decode::ReadCbor;
+pub use encode::WriteCbor;
 
 /// CBOR codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

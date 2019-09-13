@@ -337,7 +337,7 @@ impl<T: ReadCbor> ReadCbor for Vec<T> {
     fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let len = match major {
-            0x80..=0x97 => major as usize - 0x60,
+            0x80..=0x97 => major as usize - 0x80,
             0x98 => read_u8(r)? as usize,
             0x99 => read_u16(r)? as usize,
             0x9a => read_u32(r)? as usize,
@@ -359,7 +359,7 @@ impl<T: ReadCbor> ReadCbor for BTreeMap<String, T> {
     fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let len = match major {
-            0xa0..=0xb7 => major as usize - 0x60,
+            0xa0..=0xb7 => major as usize - 0xa0,
             0xb8 => read_u8(r)? as usize,
             0xb9 => read_u16(r)? as usize,
             0xba => read_u32(r)? as usize,
