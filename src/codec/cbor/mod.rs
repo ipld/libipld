@@ -7,6 +7,7 @@ pub mod decode;
 pub mod encode;
 
 pub use encode::WriteCbor;
+pub use decode::ReadCbor;
 
 /// CBOR codec.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -22,10 +23,8 @@ impl Codec for DagCborCodec {
         Ok(bytes.into_boxed_slice())
     }
 
-    fn decode(data: &[u8]) -> Result<Ipld> {
-        let mut dec = decode::Decoder::new(data);
-        let ipld = dec.decode()?;
-        Ok(ipld)
+    fn decode(mut data: &[u8]) -> Result<Ipld> {
+        Ipld::read_cbor(&mut data)
     }
 }
 
