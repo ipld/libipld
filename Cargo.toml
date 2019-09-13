@@ -8,10 +8,10 @@ edition = "2018"
 byteorder = "*"
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
 failure = "0.1"
-multibase = { git = "https://github.com/dvc94ch/rust-multibase", branch = "cli" }
+multibase = { git = "https://github.com/multiformats/rust-multibase" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
 
 [workspace]
 members = [
-  "derive",
+  "dag-cbor-derive",
 ]

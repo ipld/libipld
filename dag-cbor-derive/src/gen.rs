@@ -68,7 +68,7 @@ impl BindingRepr {
                     "map" => Self::Map,
                     "list" => Self::List,
                     _ => panic!("unsupported repr"),
-                }
+                };
             }
         }
         match variant.ast().fields {
@@ -79,28 +79,37 @@ impl BindingRepr {
     }
 
     pub fn repr(&self, bindings: &[BindingInfo]) -> TokenStream {
+        let len = bindings.len() as u64;
         match self {
             Self::Map => {
-                let fields = bindings.iter().enumerate().map(|(i, binding)| {
-                    let key = field_key(i, binding.ast());
-                    quote!(map.insert(#key.into(), #binding.to_ipld());)
+                let mut keys: Vec<(String, &BindingInfo)> = bindings
+                    .iter()
+                    .enumerate()
+                    .map(|(i, binding)| {
+                        let key = field_key(i, binding.ast());
+                        (key, binding)
+                    })
+                    .collect();
+                keys.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+                let fields = keys.into_iter().map(|(key, binding)| {
+                    quote! {
+                        #key.write_cbor(w)?;
+                        #binding.write_cbor(w)?;
+                    }
                 });
-                quote!({
-                    let mut map = BTreeMap::new();
+                quote! {
+                    write_u64(w, 5, #len)?;
                     #(#fields)*
-                    IpldRef::OwnedMap(map)
-                })
+                }
             }
             Self::List => {
-                let len = bindings.len();
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(list.push(#binding.to_ipld());));
-                quote!({
-                    let mut list = Vec::with_capacity(#len);
+                    .map(|binding| quote!(#binding.write_cbor(w)?;));
+                quote! {
+                    write_u64(w, 4, #len)?;
                     #(#fields)*
-                    IpldRef::OwnedList(list)
-                })
+                }
             }
         }
     }
@@ -177,9 +186,9 @@ impl VariantRepr {
             Self::Keyed => {
                 let name = variant.ast().ident.to_string();
                 quote! {
-                    let mut map = BTreeMap::new();
-                    map.insert(#name.into(), #bindings);
-                    IpldRef::OwnedMap(map)
+                    write_u64(w, 5, 1)?;
+                    #name.write_cbor(w)?;
+                    #bindings
                 }
             }
             Self::Kinded => quote!(#bindings),
@@ -203,15 +212,16 @@ impl VariantRepr {
     }
 }
 
-pub fn to_ipld(s: &Structure) -> TokenStream {
+pub fn write_cbor(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
     let body = s.each_variant(|var| var_repr.repr(var));
 
     quote! {
-        fn to_ipld<'a>(&'a self) -> IpldRef<'a> {
+        fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
             match *self {
                 #body
             }
+            Ok(())
         }
     }
 }
@@ -235,7 +245,7 @@ pub fn from_ipld(s: &Structure) -> TokenStream {
     };
 
     quote! {
-       fn from_ipld(mut ipld: libipld::Ipld) -> Result<Self, IpldError> {
+       fn from_ipld(mut ipld: libipld::Ipld) -> core::result::Result<Self, IpldError> {
            #body
        }
     }
