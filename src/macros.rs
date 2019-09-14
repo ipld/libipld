@@ -265,8 +265,7 @@ macro_rules! ipld_internal {
     // Must be below every other rule.
     ($other:expr) => {
         {
-            use $crate::convert::ToIpld;
-            $other.to_ipld().to_owned()
+            $crate::Ipld::from($other)
         }
     };
 }

@@ -1,5 +1,4 @@
 //! Ipld representation.
-
 pub use cid::Cid;
 use std::collections::BTreeMap;
 
@@ -24,45 +23,6 @@ pub enum Ipld {
     Map(BTreeMap<String, Ipld>),
     /// Represents a link to an Ipld node
     Link(Cid),
-}
-
-/// Ipld ref
-#[derive(Clone, Debug, PartialEq)]
-pub enum IpldRef<'a> {
-    /// Represents the absence of a value or the value undefined.
-    Null,
-    /// Represents a boolean value.
-    Bool(bool),
-    /// Represents an integer.
-    Integer(i128),
-    /// Represents a floating point value.
-    Float(f64),
-    /// Represents an UTF-8 string.
-    String(&'a str),
-    /// Represents a sequence of bytes.
-    Bytes(&'a [u8]),
-    /// Represents a list.
-    List(&'a [Ipld]),
-    /// Represents an owned list.
-    OwnedList(Vec<IpldRef<'a>>),
-    /// Represents a map.
-    Map(&'a BTreeMap<String, Ipld>),
-    /// Represents an owned map.
-    OwnedMap(BTreeMap<String, IpldRef<'a>>),
-    /// Represents a link to an Ipld node
-    Link(&'a Cid),
-}
-
-impl<'a> From<&'a Ipld> for IpldRef<'a> {
-    fn from(ipld: &'a Ipld) -> Self {
-        ipld.as_ref()
-    }
-}
-
-impl<'a> From<IpldRef<'a>> for Ipld {
-    fn from(ipld: IpldRef<'a>) -> Self {
-        ipld.to_owned()
-    }
 }
 
 /// An index into ipld
@@ -109,86 +69,49 @@ impl Ipld {
             _ => None,
         }
     }
-
-    /// Returns a ipld reference.
-    pub fn as_ref<'a>(&'a self) -> IpldRef<'a> {
-        match self {
-            Ipld::Null => IpldRef::Null,
-            Ipld::Bool(b) => IpldRef::Bool(*b),
-            Ipld::Integer(i) => IpldRef::Integer(*i),
-            Ipld::Float(f) => IpldRef::Float(*f),
-            Ipld::String(ref s) => IpldRef::String(s),
-            Ipld::Bytes(ref b) => IpldRef::Bytes(b),
-            Ipld::List(ref l) => IpldRef::List(l),
-            Ipld::Map(ref m) => IpldRef::Map(m),
-            Ipld::Link(ref c) => IpldRef::Link(c),
-        }
-    }
-}
-
-impl<'a> IpldRef<'a> {
-    /// Turns an ipld reference into an owned ipld.
-    pub fn to_owned(self) -> Ipld {
-        match self {
-            IpldRef::Null => Ipld::Null,
-            IpldRef::Bool(b) => Ipld::Bool(b),
-            IpldRef::Integer(i) => Ipld::Integer(i),
-            IpldRef::Float(f) => Ipld::Float(f),
-            IpldRef::String(s) => Ipld::String(s.to_string()),
-            IpldRef::Bytes(b) => Ipld::Bytes(b.to_vec()),
-            IpldRef::List(l) => Ipld::List(l.to_vec()),
-            IpldRef::OwnedList(l) => Ipld::List(l.into_iter().map(|v| v.to_owned()).collect()),
-            IpldRef::Map(m) => Ipld::Map((*m).clone()),
-            IpldRef::OwnedMap(m) => {
-                Ipld::Map(m.into_iter().map(|(k, v)| (k, v.to_owned())).collect())
-            }
-            IpldRef::Link(c) => Ipld::Link((*c).clone()),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::convert::ToIpld;
     use crate::hash::{Hash, Sha2_256};
     use crate::ipld;
 
     #[test]
     fn ipld_bool_from() {
-        assert_eq!(Ipld::Bool(true), true.to_ipld().to_owned());
-        assert_eq!(Ipld::Bool(false), false.to_ipld().to_owned());
+        assert_eq!(Ipld::Bool(true), Ipld::from(true));
+        assert_eq!(Ipld::Bool(false), Ipld::from(false));
     }
 
     #[test]
     fn ipld_integer_from() {
-        assert_eq!(Ipld::Integer(1), 1i8.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1i16.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1i32.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1i64.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1i128.to_ipld().to_owned());
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i8));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i64));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i128));
 
         //assert_eq!(Ipld::Integer(1), 1u8.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1u16.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1u32.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), 1u64.to_ipld().to_owned());
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
     }
 
     #[test]
     fn ipld_float_from() {
-        assert_eq!(Ipld::Float(1.0), 1.0f32.to_ipld().to_owned());
-        assert_eq!(Ipld::Float(1.0), 1.0f64.to_ipld().to_owned());
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]
     fn ipld_string_from() {
         assert_eq!(
             Ipld::String("a string".into()),
-            "a string".to_ipld().to_owned()
+            Ipld::from("a string")
         );
         assert_eq!(
             Ipld::String("a string".into()),
-            Ipld::from("a string".to_string().to_ipld().to_owned())
+            Ipld::from("a string".to_string())
         );
     }
 
@@ -196,11 +119,11 @@ mod tests {
     fn ipld_bytes_from() {
         assert_eq!(
             Ipld::Bytes(vec![0, 1, 2, 3]),
-            (&[0u8, 1u8, 2u8, 3u8][..]).to_ipld().to_owned()
+            Ipld::from(&[0u8, 1u8, 2u8, 3u8][..])
         );
         assert_eq!(
             Ipld::Bytes(vec![0, 1, 2, 3]),
-            vec![0u8, 1u8, 2u8, 3u8].to_ipld().to_owned()
+            Ipld::from(vec![0u8, 1u8, 2u8, 3u8])
         );
     }
 
@@ -209,7 +132,7 @@ mod tests {
         let data = vec![0, 1, 2, 3];
         let hash = Sha2_256::digest(&data);
         let cid = Cid::new_v0(hash).unwrap();
-        assert_eq!(Ipld::Link(cid.clone()), cid.to_ipld().to_owned());
+        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
     }
 
     #[test]
