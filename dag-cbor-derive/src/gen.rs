@@ -240,6 +240,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
     let body = s.each_variant(|var| var_repr.repr(var));
 
     quote! {
+        #[inline]
         fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
             match *self {
                 #body
@@ -272,8 +273,9 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
     };
 
     quote! {
-       fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-           #body
-       }
+        #[inline]
+        fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+            #body
+        }
     }
 }
