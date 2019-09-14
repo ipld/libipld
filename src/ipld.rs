@@ -105,10 +105,7 @@ mod tests {
 
     #[test]
     fn ipld_string_from() {
-        assert_eq!(
-            Ipld::String("a string".into()),
-            Ipld::from("a string")
-        );
+        assert_eq!(Ipld::String("a string".into()), Ipld::from("a string"));
         assert_eq!(
             Ipld::String("a string".into()),
             Ipld::from("a string".to_string())
