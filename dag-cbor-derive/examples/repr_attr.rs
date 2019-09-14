@@ -24,7 +24,7 @@ macro_rules! test_case {
         assert_eq!(ipld, $ipld);
         let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
         assert_eq!(data, $data);
-    }
+    };
 }
 
 fn main() -> Result<()> {

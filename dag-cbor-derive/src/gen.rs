@@ -224,13 +224,7 @@ impl VariantRepr {
                     }
                 }
             }
-            Self::Kinded => {
-                quote! {
-                    if let Some(res) = (|| -> Result<Option<Self>> { #bindings })()? {
-                        return Ok(Some(res));
-                    }
-                }
-            }
+            Self::Kinded => quote!(#bindings),
         }
     }
 }
@@ -252,7 +246,8 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
 
 pub fn read_cbor(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
-    let variants: Vec<TokenStream> = s.variants().iter().map(|var| var_repr.parse(var)).collect();
+    let mut variants: Vec<TokenStream> =
+        s.variants().iter().map(|var| var_repr.parse(var)).collect();
     let body = match var_repr {
         VariantRepr::Keyed => {
             quote! {
@@ -265,9 +260,23 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
             }
         }
         VariantRepr::Kinded => {
-            quote! {
-                #(#variants)*
-                Err(IpldError::KeyNotFound.into())
+            if variants.len() > 1 {
+                variants = variants
+                    .iter()
+                    .map(|variant| {
+                        quote! {
+                            if let Some(res) = (|| -> Result<Option<Self>> { #variant })()? {
+                                return Ok(Some(res));
+                            }
+                        }
+                    })
+                    .collect();
+                quote! {
+                    #(#variants)*
+                    Err(IpldError::KeyNotFound.into())
+                }
+            } else {
+                quote!(#(#variants)*)
             }
         }
     };
