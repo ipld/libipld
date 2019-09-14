@@ -131,147 +131,147 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
 }
 
 pub trait ReadCbor: Sized {
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self>;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>>;
+
+    #[inline]
+    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        if let Some(res) = Self::try_read_cbor(r, major)? {
+            Ok(res)
+        } else {
+            Err(CborError::UnexpectedCode.into())
+        }
+    }
 }
 
 impl ReadCbor for bool {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        match read_u8(r)? {
-            0xf4 => Ok(false),
-            0xf5 => Ok(true),
-            _ => return Err(CborError::UnexpectedCode.into()),
+    fn try_read_cbor<R: Read>(_: &mut R, major: u8) -> Result<Option<Self>> {
+        match major {
+            0xf4 => Ok(Some(false)),
+            0xf5 => Ok(Some(true)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for u8 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x00..=0x17 => Ok(major),
-            0x18 => read_u8(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x00..=0x17 => Ok(Some(major)),
+            0x18 => Ok(Some(read_u8(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for u16 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x00..=0x17 => Ok(major as u16),
-            0x18 => Ok(read_u8(r)? as u16),
-            0x19 => read_u16(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x00..=0x17 => Ok(Some(major as u16)),
+            0x18 => Ok(Some(read_u8(r)? as u16)),
+            0x19 => Ok(Some(read_u16(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for u32 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x00..=0x17 => Ok(major as u32),
-            0x18 => Ok(read_u8(r)? as u32),
-            0x19 => Ok(read_u16(r)? as u32),
-            0x1a => read_u32(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x00..=0x17 => Ok(Some(major as u32)),
+            0x18 => Ok(Some(read_u8(r)? as u32)),
+            0x19 => Ok(Some(read_u16(r)? as u32)),
+            0x1a => Ok(Some(read_u32(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for u64 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x00..=0x17 => Ok(major as u64),
-            0x18 => Ok(read_u8(r)? as u64),
-            0x19 => Ok(read_u16(r)? as u64),
-            0x1a => Ok(read_u32(r)? as u64),
-            0x1b => read_u64(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x00..=0x17 => Ok(Some(major as u64)),
+            0x18 => Ok(Some(read_u8(r)? as u64)),
+            0x19 => Ok(Some(read_u16(r)? as u64)),
+            0x1a => Ok(Some(read_u32(r)? as u64)),
+            0x1b => Ok(Some(read_u64(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for i8 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x20..=0x37 => Ok(-1 - (major - 0x20) as i8),
-            0x38 => Ok(-1 - read_u8(r)? as i8),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i8)),
+            0x38 => Ok(Some(-1 - read_u8(r)? as i8)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for i16 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x20..=0x37 => Ok(-1 - (major - 0x20) as i16),
-            0x38 => Ok(-1 - read_u8(r)? as i16),
-            0x39 => Ok(-1 - read_u16(r)? as i16),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i16)),
+            0x38 => Ok(Some(-1 - read_u8(r)? as i16)),
+            0x39 => Ok(Some(-1 - read_u16(r)? as i16)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for i32 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x20..=0x37 => Ok(-1 - (major - 0x20) as i32),
-            0x38 => Ok(-1 - read_u8(r)? as i32),
-            0x39 => Ok(-1 - read_u16(r)? as i32),
-            0x3a => Ok(-1 - read_u32(r)? as i32),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i32)),
+            0x38 => Ok(Some(-1 - read_u8(r)? as i32)),
+            0x39 => Ok(Some(-1 - read_u16(r)? as i32)),
+            0x3a => Ok(Some(-1 - read_u32(r)? as i32)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for i64 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0x20..=0x37 => Ok(-1 - (major - 0x20) as i64),
-            0x38 => Ok(-1 - read_u8(r)? as i64),
-            0x39 => Ok(-1 - read_u16(r)? as i64),
-            0x3a => Ok(-1 - read_u32(r)? as i64),
-            0x3b => Ok(-1 - read_u64(r)? as i64),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i64)),
+            0x38 => Ok(Some(-1 - read_u8(r)? as i64)),
+            0x39 => Ok(Some(-1 - read_u16(r)? as i64)),
+            0x3a => Ok(Some(-1 - read_u32(r)? as i64)),
+            0x3b => Ok(Some(-1 - read_u64(r)? as i64)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for f32 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0xfa => read_f32(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0xfa => Ok(Some(read_f32(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl ReadCbor for f64 {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0xfa => Ok(read_f32(r)? as f64),
-            0xfb => read_f64(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0xfa => Ok(Some(read_f32(r)? as f64)),
+            0xfb => Ok(Some(read_f64(r)?)),
+            _ => Ok(None),
         }
     }
 }
@@ -288,8 +288,7 @@ impl ReadCbor for f64 {
 
 impl ReadCbor for String {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let len = match major {
             0x60..=0x77 => major as usize - 0x60,
             0x78 => read_u8(r)? as usize,
@@ -302,40 +301,42 @@ impl ReadCbor for String {
                 }
                 len as usize
             }
-            _ => return Err(CborError::UnexpectedCode.into()),
+            _ => return Ok(None),
         };
-        read_str(r, len)
+        Ok(Some(read_str(r, len)?))
     }
 }
 
 impl ReadCbor for Cid {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0xd8 => read_link(r),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0xd8 => Ok(Some(read_link(r)?)),
+            _ => Ok(None),
         }
     }
 }
 
 impl<T: ReadCbor> ReadCbor for Option<T> {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0xf6 => Ok(None),
-            0xf7 => Ok(None),
-            // TODO decode
-            _ => return Err(CborError::UnexpectedCode.into()),
+            0xf6 => Ok(Some(None)),
+            0xf7 => Ok(Some(None)),
+            _ => {
+                if let Some(res) = T::try_read_cbor(r, major)? {
+                    Ok(Some(Some(res)))
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 }
 
 impl<T: ReadCbor> ReadCbor for Vec<T> {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let len = match major {
             0x80..=0x97 => major as usize - 0x80,
             0x98 => read_u8(r)? as usize,
@@ -348,16 +349,15 @@ impl<T: ReadCbor> ReadCbor for Vec<T> {
                 }
                 len as usize
             }
-            _ => return Err(CborError::UnexpectedCode.into()),
+            _ => return Ok(None),
         };
-        read_list(r, len)
+        Ok(Some(read_list(r, len)?))
     }
 }
 
 impl<T: ReadCbor> ReadCbor for BTreeMap<String, T> {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let len = match major {
             0xa0..=0xb7 => major as usize - 0xa0,
             0xb8 => read_u8(r)? as usize,
@@ -370,16 +370,15 @@ impl<T: ReadCbor> ReadCbor for BTreeMap<String, T> {
                 }
                 len as usize
             }
-            _ => return Err(CborError::UnexpectedCode.into()),
+            _ => return Ok(None),
         };
-        read_map(r, len)
+        Ok(Some(read_map(r, len)?))
     }
 }
 
 impl ReadCbor for Ipld {
     #[inline]
-    fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
             // Major type 0: an unsigned integer
             0x00..=0x17 => Ipld::Integer(major as i128),
@@ -525,8 +524,8 @@ impl ReadCbor for Ipld {
             0xf7 => Ipld::Null,
             0xfa => Ipld::Float(read_f32(r)? as f64),
             0xfb => Ipld::Float(read_f64(r)?),
-            _ => return Err(CborError::UnexpectedCode.into()),
+            _ => return Ok(None),
         };
-        Ok(ipld)
+        Ok(Some(ipld))
     }
 }
