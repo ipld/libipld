@@ -135,17 +135,16 @@ impl BindingRepr {
                     quote!(#binding)
                 });
                 quote! {
-                    let major = read_u8(r)?;
                     let len = match major {
                        0xa0..=0xb7 => major as usize - 0xa0,
                        0xb8 => read_u8(r)? as usize,
-                       _ => return Err(IpldError::NotMap.into()),
+                       _ => return Ok(None),
                     };
                     if len != #len {
                         return Err(IpldError::KeyNotFound.into());
                     }
                     #(#fields)*
-                    Ok(#construct)
+                    return Ok(Some(#construct));
                 }
             }
             Self::List => {
@@ -158,17 +157,16 @@ impl BindingRepr {
                     quote!(#binding)
                 });
                 quote! {
-                    let major = read_u8(r)?;
                     let len = match major {
                        0x80..=0x97 => major as usize - 0x80,
                        0x98 => read_u8(r)? as usize,
-                       _ => return Err(IpldError::NotList.into()),
+                       _ => return Ok(None),
                     };
                     if len != #len {
                         return Err(IpldError::IndexNotFound.into());
                     }
                     #(#fields)*
-                    Ok(#construct)
+                    return Ok(Some(#construct));
                 }
             }
         }
@@ -221,11 +219,18 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     if key.as_str() == #name {
-                        return {#bindings};
+                        let major = read_u8(r)?;
+                        #bindings
                     }
                 }
             }
-            Self::Kinded => quote!(#bindings),
+            Self::Kinded => {
+                quote! {
+                    if let Some(res) = (|| -> Result<Option<Self>> { #bindings })()? {
+                        return Ok(Some(res));
+                    }
+                }
+            }
         }
     }
 }
@@ -250,20 +255,24 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
     let body = match var_repr {
         VariantRepr::Keyed => {
             quote! {
-                let major = read_u8(r)?;
                 if major != 0xa1 {
-                    return Err(IpldError::NotMap.into());
+                    return Ok(None);
                 }
                 let key = String::read_cbor(r)?;
                 #(#variants)*
                 Err(IpldError::KeyNotFound.into())
             }
         }
-        VariantRepr::Kinded => quote!(#(#variants)*),
+        VariantRepr::Kinded => {
+            quote! {
+                #(#variants)*
+                Err(IpldError::KeyNotFound.into())
+            }
+        }
     };
 
     quote! {
-       fn read_cbor<R: Read>(r: &mut R) -> Result<Self> {
+       fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
            #body
        }
     }

@@ -13,34 +13,38 @@ struct ListRepr {
 #[ipld(repr = "kinded")]
 enum KindedRepr {
     A(bool),
-    //B { a: u32 },
+    B { a: u32 },
+}
+
+macro_rules! test_case {
+    ($data:expr, $ty:ty, $ipld:expr) => {
+        let mut bytes = Vec::new();
+        $data.write_cbor(&mut bytes)?;
+        let ipld = DagCborCodec::decode(&bytes)?;
+        assert_eq!(ipld, $ipld);
+        let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
+        assert_eq!(data, $data);
+    }
 }
 
 fn main() -> Result<()> {
-    let data = ListRepr::default();
-    let mut bytes = Vec::new();
-    data.write_cbor(&mut bytes)?;
-    let ipld = DagCborCodec::decode(&bytes)?;
-    let expect = ipld!([false, false]);
-    assert_eq!(ipld, expect);
-    let data2 = ListRepr::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        ListRepr::default(),
+        ListRepr,
+        ipld!([false, false])
+    }
 
-    let data = KindedRepr::A(true);
-    let mut bytes = Vec::new();
-    data.write_cbor(&mut bytes)?;
-    let ipld = DagCborCodec::decode(&bytes)?;
-    let expect = ipld!([true]);
-    assert_eq!(ipld, expect);
-    let data2 = KindedRepr::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        KindedRepr::A(true),
+        KindedRepr,
+        ipld!([true])
+    }
 
-    /*let data = KindedRepr::B { a: 42 };
-    let ipld = data.to_ipld().to_owned();
-    let expect = ipld!({ "a": 42 });
-    assert_eq!(ipld, expect);
-    let data2 = KindedRepr::from_ipld(ipld)?;
-    assert_eq!(data, data2);*/
+    test_case! {
+        KindedRepr::B { a: 42 },
+        KindedRepr,
+        ipld!({ "a": 42 })
+    }
 
     Ok(())
 }

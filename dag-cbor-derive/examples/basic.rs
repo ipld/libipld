@@ -1,7 +1,7 @@
 //use cid::Cid;
 use dag_cbor_derive::DagCbor;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
-use libipld::{Ipld, Result};
+use libipld::{ipld, Codec, DagCborCodec, Ipld, Result};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
@@ -36,45 +36,61 @@ struct Nested {
     map_of_derived: BTreeMap<String, NamedStruct>,
 }
 
+macro_rules! test_case {
+    ($data:expr, $ty:ty, $ipld:expr) => {
+        let mut bytes = Vec::new();
+        $data.write_cbor(&mut bytes)?;
+        let ipld = DagCborCodec::decode(&bytes)?;
+        assert_eq!(ipld, $ipld);
+        let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
+        assert_eq!(data, $data);
+    }
+}
+
 fn main() -> Result<()> {
-    let mut bytes = Vec::new();
-    let data = NamedStruct::default();
-    data.write_cbor(&mut bytes)?;
-    let data2 = NamedStruct::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        NamedStruct::default(),
+        NamedStruct,
+        ipld!({
+            "boolean": false,
+            "integer": 0,
+            "float": 0.0,
+            "string": "",
+            "bytes": [],
+            "list": [],
+            "map": {},
+        })
+    }
 
-    let mut bytes = Vec::new();
-    let data = TupleStruct::default();
-    data.write_cbor(&mut bytes)?;
-    let data2 = TupleStruct::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        TupleStruct::default(),
+        TupleStruct,
+        ipld!([false, 0])
+    }
 
-    let mut bytes = Vec::new();
-    let data = UnitStruct::default();
-    data.write_cbor(&mut bytes)?;
-    let data2 = UnitStruct::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        UnitStruct::default(),
+        UnitStruct,
+        ipld!([])
+    }
 
-    let mut bytes = Vec::new();
-    let data = Enum::A;
-    data.write_cbor(&mut bytes)?;
-    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        Enum::A,
+        Enum,
+        ipld!({ "A": [] })
+    }
 
-    let mut bytes = Vec::new();
-    let data = Enum::B(true, 42);
-    data.write_cbor(&mut bytes)?;
-    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        Enum::B(true, 42),
+        Enum,
+        ipld!({ "B": [true, 42] })
+    }
 
-    let mut bytes = Vec::new();
-    let data = Enum::C {
-        boolean: true,
-        int: 42,
-    };
-    data.write_cbor(&mut bytes)?;
-    let data2 = Enum::read_cbor(&mut bytes.as_slice())?;
-    assert_eq!(data, data2);
+    test_case! {
+        Enum::C { boolean: true, int: 42 },
+        Enum,
+        ipld!({ "C": { "boolean": true, "int": 42} })
+    }
 
     Ok(())
 }
