@@ -123,10 +123,7 @@ impl BindingRepr {
                 let keys = field_keys(variant.bindings());
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        let string = String::read_cbor(r)?;
-                        if string.as_str() != #key {
-                            return Err(IpldError::KeyNotFound.into());
-                        }
+                        read_key(r, #key)?;
                         let #binding = ReadCbor::read_cbor(r)?;
                     }
                 });

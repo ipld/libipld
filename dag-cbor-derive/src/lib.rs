@@ -13,7 +13,7 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
         use libipld::{Ipld, IpldError, Result};
         use libipld::cbor::{ReadCbor, WriteCbor};
         use libipld::cbor::encode::write_u64;
-        use libipld::cbor::decode::read_u8;
+        use libipld::cbor::decode::{read_u8, read_key};
         use std::io::{Read, Write};
 
         gen impl WriteCbor for @Self {

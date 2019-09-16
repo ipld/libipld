@@ -17,6 +17,8 @@ pub enum CborError {
     UnexpectedCode,
     #[fail(display = "Unkown tag.")]
     UnknownTag,
+    #[fail(display = "Wrong key.")]
+    UnexpectedKey,
     #[fail(display = "{}", _0)]
     Io(std::io::Error),
 }
@@ -93,6 +95,17 @@ pub fn read_str<R: Read>(r: &mut R, len: usize) -> Result<String> {
     let bytes = r.read_n(len)?;
     let string = std::str::from_utf8(&bytes)?;
     Ok(string.to_string())
+}
+
+#[inline]
+pub fn read_key<R: Read>(r: &mut R, key: &str) -> Result<()> {
+    let key_bytes = key.as_bytes();
+    let bytes = r.read_n(key.len() + 1)?;
+    if key_bytes == &bytes[1..] {
+        Ok(())
+    } else {
+        Err(CborError::UnexpectedKey.into())
+    }
 }
 
 #[inline]
