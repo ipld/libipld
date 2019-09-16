@@ -10,7 +10,7 @@ use std::path::Path;
 
 /// Implementable by ipld storage backends.
 #[async_trait]
-pub trait Store {
+pub trait Store: Send {
     /// Creates a new store at path.
     fn new(path: Box<Path>) -> Self;
     /// Returns the block with cid. It is marked unsafe because the caller must
@@ -25,13 +25,13 @@ pub trait Store {
 }
 
 /// Implementable by ipld caches.
-pub trait Cache {
+pub trait Cache: Send {
     /// Create a new cache of size cap.
     fn new(cap: usize) -> Self;
     /// Gets the block with cid from the cache.
-    fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>>;
+    fn get(&self, cid: &Cid) -> Option<Box<[u8]>>;
     /// Puts the block with cid in to the cache.
-    fn put(&mut self, cid: &Cid, data: Box<[u8]>);
+    fn put(&self, cid: Cid, data: Box<[u8]>);
 }
 
 /// Generic block store with a parameterizable storage backend and cache.
@@ -51,26 +51,26 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
 
     /// Reads the block with cid.
     #[inline]
-    pub async fn read(&mut self, cid: &Cid) -> Result<&Box<[u8]>> {
+    async fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
         if self.cache.get(cid).is_none() {
             let data = self.store.read(cid).await?;
             let hash = digest(cid.hash().code(), &data);
             if cid.hash() != hash.as_ref() {
                 return Err(format_err!("Invalid hash"));
             }
-            self.cache.put(cid, data);
+            self.cache.put(cid.to_owned(), data);
         }
         Ok(self.cache.get(cid).expect("in cache"))
     }
 
     /// Reads the block with cid and decodes it to ipld.
-    pub async fn read_ipld(&mut self, cid: &Cid) -> Result<Ipld> {
+    pub async fn read_ipld(&self, cid: &Cid) -> Result<Ipld> {
         let data = self.read(cid).await?;
         decode(cid.codec(), &data)
     }
 
     /// Reads the block with cid and decodes it to cbor.
-    pub async fn read_cbor<C: ReadCbor>(&mut self, cid: &Cid) -> Result<C> {
+    pub async fn read_cbor<C: ReadCbor>(&self, cid: &Cid) -> Result<C> {
         if cid.codec() != cid::Codec::DagCBOR {
             return Err(format_err!("Not cbor codec"));
         }
@@ -80,19 +80,19 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     }
 
     /// Writes a block using the cbor codec.
-    pub async fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid> {
+    pub async fn write_cbor<H: Hash, C: WriteCbor>(&self, c: &C) -> Result<Cid> {
         let mut data = Vec::new();
         c.write_cbor(&mut data)?;
         let hash = H::digest(&data);
         let cid = Cid::new_v1(Codec::DagCBOR, hash);
-        self.cache.put(&cid, data.into_boxed_slice());
-        let data = self.cache.get(&cid).expect("in cache");
-        self.store.write(&cid, data).await?;
+        let data = data.into_boxed_slice();
+        self.cache.put(cid.clone(), data.clone());
+        self.store.write(&cid, &data).await?;
         Ok(cid)
     }
 
     /// Flush to disk.
-    pub async fn flush(&mut self) -> Result<()> {
+    pub async fn flush(&self) -> Result<()> {
         // TODO add a write buffer and gc the write buffer
         // before writing to disk.
         Ok(())
@@ -140,20 +140,20 @@ pub mod mock {
     }
 
     /// A memory backed cache
-    pub struct MemCache(HashMap<Vec<u8>, Box<[u8]>>);
+    pub struct MemCache(Mutex<HashMap<Vec<u8>, Box<[u8]>>>);
 
     impl Cache for MemCache {
         fn new(_cap: usize) -> Self {
             Self(Default::default())
         }
 
-        fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>> {
-            self.0.get(&cid.to_bytes())
+        fn get(&self, cid: &Cid) -> Option<Box<[u8]>> {
+            self.0.lock().unwrap().get(&cid.to_bytes()).cloned()
         }
 
-        fn put(&mut self, cid: &Cid, data: Box<[u8]>) {
+        fn put(&self, cid: Cid, data: Box<[u8]>) {
             let bytes = cid.to_bytes();
-            self.0.insert(bytes.clone(), data);
+            self.0.lock().unwrap().insert(bytes.clone(), data);
         }
     }
 }

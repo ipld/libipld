@@ -10,7 +10,7 @@ pub struct BlockStore(Box<Path>);
 impl BlockStore {
     #[inline]
     fn path(&self, cid: &Cid) -> Box<Path> {
-        let base64 = multibase::encode(Base::Base64UpperNoPad, cid.to_bytes());
+        let base64 = multibase::encode(Base::Base64UrlUpperNoPad, cid.to_bytes());
         let mut buf = PathBuf::from(self.0.clone());
         buf.push(base64);
         buf.into_boxed_path()
@@ -37,7 +37,7 @@ impl Store for BlockStore {
         }
         let mut file = File::create(&path).await?;
         file.write_all(data).await?;
-        file.sync_all().await?;
+        //file.sync_data().await?;
         Ok(())
     }
 }

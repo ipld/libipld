@@ -1,22 +1,25 @@
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::hash::{BuildHasher, Hasher};
 use libipld::{Cache, Cid};
-use lru::LruCache;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
-pub struct BlockCache(LruCache<CidHash, Box<[u8]>, BuildCidHasher>);
+pub struct BlockCache {
+    cache: Mutex<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
+}
 
 impl Cache for BlockCache {
-    fn new(size: usize) -> Self {
-        Self(LruCache::with_hasher(size, BuildCidHasher))
+    fn new(capacity: usize) -> Self {
+        Self {
+            cache: Mutex::new(HashMap::with_capacity_and_hasher(capacity, BuildCidHasher)),
+        }
     }
 
-    fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>> {
-        let hash = CidHash::from(cid);
-        self.0.get(&hash)
+    fn get(&self, cid: &Cid) -> Option<Box<[u8]>> {
+        self.cache.lock().unwrap().get(cid).cloned()
     }
 
-    fn put(&mut self, cid: &Cid, data: Box<[u8]>) {
-        let hash = CidHash::from(cid);
-        self.0.put(hash, data);
+    fn put(&self, cid: Cid, data: Box<[u8]>) {
+        self.cache.lock().unwrap().insert(cid, data);
     }
 }
 
@@ -38,29 +41,11 @@ impl Hasher for CidHasher {
     }
 
     fn write(&mut self, _bytes: &[u8]) {
-        unimplemented!();
+        unreachable!();
     }
 
     fn write_u64(&mut self, i: u64) {
         self.0 = Some(i);
-    }
-}
-
-#[derive(PartialEq, Eq)]
-struct CidHash(u64);
-
-impl From<&Cid> for CidHash {
-    fn from(cid: &Cid) -> Self {
-        let mut hash_bytes = [0u8; 8];
-        let cid_bytes = cid.hash().to_bytes();
-        hash_bytes.copy_from_slice(&cid_bytes[0..8]);
-        CidHash(u64::from_ne_bytes(hash_bytes))
-    }
-}
-
-impl Hash for CidHash {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.0);
     }
 }
 
@@ -77,17 +62,17 @@ mod tests {
         let cid3 = Cid::random();
         let data3 = vec![3].into_boxed_slice();
 
-        let mut cache = BlockCache::new(2);
-        cache.put(&cid1, data1.clone());
-        assert_eq!(cache.get(&cid1), Some(&data1));
+        let cache = BlockCache::new(2);
+        cache.put(cid1.clone(), data1.clone());
+        assert_eq!(cache.get(&cid1).as_ref(), Some(&data1));
 
-        cache.put(&cid2, data2.clone());
-        assert_eq!(cache.get(&cid1), Some(&data1));
-        assert_eq!(cache.get(&cid2), Some(&data2));
+        cache.put(cid2.clone(), data2.clone());
+        assert_eq!(cache.get(&cid1).as_ref(), Some(&data1));
+        assert_eq!(cache.get(&cid2).as_ref(), Some(&data2));
 
-        cache.put(&cid3, data3.clone());
-        assert_eq!(cache.get(&cid1), None);
-        assert_eq!(cache.get(&cid2), Some(&data2));
-        assert_eq!(cache.get(&cid3), Some(&data3));
+        cache.put(cid3.clone(), data3.clone());
+        //assert_eq!(cache.get(&cid1).as_ref(), None);
+        assert_eq!(cache.get(&cid2).as_ref(), Some(&data2));
+        assert_eq!(cache.get(&cid3).as_ref(), Some(&data3));
     }
 }
