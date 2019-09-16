@@ -19,16 +19,17 @@ pub trait Store: Default {
 }
 
 /// Implementable by ipld caches.
-pub trait Cache: Default {
+pub trait Cache {
+    /// Create a new cache of size cap.
+    fn new(cap: usize) -> Self;
     /// Gets the block with cid from the cache.
-    fn get(&self, cid: &Cid) -> Option<&Box<[u8]>>;
+    fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>>;
     /// Puts the block with cid in to the cache.
     fn put(&mut self, cid: &Cid, data: Box<[u8]>);
     /// Evicts the block with cid from the cache.
     fn evict(&mut self, cid: &Cid);
 }
 
-#[derive(Default)]
 /// Generic block store with a parameterizable storage backend and cache.
 pub struct BlockStore<TStore, TCache> {
     store: TStore,
@@ -36,6 +37,14 @@ pub struct BlockStore<TStore, TCache> {
 }
 
 impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
+    /// Creates a new block store.
+    pub fn new(cache_size: usize) -> Self {
+        Self {
+            store: Default::default(),
+            cache: TCache::new(cache_size),
+        }
+    }
+
     /// Reads the block with cid.
     pub fn read(&mut self, cid: &Cid) -> Result<&Box<[u8]>> {
         if self.cache.get(cid).is_none() {
@@ -126,11 +135,14 @@ pub mod mock {
     }
 
     /// A memory backed cache
-    #[derive(Default)]
     pub struct MemCache(HashMap<Vec<u8>, Box<[u8]>>);
 
     impl Cache for MemCache {
-        fn get(&self, cid: &Cid) -> Option<&Box<[u8]>> {
+        fn new(_cap: usize) -> Self {
+            Self(Default::default())
+        }
+
+        fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>> {
             self.0.get(&cid.to_bytes())
         }
 

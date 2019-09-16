@@ -29,9 +29,9 @@ pub struct Dag<TStore: Store, TCache: Cache> {
 
 impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     /// Creates a new Dag.
-    pub fn new() -> Self {
+    pub fn new(cache_size: usize) -> Self {
         Self {
-            store: BlockStore::default(),
+            store: BlockStore::new(cache_size),
         }
     }
 
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn test_dag() {
-        let mut dag = Dag::<MemStore, MemCache>::new();
+        let mut dag = Dag::<MemStore, MemCache>::new(16);
         let cid = dag.put_ipld::<Blake2b>(&ipld!({"a": 3})).unwrap();
         let root = dag
             .put_ipld::<Blake2b>(&ipld!({"root": [{"child": &cid}]}))
