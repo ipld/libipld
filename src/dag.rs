@@ -36,13 +36,13 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     }
 
     /// Retrives a block from the store.
-    pub fn get_ipld(&mut self, cid: &Cid) -> Result<Ipld> {
-        self.store.read_ipld(cid)
+    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Ipld> {
+        self.store.read_ipld(cid).await
     }
 
     /// Retrives ipld from the dag.
-    pub fn get(&mut self, path: &DagPath) -> Result<Option<Ipld>> {
-        let mut root = self.store.read_ipld(&path.0)?;
+    pub async fn get<'a>(&mut self, path: &DagPath<'a>) -> Result<Option<Ipld>> {
+        let mut root = self.store.read_ipld(&path.0).await?;
         let mut ipld = &root;
         for segment in path.1.iter() {
             if let Some(next) = match ipld {
@@ -54,7 +54,7 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
                 _ => return Err(format_err!("Cannot index into {:?}", ipld)),
             } {
                 if let Ipld::Link(cid) = next {
-                    root = self.store.read_ipld(cid)?;
+                    root = self.store.read_ipld(cid).await?;
                     ipld = &root;
                 } else {
                     ipld = next;
@@ -67,8 +67,10 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     }
 
     /// Puts ipld into the dag.
-    pub fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid> {
-        self.store.write_cbor::<H, _>(ipld)
+    pub async fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid> {
+        let cid = self.store.write_cbor::<H, _>(ipld)?;
+        self.store.flush().await?;
+        Ok(cid)
     }
 }
 
@@ -78,15 +80,18 @@ mod tests {
     use crate::hash::Blake2b;
     use crate::ipld;
     use crate::store::mock::{MemCache, MemStore};
+    use async_std::task;
 
     #[test]
     fn test_dag() {
-        let mut dag = Dag::<MemStore, MemCache>::new(16);
-        let cid = dag.put_ipld::<Blake2b>(&ipld!({"a": 3})).unwrap();
-        let root = dag
-            .put_ipld::<Blake2b>(&ipld!({"root": [{"child": &cid}]}))
-            .unwrap();
-        let path = DagPath::new(&root, "root/0/child/a");
-        assert_eq!(dag.get(&path).unwrap(), Some(Ipld::Integer(3)));
+        task::block_on(async {
+            let mut dag = Dag::<MemStore, MemCache>::new(16);
+            let ipld1 = ipld!({"a": 3});
+            let cid = dag.put_ipld::<Blake2b>(&ipld1).await.unwrap();
+            let ipld2 = ipld!({"root": [{"child": &cid}]});
+            let root = dag.put_ipld::<Blake2b>(&ipld2).await.unwrap();
+            let path = DagPath::new(&root, "root/0/child/a");
+            assert_eq!(dag.get(&path).await.unwrap(), Some(Ipld::Integer(3)));
+        });
     }
 }
