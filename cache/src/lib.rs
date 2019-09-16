@@ -18,11 +18,6 @@ impl Cache for BlockCache {
         let hash = CidHash::from(cid);
         self.0.put(hash, data);
     }
-
-    fn evict(&mut self, cid: &Cid) {
-        let hash = CidHash::from(cid);
-        self.0.pop(&hash);
-    }
 }
 
 struct BuildCidHasher;
@@ -72,7 +67,7 @@ impl Hash for CidHash {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_works() {
         let cid1 = Cid::random();
@@ -81,7 +76,7 @@ mod tests {
         let data2 = vec![2].into_boxed_slice();
         let cid3 = Cid::random();
         let data3 = vec![3].into_boxed_slice();
-        
+
         let mut cache = BlockCache::new(2);
         cache.put(&cid1, data1.clone());
         assert_eq!(cache.get(&cid1), Some(&data1));

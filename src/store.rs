@@ -6,20 +6,22 @@ use crate::hash::{digest, Hash};
 use crate::ipld::{Cid, Ipld};
 use async_trait::async_trait;
 use cid::Codec;
+use std::path::Path;
 
 /// Implementable by ipld storage backends.
 #[async_trait]
-pub trait Store: Default {
+pub trait Store {
+    /// Creates a new store at path.
+    fn new(path: Box<Path>) -> Self;
     /// Returns the block with cid. It is marked unsafe because the caller must
     ///  ensure that the hash matches the data.
     async fn read(&self, cid: &Cid) -> Result<Box<[u8]>>;
     /// Writes the block with cid. It is marked unsafe because the caller must
     ///  ensure that the hash matches the data.
-    fn write(&mut self, cid: &Cid, data: &Box<[u8]>) -> Result<()>;
-    /// Deletes the block that match the cid.
-    fn delete(&mut self, cid: &Cid) -> Result<()>;
-    /// Flushes changes to disk.
-    async fn flush(&mut self) -> Result<()>;
+    async fn write(&self, cid: &Cid, data: &Box<[u8]>) -> Result<()>;
+    // Note: deleting unused blocks needs to happen through the garbage
+    // collector and pin api. The result of writing invalid data needs to be
+    // studied in more detail.
 }
 
 /// Implementable by ipld caches.
@@ -30,8 +32,6 @@ pub trait Cache {
     fn get(&mut self, cid: &Cid) -> Option<&Box<[u8]>>;
     /// Puts the block with cid in to the cache.
     fn put(&mut self, cid: &Cid, data: Box<[u8]>);
-    /// Evicts the block with cid from the cache.
-    fn evict(&mut self, cid: &Cid);
 }
 
 /// Generic block store with a parameterizable storage backend and cache.
@@ -42,9 +42,9 @@ pub struct BlockStore<TStore, TCache> {
 
 impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     /// Creates a new block store.
-    pub fn new(cache_size: usize) -> Self {
+    pub fn new(path: Box<Path>, cache_size: usize) -> Self {
         Self {
-            store: Default::default(),
+            store: TStore::new(path),
             cache: TCache::new(cache_size),
         }
     }
@@ -80,27 +80,22 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     }
 
     /// Writes a block using the cbor codec.
-    pub fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid> {
+    pub async fn write_cbor<H: Hash, C: WriteCbor>(&mut self, c: &C) -> Result<Cid> {
         let mut data = Vec::new();
         c.write_cbor(&mut data)?;
         let hash = H::digest(&data);
         let cid = Cid::new_v1(Codec::DagCBOR, hash);
         self.cache.put(&cid, data.into_boxed_slice());
         let data = self.cache.get(&cid).expect("in cache");
-        self.store.write(&cid, data)?;
+        self.store.write(&cid, data).await?;
         Ok(cid)
     }
 
-    /// Deletes the block with cid.
-    pub fn delete(&mut self, cid: &Cid) -> Result<()> {
-        self.cache.evict(cid);
-        self.store.delete(cid)?;
-        Ok(())
-    }
-
-    /// Flushes changes to disk.
+    /// Flush to disk.
     pub async fn flush(&mut self) -> Result<()> {
-        self.store.flush().await
+        // TODO add a write buffer and gc the write buffer
+        // before writing to disk.
+        Ok(())
     }
 }
 
@@ -109,10 +104,11 @@ pub mod mock {
     use super::*;
     use multibase::Base;
     use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     /// A memory backed store
     #[derive(Default)]
-    pub struct MemStore(HashMap<String, Box<[u8]>>);
+    pub struct MemStore(Arc<Mutex<HashMap<String, Box<[u8]>>>>);
 
     impl MemStore {
         #[inline]
@@ -123,28 +119,22 @@ pub mod mock {
 
     #[async_trait]
     impl Store for MemStore {
+        fn new(_path: Box<Path>) -> Self {
+            Default::default()
+        }
+
         async fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
             let key = self.key(cid);
-            if let Some(data) = self.0.get(&key) {
+            if let Some(data) = self.0.lock().unwrap().get(&key) {
                 Ok(data.to_owned())
             } else {
                 Err(format_err!("Block not found"))
             }
         }
 
-        fn write(&mut self, cid: &Cid, data: &Box<[u8]>) -> Result<()> {
+        async fn write(&self, cid: &Cid, data: &Box<[u8]>) -> Result<()> {
             let key = self.key(cid);
-            self.0.insert(key, data.to_owned());
-            Ok(())
-        }
-
-        fn delete(&mut self, cid: &Cid) -> Result<()> {
-            let key = self.key(cid);
-            self.0.remove(&key);
-            Ok(())
-        }
-
-        async fn flush(&mut self) -> Result<()> {
+            self.0.lock().unwrap().insert(key, data.to_owned());
             Ok(())
         }
     }
@@ -164,10 +154,6 @@ pub mod mock {
         fn put(&mut self, cid: &Cid, data: Box<[u8]>) {
             let bytes = cid.to_bytes();
             self.0.insert(bytes.clone(), data);
-        }
-
-        fn evict(&mut self, cid: &Cid) {
-            self.0.remove(&cid.to_bytes());
         }
     }
 }
