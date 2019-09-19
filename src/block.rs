@@ -5,8 +5,6 @@ use crate::error::BlockError;
 use crate::hash::{digest, Hash};
 use crate::ipld::{Cid, Ipld};
 use crate::MAX_BLOCK_SIZE;
-use multibase::Base;
-use std::path::{Path, PathBuf};
 
 /// Validate block.
 pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
@@ -18,14 +16,6 @@ pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
         return Err(BlockError::InvalidHash);
     }
     Ok(())
-}
-
-/// Path for block.
-pub fn locate(store: &Box<Path>, cid: &Cid) -> Box<Path> {
-    let base64 = multibase::encode(Base::Base64UrlUpperNoPad, cid.to_bytes());
-    let mut buf = PathBuf::from(store.clone());
-    buf.push(base64);
-    buf.into_boxed_path()
 }
 
 /// Create cbor block.

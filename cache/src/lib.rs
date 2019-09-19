@@ -7,13 +7,15 @@ pub struct BlockCache {
     cache: Mutex<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
 }
 
-impl Cache for BlockCache {
-    fn new(capacity: usize) -> Self {
+impl BlockCache {
+    pub fn new(capacity: usize) -> Self {
         Self {
             cache: Mutex::new(HashMap::with_capacity_and_hasher(capacity, BuildCidHasher)),
         }
     }
+}
 
+impl Cache for BlockCache {
     fn get(&self, cid: &Cid) -> Option<Box<[u8]>> {
         self.cache.lock().unwrap().get(cid).cloned()
     }

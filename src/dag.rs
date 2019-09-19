@@ -4,7 +4,6 @@ use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
 use crate::path::Path;
 use crate::store::{BlockStore, Cache, Store};
-use std::path::Path as FsPath;
 
 /// Path in a dag.
 #[derive(Clone, Debug, PartialEq, Hash)]
@@ -30,9 +29,9 @@ pub struct Dag<TStore: Store, TCache: Cache> {
 
 impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     /// Creates a new Dag.
-    pub fn new(path: Box<FsPath>, cache_size: usize) -> Self {
+    pub fn new(store: TStore, cache: TCache) -> Self {
         Self {
-            store: BlockStore::new(path, cache_size),
+            store: BlockStore::new(store, cache),
         }
     }
 
@@ -82,12 +81,13 @@ mod tests {
     use crate::ipld;
     use crate::store::mock::{MemCache, MemStore};
     use async_std::task;
-    use std::path::PathBuf;
 
     #[test]
     fn test_dag() {
         task::block_on(async {
-            let mut dag = Dag::<MemStore, MemCache>::new(PathBuf::new().into_boxed_path(), 16);
+            let store = MemStore::default();
+            let cache = MemCache::default();
+            let mut dag = Dag::<MemStore, MemCache>::new(store, cache);
             let ipld1 = ipld!({"a": 3});
             let cid = dag.put_ipld::<Blake2b>(&ipld1).await.unwrap();
             let ipld2 = ipld!({"root": [{"child": &cid}]});

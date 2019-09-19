@@ -5,28 +5,20 @@ use crate::error::{format_err, Result};
 use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
 use async_trait::async_trait;
-use std::path::Path;
 
 /// Implementable by ipld storage backends.
 #[async_trait]
-pub trait Store: Send {
-    /// Creates a new store at path.
-    fn new(path: Box<Path>) -> Self;
+pub trait Store: Send + Sized {
     /// Returns the block with cid. It is marked unsafe because the caller must
     ///  ensure that the hash matches the data.
     async fn read(&self, cid: &Cid) -> Result<Box<[u8]>>;
     /// Writes the block with cid. It is marked unsafe because the caller must
     ///  ensure that the hash matches the data.
     async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
-    // Note: deleting unused blocks needs to happen through the garbage
-    // collector and pin api. The result of writing invalid data needs to be
-    // studied in more detail.
 }
 
 /// Implementable by ipld caches.
 pub trait Cache: Send {
-    /// Create a new cache of size cap.
-    fn new(cap: usize) -> Self;
     /// Gets the block with cid from the cache.
     fn get(&self, cid: &Cid) -> Option<Box<[u8]>>;
     /// Puts the block with cid in to the cache.
@@ -41,10 +33,10 @@ pub struct BlockStore<TStore, TCache> {
 
 impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     /// Creates a new block store.
-    pub fn new(path: Box<Path>, cache_size: usize) -> Self {
+    pub fn new(store: TStore, cache: TCache) -> Self {
         Self {
-            store: TStore::new(path),
-            cache: TCache::new(cache_size),
+            store,
+            cache,
         }
     }
 
@@ -109,10 +101,6 @@ pub mod mock {
 
     #[async_trait]
     impl Store for MemStore {
-        fn new(_path: Box<Path>) -> Self {
-            Default::default()
-        }
-
         async fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
             let key = self.key(cid);
             if let Some(data) = self.0.lock().unwrap().get(&key) {
@@ -130,13 +118,10 @@ pub mod mock {
     }
 
     /// A memory backed cache
+    #[derive(Default)]
     pub struct MemCache(Mutex<HashMap<Vec<u8>, Box<[u8]>>>);
 
     impl Cache for MemCache {
-        fn new(_cap: usize) -> Self {
-            Self(Default::default())
-        }
-
         fn get(&self, cid: &Cid) -> Option<Box<[u8]>> {
             self.0.lock().unwrap().get(&cid.to_bytes()).cloned()
         }
