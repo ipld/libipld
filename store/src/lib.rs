@@ -2,21 +2,10 @@ use async_std::fs::{self, File};
 use async_std::io::Write;
 use async_std::task;
 use async_trait::async_trait;
-use libipld::{Cid, Result, Store};
-use multibase::Base;
-use std::path::{Path, PathBuf};
+use libipld::{Cid, Result, Store, locate};
+use std::path::Path;
 
 pub struct BlockStore(Box<Path>);
-
-impl BlockStore {
-    #[inline]
-    fn path(&self, cid: &Cid) -> Box<Path> {
-        let base64 = multibase::encode(Base::Base64UrlUpperNoPad, cid.to_bytes());
-        let mut buf = PathBuf::from(self.0.clone());
-        buf.push(base64);
-        buf.into_boxed_path()
-    }
-}
 
 #[async_trait]
 impl Store for BlockStore {
@@ -25,13 +14,13 @@ impl Store for BlockStore {
     }
 
     async fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
-        let path = self.path(cid);
+        let path = locate(&self.0, cid);
         let bytes = fs::read(path).await?;
         Ok(bytes.into_boxed_slice())
     }
 
-    fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
-        let path = self.path(cid);
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        let path = locate(&self.0, cid);
         //task::spawn(
         task::block_on(async move {
             // Only write if file doesn't exist.
@@ -58,7 +47,7 @@ mod tests {
             let store = BlockStore::new(tmp.path().into());
             let cid = Cid::random();
             let data = vec![0, 1, 2, 3].into_boxed_slice();
-            store.write(&cid, data.clone()).unwrap();
+            store.write(&cid, data.clone()).await.unwrap();
             //let data2 = store.read(&cid).await.unwrap();
             //assert_eq!(data, data2);
             tmp.close().unwrap();

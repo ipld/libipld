@@ -17,7 +17,7 @@ pub trait Store: Send {
     async fn read(&self, cid: &Cid) -> Result<Box<[u8]>>;
     /// Writes the block with cid. It is marked unsafe because the caller must
     ///  ensure that the hash matches the data.
-    fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
     // Note: deleting unused blocks needs to happen through the garbage
     // collector and pin api. The result of writing invalid data needs to be
     // studied in more detail.
@@ -74,10 +74,10 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     }
 
     /// Writes a block using the cbor codec.
-    pub fn write_cbor<H: Hash, C: WriteCbor>(&self, c: &C) -> Result<Cid> {
-        let (cid, data) = create_cbor_block::<H, C>(c)?;
+    pub async fn write_cbor<H: Hash, C: WriteCbor>(&self, c: &C) -> Result<Cid> {
+        let (cid, data) = create_cbor_block::<H, C>(c).await?;
         self.cache.put(cid.clone(), data.clone());
-        self.store.write(&cid, data)?;
+        self.store.write(&cid, data).await?;
         Ok(cid)
     }
 
@@ -122,7 +122,7 @@ pub mod mock {
             }
         }
 
-        fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
             let key = self.key(cid);
             self.0.lock().unwrap().insert(key, data);
             Ok(())

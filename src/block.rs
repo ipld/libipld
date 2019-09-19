@@ -29,9 +29,9 @@ pub fn locate(store: &Box<Path>, cid: &Cid) -> Box<Path> {
 }
 
 /// Create cbor block.
-pub fn create_cbor_block<H: Hash, C: WriteCbor>(c: &C) -> Result<(Cid, Box<[u8]>), BlockError> {
+pub async fn create_cbor_block<H: Hash, C: WriteCbor>(c: &C) -> Result<(Cid, Box<[u8]>), BlockError> {
     let mut data = Vec::new();
-    c.write_cbor(&mut data)
+    c.write_cbor(&mut data).await
         .map_err(|e| BlockError::CodecError(e))?;
     if data.len() > MAX_BLOCK_SIZE {
         return Err(BlockError::BlockToLarge(data.len()));

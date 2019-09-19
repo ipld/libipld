@@ -95,21 +95,21 @@ impl BindingRepr {
                 let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        #key.write_cbor(w)?;
-                        #binding.write_cbor(w)?;
+                        #key.write_cbor(w).await?;
+                        #binding.write_cbor(w).await?;
                     }
                 });
                 quote! {
-                    write_u64(w, 5, #len)?;
+                    write_u64(w, 5, #len).await?;
                     #(#fields)*
                 }
             }
             Self::List => {
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(#binding.write_cbor(w)?;));
+                    .map(|binding| quote!(#binding.write_cbor(w).await?;));
                 quote! {
-                    write_u64(w, 4, #len)?;
+                    write_u64(w, 4, #len).await?;
                     #(#fields)*
                 }
             }
@@ -199,8 +199,8 @@ impl VariantRepr {
             Self::Keyed => {
                 let name = variant.ast().ident.to_string();
                 quote! {
-                    write_u64(w, 5, 1)?;
-                    #name.write_cbor(w)?;
+                    write_u64(w, 5, 1).await?;
+                    #name.write_cbor(w).await?;
                     #bindings
                 }
             }
@@ -232,7 +232,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
 
     quote! {
         #[inline]
-        fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
+        async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
             match *self {
                 #body
             }

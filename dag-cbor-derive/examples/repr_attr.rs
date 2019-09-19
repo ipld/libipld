@@ -1,3 +1,4 @@
+use async_std::task;
 use dag_cbor_derive::DagCbor;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
 use libipld::{ipld, Codec, DagCborCodec, Result};
@@ -18,8 +19,9 @@ enum KindedRepr {
 
 macro_rules! test_case {
     ($data:expr, $ty:ty, $ipld:expr) => {
+        let data = $data;
         let mut bytes = Vec::new();
-        $data.write_cbor(&mut bytes)?;
+        data.write_cbor(&mut bytes).await?;
         let ipld = DagCborCodec::decode(&bytes)?;
         assert_eq!(ipld, $ipld);
         let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
@@ -27,7 +29,7 @@ macro_rules! test_case {
     };
 }
 
-fn main() -> Result<()> {
+async fn run() -> Result<()> {
     test_case! {
         ListRepr::default(),
         ListRepr,
@@ -47,4 +49,8 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn main() -> Result<()> {
+    task::block_on(run())
 }

@@ -69,7 +69,7 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
 
     /// Puts ipld into the dag.
     pub async fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid> {
-        let cid = self.store.write_cbor::<H, _>(ipld)?;
+        let cid = self.store.write_cbor::<H, _>(ipld).await?;
         self.store.flush().await?;
         Ok(cid)
     }

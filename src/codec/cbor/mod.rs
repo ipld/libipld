@@ -2,6 +2,7 @@
 use crate::codec::Codec;
 use crate::error::Result;
 use crate::ipld::Ipld;
+use async_trait::async_trait;
 
 pub mod decode;
 pub mod encode;
@@ -13,13 +14,14 @@ pub use encode::WriteCbor;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCborCodec;
 
+#[async_trait]
 impl Codec for DagCborCodec {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>> {
+    async fn encode(ipld: &Ipld) -> Result<Box<[u8]>> {
         let mut bytes = Vec::new();
-        ipld.write_cbor(&mut bytes)?;
+        ipld.write_cbor(&mut bytes).await?;
         Ok(bytes.into_boxed_slice())
     }
 
@@ -32,10 +34,10 @@ impl Codec for DagCborCodec {
 mod tests {
     use super::*;
     use crate::ipld;
-    use cid::Cid;
+    use crate::ipld::Cid;
+    use async_std::task;
 
-    #[test]
-    fn encode_decode_cbor() {
+    async fn encode_decode_cbor() {
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],
@@ -43,7 +45,13 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": Cid::random(),
         });
-        let ipld2 = DagCborCodec::decode(&DagCborCodec::encode(&ipld).unwrap()).unwrap();
+        let bytes = DagCborCodec::encode(&ipld).await.unwrap();
+        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
+    }
+
+    #[test]
+    fn test_encode_decode_cbor() {
+        task::block_on(encode_decode_cbor());
     }
 }

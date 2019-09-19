@@ -1,3 +1,4 @@
+use async_std::task;
 use dag_cbor_derive::DagCbor;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
 use libipld::{ipld, Codec, DagCborCodec, Result};
@@ -8,12 +9,12 @@ struct RenameFields {
     hash_alg: String,
 }
 
-fn main() -> Result<()> {
+async fn run() -> Result<()> {
     let data = RenameFields {
         hash_alg: "murmur3".to_string(),
     };
     let mut bytes = Vec::new();
-    data.write_cbor(&mut bytes)?;
+    data.write_cbor(&mut bytes).await?;
     let ipld = DagCborCodec::decode(&bytes)?;
     let expect = ipld!({
         "hashAlg": "murmur3",
@@ -22,4 +23,8 @@ fn main() -> Result<()> {
     let data2 = RenameFields::read_cbor(&mut bytes.as_slice())?;
     assert_eq!(data, data2);
     Ok(())
+}
+
+fn main() -> Result<()> {
+    task::block_on(run())
 }
