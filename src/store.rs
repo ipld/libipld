@@ -1,11 +1,10 @@
 //! Traits for implementing a block store.
+use crate::block::{create_cbor_block, decode_cbor, decode_ipld, validate};
 use crate::codec::cbor::{ReadCbor, WriteCbor};
-use crate::codec::decode;
 use crate::error::{format_err, Result};
-use crate::hash::{digest, Hash};
+use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
 use async_trait::async_trait;
-use cid::Codec;
 use std::path::Path;
 
 /// Implementable by ipld storage backends.
@@ -54,10 +53,7 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     async fn read(&self, cid: &Cid) -> Result<Box<[u8]>> {
         if self.cache.get(cid).is_none() {
             let data = self.store.read(cid).await?;
-            let hash = digest(cid.hash().code(), &data);
-            if cid.hash() != hash.as_ref() {
-                return Err(format_err!("Invalid hash"));
-            }
+            validate(cid, &data)?;
             self.cache.put(cid.to_owned(), data);
         }
         Ok(self.cache.get(cid).expect("in cache"))
@@ -66,26 +62,20 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     /// Reads the block with cid and decodes it to ipld.
     pub async fn read_ipld(&self, cid: &Cid) -> Result<Ipld> {
         let data = self.read(cid).await?;
-        decode(cid.codec(), &data)
+        let ipld = decode_ipld(cid, &data)?;
+        Ok(ipld)
     }
 
     /// Reads the block with cid and decodes it to cbor.
     pub async fn read_cbor<C: ReadCbor>(&self, cid: &Cid) -> Result<C> {
-        if cid.codec() != cid::Codec::DagCBOR {
-            return Err(format_err!("Not cbor codec"));
-        }
         let data = self.read(cid).await?;
-        let mut data_ref: &[u8] = &data;
-        C::read_cbor(&mut data_ref)
+        let cbor = decode_cbor::<C>(cid, &data)?;
+        Ok(cbor)
     }
 
     /// Writes a block using the cbor codec.
     pub fn write_cbor<H: Hash, C: WriteCbor>(&self, c: &C) -> Result<Cid> {
-        let mut data = Vec::new();
-        c.write_cbor(&mut data)?;
-        let hash = H::digest(&data);
-        let cid = Cid::new_v1(Codec::DagCBOR, hash);
-        let data = data.into_boxed_slice();
+        let (cid, data) = create_cbor_block::<H, C>(c)?;
         self.cache.put(cid.clone(), data.clone());
         self.store.write(&cid, data)?;
         Ok(cid)

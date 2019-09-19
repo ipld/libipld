@@ -57,3 +57,20 @@ impl From<core::convert::Infallible> for IpldError {
         unreachable!();
     }
 }
+
+/// Block error.
+#[derive(Debug, Fail)]
+pub enum BlockError {
+    /// Block exceeds MAX_BLOCK_SIZE.
+    #[fail(display = "Block size {} exceeds MAX_BLOCK_SIZE.", _0)]
+    BlockToLarge(usize),
+    /// Hash does not match the CID.
+    #[fail(display = "Hash does not match the CID.")]
+    InvalidHash,
+    /// The codec is unsupported.
+    #[fail(display = "Unsupported codec {:?}.", _0)]
+    UnsupportedCodec(cid::Codec),
+    /// The codec returned an error.
+    #[fail(display = "Codec error: {}", _0)]
+    CodecError(Error),
+}
