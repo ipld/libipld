@@ -1,35 +1,14 @@
 //! CBOR decoder
 #![allow(missing_docs)]
-use crate::error::Result;
+use crate::codec::cbor::{CborError, CborResult as Result};
 use crate::ipld::Ipld;
 use async_std::io::Read as _;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use cid::Cid;
 use core::convert::TryFrom;
-use failure::Fail;
 pub use futures_io::AsyncRead as Read;
 use std::collections::BTreeMap;
-
-#[derive(Debug, Fail)]
-pub enum CborError {
-    #[fail(display = "Length out of range.")]
-    LengthOutOfRange,
-    #[fail(display = "Unexpected code.")]
-    UnexpectedCode,
-    #[fail(display = "Unkown tag.")]
-    UnknownTag,
-    #[fail(display = "Wrong key.")]
-    UnexpectedKey,
-    #[fail(display = "{}", _0)]
-    Io(std::io::Error),
-}
-
-impl From<std::io::Error> for CborError {
-    fn from(err: std::io::Error) -> Self {
-        Self::Io(err)
-    }
-}
 
 #[inline]
 pub async fn read_u8<R: Read + Unpin + Send>(r: &mut R) -> Result<u8> {
@@ -94,7 +73,7 @@ pub async fn read_key<R: Read + Unpin + Send>(r: &mut R, key: &str) -> Result<()
     if key_bytes == &bytes[1..] {
         Ok(())
     } else {
-        Err(CborError::UnexpectedKey.into())
+        Err(CborError::UnexpectedKey)
     }
 }
 
@@ -128,11 +107,11 @@ pub async fn read_map<R: Read + Unpin + Send, T: ReadCbor + Send>(
 pub async fn read_link<R: Read + Unpin + Send>(r: &mut R) -> Result<Cid> {
     let tag = read_u8(r).await?;
     if tag != 42 {
-        return Err(CborError::UnknownTag.into());
+        return Err(CborError::UnknownTag);
     }
     let ty = read_u8(r).await?;
     if ty != 0x58 {
-        return Err(CborError::UnknownTag.into());
+        return Err(CborError::UnknownTag);
     }
     let len = read_u8(r).await?;
     let bytes = read_bytes(r, len as usize).await?;
@@ -149,7 +128,7 @@ pub trait ReadCbor: Sized {
         if let Some(res) = Self::try_read_cbor(r, major).await? {
             Ok(res)
         } else {
-            Err(CborError::UnexpectedCode.into())
+            Err(CborError::UnexpectedCode)
         }
     }
 }
@@ -309,7 +288,7 @@ impl ReadCbor for String {
             0x7b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 len as usize
             }
@@ -342,7 +321,7 @@ impl ReadCbor for Box<[u8]> {
             0x5b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 len as usize
             }
@@ -382,7 +361,7 @@ impl<T: ReadCbor + Send> ReadCbor for Vec<T> {
             0x9b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 len as usize
             }
@@ -404,7 +383,7 @@ impl<T: ReadCbor + Send> ReadCbor for BTreeMap<String, T> {
             0xbb => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 len as usize
             }
@@ -457,7 +436,7 @@ impl ReadCbor for Ipld {
             0x5b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 let bytes = read_bytes(r, len as usize).await?;
                 Ipld::Bytes(bytes)
@@ -487,7 +466,7 @@ impl ReadCbor for Ipld {
             0x7b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 let string = read_str(r, len as usize).await?;
                 Ipld::String(string)
@@ -517,7 +496,7 @@ impl ReadCbor for Ipld {
             0x9b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 let list = read_list(r, len as usize).await?;
                 Ipld::List(list)
@@ -547,7 +526,7 @@ impl ReadCbor for Ipld {
             0xbb => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange.into());
+                    return Err(CborError::LengthOutOfRange);
                 }
                 let map = read_map(r, len as usize).await?;
                 Ipld::Map(map)

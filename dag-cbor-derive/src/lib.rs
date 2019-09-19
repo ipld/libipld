@@ -10,8 +10,8 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
     let write_cbor = gen::write_cbor(&s);
     let read_cbor = gen::read_cbor(&s);
     s.gen_impl(quote! {
-        use libipld::{IpldError, Result};
-        use libipld::cbor::{ReadCbor, WriteCbor};
+        use libipld::IpldError;
+        use libipld::cbor::{ReadCbor, WriteCbor, CborResult as Result};
         use libipld::cbor::encode::{write_u64, Write};
         use libipld::cbor::decode::{read_u8, read_key, Read};
 

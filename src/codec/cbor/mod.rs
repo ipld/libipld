@@ -1,8 +1,8 @@
 //! CBOR codec.
 use crate::codec::Codec;
-use crate::error::Result;
 use crate::ipld::Ipld;
 use async_trait::async_trait;
+use failure::Fail;
 
 pub mod decode;
 pub mod encode;
@@ -19,16 +19,77 @@ impl Codec for DagCborCodec {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    async fn encode(ipld: &Ipld) -> Result<Box<[u8]>> {
+    type Error = CborError;
+
+    async fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
         let mut bytes = Vec::new();
         ipld.write_cbor(&mut bytes).await?;
         Ok(bytes.into_boxed_slice())
     }
 
-    async fn decode(mut data: &[u8]) -> Result<Ipld> {
+    async fn decode(mut data: &[u8]) -> Result<Ipld, Self::Error> {
         Ipld::read_cbor(&mut data).await
     }
 }
+
+/// CBOR error.
+#[derive(Debug, Fail)]
+pub enum CborError {
+    /// Number larger than u64.
+    #[fail(display = "Number larger than u64.")]
+    NumberOutOfRange,
+    /// Length larger than usize.
+    #[fail(display = "Length out of range.")]
+    LengthOutOfRange,
+    /// Unexpected cbor code.
+    #[fail(display = "Unexpected cbor code.")]
+    UnexpectedCode,
+    /// Unknown cbor tag.
+    #[fail(display = "Unkown cbor tag.")]
+    UnknownTag,
+    /// Unexpected key.
+    #[fail(display = "Wrong key.")]
+    UnexpectedKey,
+    /// Io error.
+    #[fail(display = "{}", _0)]
+    Io(std::io::Error),
+    /// Utf8 error.
+    #[fail(display = "{}", _0)]
+    Utf8(std::str::Utf8Error),
+    /// Cid error.
+    #[fail(display = "{}", _0)]
+    Cid(cid::Error),
+    /// Ipld error.
+    #[fail(display = "{}", _0)]
+    Ipld(crate::error::IpldError)
+}
+
+impl From<std::io::Error> for CborError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+impl From<std::str::Utf8Error> for CborError {
+    fn from(err: std::str::Utf8Error) -> Self {
+        Self::Utf8(err)
+    }
+}
+
+impl From<cid::Error> for CborError {
+    fn from(err: cid::Error) -> Self {
+        Self::Cid(err)
+    }
+}
+
+impl From<crate::error::IpldError> for CborError {
+    fn from(err: crate::error::IpldError) -> Self {
+        Self::Ipld(err)
+    }
+}
+
+/// CBOR result.
+pub type CborResult<T> = Result<T, CborError>;
 
 #[cfg(test)]
 mod tests {

@@ -25,7 +25,7 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
     let mut data = Vec::new();
     c.write_cbor(&mut data)
         .await
-        .map_err(|e| BlockError::CodecError(e))?;
+        .map_err(|e| BlockError::CodecError(e.into()))?;
     if data.len() > MAX_BLOCK_SIZE {
         return Err(BlockError::BlockToLarge(data.len()));
     }
@@ -39,7 +39,7 @@ pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     match cid.codec() {
         DagCborCodec::CODEC => DagCborCodec::decode(&data)
             .await
-            .map_err(|e| BlockError::CodecError(e)),
+            .map_err(|e| BlockError::CodecError(e.into())),
         _ => Err(BlockError::UnsupportedCodec(cid.codec())),
     }
 }
@@ -51,5 +51,5 @@ pub async fn decode_cbor<C: ReadCbor + Send>(cid: &Cid, mut data: &[u8]) -> Resu
     }
     C::read_cbor(&mut data)
         .await
-        .map_err(|e| BlockError::CodecError(e))
+        .map_err(|e| BlockError::CodecError(e.into()))
 }

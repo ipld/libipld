@@ -1,6 +1,6 @@
 //! CBOR encoder.
 #![allow(missing_docs)]
-use crate::error::{format_err, Result};
+use crate::codec::cbor::{CborError, CborResult as Result};
 use crate::ipld::{Cid, Ipld};
 use async_std::io::Write as _;
 use async_trait::async_trait;
@@ -212,12 +212,12 @@ impl WriteCbor for i128 {
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
         if *self < 0 {
             if -(*self + 1) > u64::max_value() as i128 {
-                return Err(format_err!("The number can't be stored in CBOR."));
+                return Err(CborError::NumberOutOfRange);
             }
             write_u64(w, 1, -(*self + 1) as u64).await?;
         } else {
             if *self > u64::max_value() as i128 {
-                return Err(format_err!("The number can't be stored in CBOR."));
+                return Err(CborError::NumberOutOfRange);
             }
             write_u64(w, 0, *self as u64).await?;
         }
