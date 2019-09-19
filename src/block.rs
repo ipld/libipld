@@ -13,7 +13,7 @@ pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
     }
     let hash = digest(cid.hash().code(), &data);
     if hash.as_ref() != cid.hash() {
-        return Err(BlockError::InvalidHash);
+        return Err(BlockError::InvalidHash(hash));
     }
     Ok(())
 }

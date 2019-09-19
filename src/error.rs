@@ -1,5 +1,6 @@
 //! `Ipld` error definitions.
 use failure::Fail;
+use multihash::Multihash;
 pub use failure::{format_err, Error};
 
 /// Result alias.
@@ -66,7 +67,7 @@ pub enum BlockError {
     BlockToLarge(usize),
     /// Hash does not match the CID.
     #[fail(display = "Hash does not match the CID.")]
-    InvalidHash,
+    InvalidHash(Multihash),
     /// The codec is unsupported.
     #[fail(display = "Unsupported codec {:?}.", _0)]
     UnsupportedCodec(cid::Codec),
