@@ -25,8 +25,8 @@ impl Codec for DagCborCodec {
         Ok(bytes.into_boxed_slice())
     }
 
-    fn decode(mut data: &[u8]) -> Result<Ipld> {
-        Ipld::read_cbor(&mut data)
+    async fn decode(mut data: &[u8]) -> Result<Ipld> {
+        Ipld::read_cbor(&mut data).await
     }
 }
 
@@ -46,7 +46,7 @@ mod tests {
           "link": Cid::random(),
         });
         let bytes = DagCborCodec::encode(&ipld).await.unwrap();
-        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
+        let ipld2 = DagCborCodec::decode(&bytes).await.unwrap();
         assert_eq!(ipld, ipld2);
     }
 

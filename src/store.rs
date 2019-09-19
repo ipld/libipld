@@ -62,14 +62,14 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     /// Reads the block with cid and decodes it to ipld.
     pub async fn read_ipld(&self, cid: &Cid) -> Result<Ipld> {
         let data = self.read(cid).await?;
-        let ipld = decode_ipld(cid, &data)?;
+        let ipld = decode_ipld(cid, &data).await?;
         Ok(ipld)
     }
 
     /// Reads the block with cid and decodes it to cbor.
-    pub async fn read_cbor<C: ReadCbor>(&self, cid: &Cid) -> Result<C> {
+    pub async fn read_cbor<C: ReadCbor + Send>(&self, cid: &Cid) -> Result<C> {
         let data = self.read(cid).await?;
-        let cbor = decode_cbor::<C>(cid, &data)?;
+        let cbor = decode_cbor::<C>(cid, &data).await?;
         Ok(cbor)
     }
 

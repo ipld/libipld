@@ -17,5 +17,5 @@ pub trait Codec {
     /// Encode function.
     async fn encode(ipld: &Ipld) -> Result<Box<[u8]>>;
     /// Decode function.
-    fn decode(data: &[u8]) -> Result<Ipld>;
+    async fn decode(data: &[u8]) -> Result<Ipld>;
 }

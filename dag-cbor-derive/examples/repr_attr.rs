@@ -22,9 +22,9 @@ macro_rules! test_case {
         let data = $data;
         let mut bytes = Vec::new();
         data.write_cbor(&mut bytes).await?;
-        let ipld = DagCborCodec::decode(&bytes)?;
+        let ipld = DagCborCodec::decode(&bytes).await?;
         assert_eq!(ipld, $ipld);
-        let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
+        let data = <$ty>::read_cbor(&mut bytes.as_slice()).await?;
         assert_eq!(data, $data);
     };
 }

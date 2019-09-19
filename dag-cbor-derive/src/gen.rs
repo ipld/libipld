@@ -123,8 +123,8 @@ impl BindingRepr {
                 let keys = field_keys(variant.bindings());
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        read_key(r, #key)?;
-                        let #binding = ReadCbor::read_cbor(r)?;
+                        read_key(r, #key).await?;
+                        let #binding = ReadCbor::read_cbor(r).await?;
                     }
                 });
                 let construct = variant.construct(|_field, i| {
@@ -134,7 +134,7 @@ impl BindingRepr {
                 quote! {
                     let len = match major {
                        0xa0..=0xb7 => major as usize - 0xa0,
-                       0xb8 => read_u8(r)? as usize,
+                       0xb8 => read_u8(r).await? as usize,
                        _ => return Ok(None),
                     };
                     if len != #len {
@@ -148,7 +148,7 @@ impl BindingRepr {
                 let fields = variant
                     .bindings()
                     .iter()
-                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r)?;));
+                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r).await?;));
                 let construct = variant.construct(|_field, i| {
                     let binding = &variant.bindings()[i];
                     quote!(#binding)
@@ -156,7 +156,7 @@ impl BindingRepr {
                 quote! {
                     let len = match major {
                        0x80..=0x97 => major as usize - 0x80,
-                       0x98 => read_u8(r)? as usize,
+                       0x98 => read_u8(r).await? as usize,
                        _ => return Ok(None),
                     };
                     if len != #len {
@@ -216,7 +216,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     if key.as_str() == #name {
-                        let major = read_u8(r)?;
+                        let major = read_u8(r).await?;
                         #bindings
                     }
                 }
@@ -243,7 +243,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
 
 pub fn read_cbor(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
-    let mut variants: Vec<TokenStream> =
+    let variants: Vec<TokenStream> =
         s.variants().iter().map(|var| var_repr.parse(var)).collect();
     let body = match var_repr {
         VariantRepr::Keyed => {
@@ -251,23 +251,23 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
                 if major != 0xa1 {
                     return Ok(None);
                 }
-                let key = String::read_cbor(r)?;
+                let key = String::read_cbor(r).await?;
                 #(#variants)*
                 Err(IpldError::KeyNotFound.into())
             }
         }
         VariantRepr::Kinded => {
             if variants.len() > 1 {
-                variants = variants
+                /*variants = variants
                     .iter()
                     .map(|variant| {
                         quote! {
-                            if let Some(res) = (|| -> Result<Option<Self>> { #variant })()? {
+                            if let Some(res) = (async || -> Result<Option<Self>> { #variant })().await? {
                                 return Ok(Some(res));
                             }
                         }
                     })
-                    .collect();
+                    .collect();*/
                 quote! {
                     #(#variants)*
                     Err(IpldError::KeyNotFound.into())
@@ -279,8 +279,9 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
     };
 
     quote! {
+        #[allow(unreachable_code)]
         #[inline]
-        fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
             #body
         }
     }

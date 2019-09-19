@@ -15,12 +15,12 @@ async fn run() -> Result<()> {
     };
     let mut bytes = Vec::new();
     data.write_cbor(&mut bytes).await?;
-    let ipld = DagCborCodec::decode(&bytes)?;
+    let ipld = DagCborCodec::decode(&bytes).await?;
     let expect = ipld!({
         "hashAlg": "murmur3",
     });
     assert_eq!(ipld, expect);
-    let data2 = RenameFields::read_cbor(&mut bytes.as_slice())?;
+    let data2 = RenameFields::read_cbor(&mut bytes.as_slice()).await?;
     assert_eq!(data, data2);
     Ok(())
 }

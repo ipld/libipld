@@ -42,17 +42,17 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(c: &C) -> Result<(Cid, Box
 }
 
 /// Decode block to ipld.
-pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
+pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     match cid.codec() {
-        DagCborCodec::CODEC => DagCborCodec::decode(&data).map_err(|e| BlockError::CodecError(e)),
+        DagCborCodec::CODEC => DagCborCodec::decode(&data).await.map_err(|e| BlockError::CodecError(e)),
         _ => Err(BlockError::UnsupportedCodec(cid.codec())),
     }
 }
 
 /// Decode block from cbor.
-pub fn decode_cbor<C: ReadCbor>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
+pub async fn decode_cbor<C: ReadCbor + Send>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
     if cid.codec() != DagCborCodec::CODEC {
         return Err(BlockError::UnsupportedCodec(cid.codec()))
     }
-    C::read_cbor(&mut data).map_err(|e| BlockError::CodecError(e))
+    C::read_cbor(&mut data).await.map_err(|e| BlockError::CodecError(e))
 }
