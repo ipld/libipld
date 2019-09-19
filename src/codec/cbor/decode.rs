@@ -99,7 +99,10 @@ pub async fn read_key<R: Read + Unpin + Send>(r: &mut R, key: &str) -> Result<()
 }
 
 #[inline]
-pub async fn read_list<R: Read + Unpin + Send, T: ReadCbor + Send>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub async fn read_list<R: Read + Unpin + Send, T: ReadCbor + Send>(
+    r: &mut R,
+    len: usize,
+) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::with_capacity(len);
     for _ in 0..len {
         list.push(T::read_cbor(r).await?);
@@ -108,7 +111,10 @@ pub async fn read_list<R: Read + Unpin + Send, T: ReadCbor + Send>(r: &mut R, le
 }
 
 #[inline]
-pub async fn read_map<R: Read + Unpin + Send, T: ReadCbor + Send>(r: &mut R, len: usize) -> Result<BTreeMap<String, T>> {
+pub async fn read_map<R: Read + Unpin + Send, T: ReadCbor + Send>(
+    r: &mut R,
+    len: usize,
+) -> Result<BTreeMap<String, T>> {
     let mut map: BTreeMap<String, T> = BTreeMap::new();
     for _ in 0..len {
         let key = String::read_cbor(r).await?;

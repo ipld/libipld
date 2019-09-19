@@ -2,7 +2,7 @@ use async_std::fs::{self, File};
 use async_std::io::Write;
 use async_std::task;
 use async_trait::async_trait;
-use libipld::{Cid, Result, Store, locate};
+use libipld::{locate, Cid, Result, Store};
 use std::path::Path;
 
 pub struct BlockStore(Box<Path>);

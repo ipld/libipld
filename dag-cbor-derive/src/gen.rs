@@ -243,8 +243,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
 
 pub fn read_cbor(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
-    let variants: Vec<TokenStream> =
-        s.variants().iter().map(|var| var_repr.parse(var)).collect();
+    let variants: Vec<TokenStream> = s.variants().iter().map(|var| var_repr.parse(var)).collect();
     let body = match var_repr {
         VariantRepr::Keyed => {
             quote! {
@@ -259,15 +258,15 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
         VariantRepr::Kinded => {
             if variants.len() > 1 {
                 /*variants = variants
-                    .iter()
-                    .map(|variant| {
-                        quote! {
-                            if let Some(res) = (async || -> Result<Option<Self>> { #variant })().await? {
-                                return Ok(Some(res));
-                            }
+                .iter()
+                .map(|variant| {
+                    quote! {
+                        if let Some(res) = (async || -> Result<Option<Self>> { #variant })().await? {
+                            return Ok(Some(res));
                         }
-                    })
-                    .collect();*/
+                    }
+                })
+                .collect();*/
                 quote! {
                     #(#variants)*
                     Err(IpldError::KeyNotFound.into())
