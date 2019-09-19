@@ -1,7 +1,8 @@
 use async_std::task;
 use dag_cbor_derive::DagCbor;
+use failure::Error;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
-use libipld::{ipld, Codec, DagCborCodec, Result};
+use libipld::{ipld, Codec, DagCborCodec};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 #[ipld(repr = "list")]
@@ -29,7 +30,7 @@ macro_rules! test_case {
     };
 }
 
-async fn run() -> Result<()> {
+async fn run() -> Result<(), Error> {
     test_case! {
         ListRepr::default(),
         ListRepr,
@@ -51,6 +52,6 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     task::block_on(run())
 }

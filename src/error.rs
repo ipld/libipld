@@ -1,10 +1,9 @@
 //! `Ipld` error definitions.
 use failure::Fail;
 use multihash::Multihash;
-pub use failure::{format_err, Error};
 
 /// Result alias.
-pub type Result<T> = core::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, BlockError>;
 
 /// `Ipld` type error.
 #[derive(Debug, Fail)]
@@ -42,15 +41,6 @@ pub enum IpldError {
     /// Key not found.
     #[fail(display = "Key not found.")]
     KeyNotFound,
-    /// Other.
-    #[fail(display = "{}", _0)]
-    Other(Error),
-}
-
-impl From<Error> for IpldError {
-    fn from(err: Error) -> Self {
-        IpldError::Other(err)
-    }
 }
 
 impl From<core::convert::Infallible> for IpldError {
@@ -73,5 +63,40 @@ pub enum BlockError {
     UnsupportedCodec(cid::Codec),
     /// The codec returned an error.
     #[fail(display = "Codec error: {}", _0)]
-    CodecError(Error),
+    CodecError(failure::Error),
+    /// Io error.
+    #[fail(display = "{}", _0)]
+    Io(std::io::Error),
+}
+
+impl From<std::io::Error> for BlockError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+/// Path error.
+#[derive(Debug, Fail)]
+pub enum PathError {
+    /// Path segment is not a number.
+    #[fail(display = "Path segment is not a number.")]
+    NotNumber(std::num::ParseIntError),
+    /// Cannot index into ipld.
+    #[fail(display = "Cannot index into")]
+    NotIndexable,
+    /// Block error.
+    #[fail(display = "{}", _0)]
+    Block(BlockError),
+}
+
+impl From<std::num::ParseIntError> for PathError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Self::NotNumber(err)
+    }
+}
+
+impl From<BlockError> for PathError {
+    fn from(err: BlockError) -> Self {
+        Self::Block(err)
+    }
 }

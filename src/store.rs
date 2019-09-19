@@ -1,7 +1,7 @@
 //! Traits for implementing a block store.
 use crate::block::{create_cbor_block, decode_cbor, decode_ipld, validate};
 use crate::codec::cbor::{ReadCbor, WriteCbor};
-use crate::error::{format_err, Result};
+use crate::error::Result;
 use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
 use async_trait::async_trait;
@@ -84,6 +84,8 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
 pub mod mock {
     //! Utilities for testing
     use super::*;
+    use crate::error::BlockError;
+    use failure::format_err;
     use multibase::Base;
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
@@ -106,7 +108,8 @@ pub mod mock {
             if let Some(data) = self.0.lock().unwrap().get(&key) {
                 Ok(data.to_owned())
             } else {
-                Err(format_err!("Block not found"))
+                // cheat for now
+                Err(BlockError::CodecError(format_err!("Block not found").into()))
             }
         }
 

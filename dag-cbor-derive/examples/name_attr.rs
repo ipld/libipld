@@ -1,7 +1,8 @@
 use async_std::task;
 use dag_cbor_derive::DagCbor;
+use failure::Error;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
-use libipld::{ipld, Codec, DagCborCodec, Result};
+use libipld::{ipld, Codec, DagCborCodec};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 struct RenameFields {
@@ -9,7 +10,7 @@ struct RenameFields {
     hash_alg: String,
 }
 
-async fn run() -> Result<()> {
+async fn run() -> Result<(), Error> {
     let data = RenameFields {
         hash_alg: "murmur3".to_string(),
     };
@@ -25,6 +26,6 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     task::block_on(run())
 }

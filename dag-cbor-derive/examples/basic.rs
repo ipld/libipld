@@ -1,7 +1,8 @@
 use async_std::task;
 use dag_cbor_derive::DagCbor;
+use failure::Error;
 use libipld::codec::cbor::{ReadCbor, WriteCbor};
-use libipld::{ipld, Codec, DagCborCodec, Ipld, Result};
+use libipld::{ipld, Codec, DagCborCodec, Ipld};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
@@ -48,7 +49,7 @@ macro_rules! test_case {
     };
 }
 
-async fn run() -> Result<()> {
+async fn run() -> Result<(), Error> {
     test_case! {
         NamedStruct::default(),
         NamedStruct,
@@ -96,6 +97,6 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Error> {
     task::block_on(run())
 }

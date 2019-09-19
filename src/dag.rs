@@ -1,5 +1,5 @@
 //! Ipld dag.
-use crate::error::{format_err, Result};
+use crate::error::{BlockError, PathError};
 use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
 use crate::path::Path;
@@ -36,12 +36,12 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     }
 
     /// Retrives a block from the store.
-    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Ipld> {
+    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Ipld, BlockError> {
         self.store.read_ipld(cid).await
     }
 
     /// Retrives ipld from the dag.
-    pub async fn get<'a>(&mut self, path: &DagPath<'a>) -> Result<Option<Ipld>> {
+    pub async fn get<'a>(&mut self, path: &DagPath<'a>) -> Result<Option<Ipld>, PathError> {
         let mut root = self.store.read_ipld(&path.0).await?;
         let mut ipld = &root;
         for segment in path.1.iter() {
@@ -51,7 +51,7 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
                     ipld.get(index)
                 }
                 Ipld::Map(_) => ipld.get(segment.as_str()),
-                _ => return Err(format_err!("Cannot index into {:?}", ipld)),
+                _ => return Err(PathError::NotIndexable),
             } {
                 if let Ipld::Link(cid) = next {
                     root = self.store.read_ipld(cid).await?;
@@ -67,7 +67,7 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     }
 
     /// Puts ipld into the dag.
-    pub async fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid> {
+    pub async fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid, BlockError> {
         let cid = self.store.write_cbor::<H, _>(ipld).await?;
         self.store.flush().await?;
         Ok(cid)
