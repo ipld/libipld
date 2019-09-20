@@ -5,7 +5,7 @@ use multihash::Multihash;
 /// Result alias.
 pub type Result<T> = core::result::Result<T, BlockError>;
 
-/// `Ipld` type error.
+/// Ipld type error.
 #[derive(Debug, Fail)]
 pub enum IpldError {
     /// Expected a boolean.
@@ -78,27 +78,36 @@ impl From<std::io::Error> for BlockError {
     }
 }
 
-/// Path error.
+/// Dag error.
 #[derive(Debug, Fail)]
-pub enum PathError {
+pub enum DagError {
     /// Path segment is not a number.
     #[fail(display = "Path segment is not a number.")]
     NotNumber(std::num::ParseIntError),
     /// Cannot index into ipld.
     #[fail(display = "Cannot index into")]
     NotIndexable,
+    /// Ipld error.
+    #[fail(display = "{}", _0)]
+    Ipld(IpldError),
     /// Block error.
     #[fail(display = "{}", _0)]
     Block(BlockError),
 }
 
-impl From<std::num::ParseIntError> for PathError {
+impl From<std::num::ParseIntError> for DagError {
     fn from(err: std::num::ParseIntError) -> Self {
         Self::NotNumber(err)
     }
 }
 
-impl From<BlockError> for PathError {
+impl From<IpldError> for DagError {
+    fn from(err: IpldError) -> Self {
+        Self::Ipld(err)
+    }
+}
+
+impl From<BlockError> for DagError {
     fn from(err: BlockError) -> Self {
         Self::Block(err)
     }
