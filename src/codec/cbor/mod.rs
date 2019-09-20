@@ -1,5 +1,6 @@
 //! CBOR codec.
 use crate::codec::Codec;
+use crate::error::BlockError;
 use crate::ipld::Ipld;
 use async_trait::async_trait;
 use failure::Fail;
@@ -50,6 +51,9 @@ pub enum CborError {
     /// Unexpected key.
     #[fail(display = "Wrong key.")]
     UnexpectedKey,
+    /// Unexpected eof.
+    #[fail(display = "Unexpected end of file.")]
+    UnexpectedEof,
     /// Io error.
     #[fail(display = "{}", _0)]
     Io(std::io::Error),
@@ -66,7 +70,10 @@ pub enum CborError {
 
 impl From<std::io::Error> for CborError {
     fn from(err: std::io::Error) -> Self {
-        Self::Io(err)
+        match err.kind() {
+            std::io::ErrorKind::UnexpectedEof => Self::UnexpectedEof,
+            _ => Self::Io(err),
+        }
     }
 }
 
@@ -85,6 +92,16 @@ impl From<cid::Error> for CborError {
 impl From<crate::error::IpldError> for CborError {
     fn from(err: crate::error::IpldError) -> Self {
         Self::Ipld(err)
+    }
+}
+
+impl From<CborError> for BlockError {
+    fn from(err: CborError) -> Self {
+        match err {
+            CborError::UnexpectedEof => Self::UnexpectedEof,
+            CborError::Io(err) => Self::Io(err),
+            _ => Self::CodecError(err.into()),
+        }
     }
 }
 
