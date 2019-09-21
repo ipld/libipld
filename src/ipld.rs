@@ -69,6 +69,45 @@ impl Ipld {
             _ => None,
         }
     }
+
+    /// Returns an iterator.
+    pub fn iter<'a>(&'a self) -> IpldIter<'a> {
+        IpldIter {
+            stack: vec![Box::new(vec![self].into_iter())]
+        }
+    }
+}
+
+/// Ipld iterator.
+pub struct IpldIter<'a> {
+    stack: Vec<Box<dyn Iterator<Item = &'a Ipld> + 'a>>,
+}
+
+impl<'a> Iterator for IpldIter<'a> {
+    type Item = &'a Ipld;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(iter) = self.stack.last_mut() {
+                if let Some(ipld) = iter.next() {
+                    match ipld {
+                        Ipld::List(list) => {
+                            self.stack.push(Box::new(list.iter()));
+                        }
+                        Ipld::Map(map) => {
+                            self.stack.push(Box::new(map.values()));
+                        }
+                        _ => {}
+                    }
+                    return Some(ipld);
+                } else {
+                    self.stack.pop();
+                }
+            } else {
+                return None;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
