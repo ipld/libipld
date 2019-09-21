@@ -73,7 +73,7 @@ impl Ipld {
     /// Returns an iterator.
     pub fn iter<'a>(&'a self) -> IpldIter<'a> {
         IpldIter {
-            stack: vec![Box::new(vec![self].into_iter())]
+            stack: vec![Box::new(vec![self].into_iter())],
         }
     }
 }

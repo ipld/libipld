@@ -65,7 +65,7 @@ pub enum CborError {
     Cid(cid::Error),
     /// Ipld error.
     #[fail(display = "{}", _0)]
-    Ipld(crate::error::IpldError)
+    Ipld(crate::error::IpldError),
 }
 
 impl From<std::io::Error> for CborError {

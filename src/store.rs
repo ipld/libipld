@@ -34,10 +34,7 @@ pub struct BlockStore<TStore, TCache> {
 impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
     /// Creates a new block store.
     pub fn new(store: TStore, cache: TCache) -> Self {
-        Self {
-            store,
-            cache,
-        }
+        Self { store, cache }
     }
 
     /// Reads the block with cid.
@@ -109,7 +106,9 @@ pub mod mock {
                 Ok(data.to_owned())
             } else {
                 // cheat for now
-                Err(BlockError::CodecError(format_err!("Block not found").into()))
+                Err(BlockError::CodecError(
+                    format_err!("Block not found").into(),
+                ))
             }
         }
 
