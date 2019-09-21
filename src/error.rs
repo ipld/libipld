@@ -70,11 +70,23 @@ pub enum BlockError {
     /// Io error.
     #[fail(display = "{}", _0)]
     Io(std::io::Error),
+    /// Cid error.
+    #[fail(display = "{}", _0)]
+    Cid(cid::Error),
+    /// Link error.
+    #[fail(display = "Invalid link.")]
+    InvalidLink,
 }
 
 impl From<std::io::Error> for BlockError {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err)
+    }
+}
+
+impl From<cid::Error> for BlockError {
+    fn from(err: cid::Error) -> Self {
+        Self::Cid(err)
     }
 }
 

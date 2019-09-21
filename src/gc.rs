@@ -27,8 +27,9 @@ pub async fn closure<TStore: Store, TCache: Cache>(
             if set.contains(&cid) {
                 continue;
             }
-            let ipld = store.read_ipld(&cid).await?;
-            stack.push(references(&ipld));
+            if let Some(ipld) = store.read_ipld(&cid).await? {
+                stack.push(references(&ipld));
+            }
             set.insert(cid);
         }
     }
@@ -52,8 +53,8 @@ pub async fn dead_paths<TStore: Store, TCache: Cache>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ipld, DefaultHash as H};
     use crate::store::mock::*;
+    use crate::{ipld, DefaultHash as H};
     use async_std::task;
 
     #[test]

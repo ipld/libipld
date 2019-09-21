@@ -36,13 +36,18 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
     }
 
     /// Retrives a block from the store.
-    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Ipld, BlockError> {
+    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Option<Ipld>, BlockError> {
         self.store.read_ipld(cid).await
     }
 
     /// Retrives ipld from the dag.
     pub async fn get<'a>(&mut self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
-        let mut root = self.store.read_ipld(&path.0).await?;
+        let root = self.store.read_ipld(&path.0).await?;
+        let mut root = if let Some(root) = root {
+            root
+        } else {
+            return Ok(None);
+        };
         let mut ipld = &root;
         for segment in path.1.iter() {
             if let Some(next) = match ipld {
@@ -54,8 +59,12 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
                 _ => return Err(DagError::NotIndexable),
             } {
                 if let Ipld::Link(cid) = next {
-                    root = self.store.read_ipld(cid).await?;
-                    ipld = &root;
+                    if let Some(cid) = self.store.read_ipld(cid).await? {
+                        root = cid;
+                        ipld = &root;
+                    } else {
+                        return Ok(None);
+                    }
                 } else {
                     ipld = next;
                 }
