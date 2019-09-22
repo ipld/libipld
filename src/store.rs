@@ -14,6 +14,10 @@ pub trait Store: Send + Sized {
     async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>>;
     /// Writes the block with cid.
     async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
+    /// Flushes the write buffer.
+    async fn flush(&self) -> Result<()> {
+        Ok(())
+    }
 
     /// Pin a block.
     async fn pin(&self, cid: &Cid) -> Result<()>;
@@ -24,8 +28,8 @@ pub trait Store: Send + Sized {
         self.pin(cid).await
     }
 
-    /// Create a link to a block.
-    async fn create_link(&self, label: &str, cid: &Cid) -> Result<()>;
+    /// Write a link to a block.
+    async fn write_link(&self, label: &str, cid: &Cid) -> Result<()>;
     /// Read a link to a block.
     async fn read_link(&self, label: &str) -> Result<Option<Cid>>;
     /// Remove link to a block.
@@ -142,7 +146,7 @@ pub mod mock {
             Ok(())
         }
 
-        async fn create_link(&self, link: &str, cid: &Cid) -> Result<()> {
+        async fn write_link(&self, link: &str, cid: &Cid) -> Result<()> {
             let key = cid.to_bytes().into_boxed_slice();
             let mut links = self.links.lock().unwrap();
             links.insert(link.to_string(), key);
