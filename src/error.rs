@@ -61,9 +61,6 @@ pub enum BlockError {
     /// The codec is unsupported.
     #[fail(display = "Unsupported codec {:?}.", _0)]
     UnsupportedCodec(cid::Codec),
-    /// Unexpected end of file.
-    #[fail(display = "Unexpected end of file.")]
-    UnexpectedEof,
     /// The codec returned an error.
     #[fail(display = "Codec error: {}", _0)]
     CodecError(failure::Error),

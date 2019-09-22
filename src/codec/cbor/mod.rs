@@ -97,11 +97,7 @@ impl From<crate::error::IpldError> for CborError {
 
 impl From<CborError> for BlockError {
     fn from(err: CborError) -> Self {
-        match err {
-            CborError::UnexpectedEof => Self::UnexpectedEof,
-            CborError::Io(err) => Self::Io(err),
-            _ => Self::CodecError(err.into()),
-        }
+        Self::CodecError(err.into())
     }
 }
 
