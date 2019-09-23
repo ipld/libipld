@@ -1,7 +1,7 @@
 //! Utilities for performing garbage collection.
 use crate::error::DagError;
 use crate::ipld::{Cid, Ipld};
-use crate::store::{BlockStore, Cache, Store};
+use crate::store::{Store, StoreIpldExt};
 use std::collections::HashSet;
 
 /// Returns the references in an ipld block.
@@ -16,8 +16,8 @@ pub fn references(ipld: &Ipld) -> HashSet<Cid> {
 }
 
 /// Returns the recursive references of an ipld block.
-pub async fn closure<TStore: Store, TCache: Cache>(
-    store: BlockStore<TStore, TCache>,
+pub async fn closure<TStore: Store>(
+    store: TStore,
     roots: HashSet<Cid>,
 ) -> Result<HashSet<Cid>, DagError> {
     let mut stack = vec![roots];
@@ -40,8 +40,8 @@ pub async fn closure<TStore: Store, TCache: Cache>(
 ///
 /// This is currently not topologically sorted according to the references
 /// relationship. (p < q if q.is_reference(p))
-pub async fn dead_paths<TStore: Store, TCache: Cache>(
-    store: BlockStore<TStore, TCache>,
+pub async fn dead_paths<TStore: Store>(
+    store: TStore,
     all_cids: HashSet<Cid>,
     roots: HashSet<Cid>,
 ) -> Result<HashSet<Cid>, DagError> {
@@ -53,7 +53,7 @@ pub async fn dead_paths<TStore: Store, TCache: Cache>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::mock::*;
+    use crate::store::{BufStore, MemStore, StoreCborExt};
     use crate::{ipld, DefaultHash as H};
     use async_std::task;
 
@@ -75,7 +75,7 @@ mod tests {
     }
 
     async fn run_test_closure() -> Result<(), DagError> {
-        let store = BlockStore::new(MemStore::default(), MemCache::default());
+        let store = BufStore::new(MemStore::default(), 16, 16);
         let cid1 = store.write_cbor::<H, _>(&ipld!(true)).await?;
         let cid2 = store.write_cbor::<H, _>(&ipld!({ "cid1": &cid1 })).await?;
         let cid3 = store.write_cbor::<H, _>(&ipld!([&cid2])).await?;

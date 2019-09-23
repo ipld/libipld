@@ -42,7 +42,7 @@ pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
 }
 
 /// Decode block from cbor.
-pub async fn decode_cbor<C: ReadCbor + Send>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
+pub async fn decode_cbor<C: ReadCbor>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
     if cid.codec() != DagCborCodec::CODEC {
         return Err(BlockError::UnsupportedCodec(cid.codec()));
     }

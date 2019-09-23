@@ -1,9 +1,9 @@
 //! Ipld dag.
-use crate::error::{BlockError, DagError};
-use crate::hash::Hash;
+use crate::error::DagError;
 use crate::ipld::{Cid, Ipld};
 use crate::path::Path;
-use crate::store::{BlockStore, Cache, Store};
+use crate::store::{Store, StoreIpldExt};
+use async_trait::async_trait;
 
 /// Path in a dag.
 #[derive(Clone, Debug, PartialEq, Hash)]
@@ -22,27 +22,17 @@ impl<'a> From<&'a Cid> for DagPath<'a> {
     }
 }
 
-/// The DAG.
-pub struct Dag<TStore: Store, TCache: Cache> {
-    store: BlockStore<TStore, TCache>,
+/// Extends a store with path querying.
+#[async_trait]
+pub trait StoreDagExt {
+    /// Retrives ipld from the dag.
+    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError>;
 }
 
-impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
-    /// Creates a new Dag.
-    pub fn new(store: TStore, cache: TCache) -> Self {
-        Self {
-            store: BlockStore::new(store, cache),
-        }
-    }
-
-    /// Retrives a block from the store.
-    pub async fn get_ipld(&mut self, cid: &Cid) -> Result<Option<Ipld>, BlockError> {
-        self.store.read_ipld(cid).await
-    }
-
-    /// Retrives ipld from the dag.
-    pub async fn get<'a>(&mut self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
-        let root = self.store.read_ipld(&path.0).await?;
+#[async_trait]
+impl<TStore: Store> StoreDagExt for TStore {
+    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
+        let root = self.read_ipld(&path.0).await?;
         let mut root = if let Some(root) = root {
             root
         } else {
@@ -59,7 +49,7 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
                 _ => return Err(DagError::NotIndexable),
             } {
                 if let Ipld::Link(cid) = next {
-                    if let Some(cid) = self.store.read_ipld(cid).await? {
+                    if let Some(cid) = self.read_ipld(cid).await? {
                         root = cid;
                         ipld = &root;
                     } else {
@@ -74,35 +64,26 @@ impl<TStore: Store, TCache: Cache> Dag<TStore, TCache> {
         }
         Ok(Some(ipld.to_owned()))
     }
-
-    /// Puts ipld into the dag.
-    pub async fn put_ipld<H: Hash>(&mut self, ipld: &Ipld) -> Result<Cid, BlockError> {
-        let cid = self.store.write_cbor::<H, _>(ipld).await?;
-        self.store.flush().await?;
-        Ok(cid)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hash::Blake2b;
     use crate::ipld;
-    use crate::store::mock::{MemCache, MemStore};
+    use crate::store::{BufStore, MemStore, StoreCborExt};
+    use crate::DefaultHash as H;
     use async_std::task;
 
     #[test]
     fn test_dag() {
         task::block_on(async {
-            let store = MemStore::default();
-            let cache = MemCache::default();
-            let mut dag = Dag::<MemStore, MemCache>::new(store, cache);
+            let store = BufStore::new(MemStore::default(), 16, 16);
             let ipld1 = ipld!({"a": 3});
-            let cid = dag.put_ipld::<Blake2b>(&ipld1).await.unwrap();
+            let cid = store.write_cbor::<H, _>(&ipld1).await.unwrap();
             let ipld2 = ipld!({"root": [{"child": &cid}]});
-            let root = dag.put_ipld::<Blake2b>(&ipld2).await.unwrap();
+            let root = store.write_cbor::<H, _>(&ipld2).await.unwrap();
             let path = DagPath::new(&root, "root/0/child/a");
-            assert_eq!(dag.get(&path).await.unwrap(), Some(Ipld::Integer(3)));
+            assert_eq!(store.get(&path).await.unwrap(), Some(Ipld::Integer(3)));
         });
     }
 }

@@ -4,29 +4,28 @@ use crate::codec::cbor::{ReadCbor, WriteCbor};
 use crate::error::Result;
 use crate::hash::Hash;
 use crate::ipld::{Cid, Ipld};
+use async_std::sync::RwLock;
 use async_trait::async_trait;
+use core::hash::{BuildHasher, Hasher};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// Implementable by ipld storage backends.
 #[async_trait]
-pub trait Store: Send + Sized {
+pub trait Store: Send + Sync + Sized {
     /// Returns the block with cid.
     async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>>;
     /// Writes the block with cid.
     async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
     /// Flushes the write buffer.
-    async fn flush(&self) -> Result<()> {
-        Ok(())
-    }
+    async fn flush(&self) -> Result<()>;
 
     /// Pin a block.
     async fn pin(&self, cid: &Cid) -> Result<()>;
     /// Unpin a block.
     async fn unpin(&self, cid: &Cid) -> Result<()>;
     /// Create an indirect user managed pin.
-    async fn autopin(&self, cid: &Cid, _auto_path: &Path) -> Result<()> {
-        self.pin(cid).await
-    }
+    async fn autopin(&self, cid: &Cid, _auto_path: &Path) -> Result<()>;
 
     /// Write a link to a block.
     async fn write_link(&self, label: &str, cid: &Cid) -> Result<()>;
@@ -36,49 +35,37 @@ pub trait Store: Send + Sized {
     async fn remove_link(&self, label: &str) -> Result<()>;
 }
 
-/// Implementable by ipld caches.
-pub trait Cache: Send {
-    /// Gets the block with cid from the cache.
-    fn get(&self, cid: &Cid) -> Option<Box<[u8]>>;
-    /// Puts the block with cid in to the cache.
-    fn put(&self, cid: Cid, data: Box<[u8]>);
-}
-
-/// Generic block store with a parameterizable storage backend and cache.
-pub struct BlockStore<TStore, TCache> {
-    store: TStore,
-    cache: TCache,
-}
-
-impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
-    /// Creates a new block store.
-    pub fn new(store: TStore, cache: TCache) -> Self {
-        Self { store, cache }
-    }
-
-    /// Reads the block with cid.
-    #[inline]
-    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
-        if self.cache.get(cid).is_none() {
-            if let Some(data) = self.store.read(cid).await? {
-                validate(cid, &data)?;
-                self.cache.put(cid.to_owned(), data);
-            }
-        }
-        Ok(self.cache.get(cid))
-    }
-
+/// Ipld extension trait.
+#[async_trait]
+pub trait StoreIpldExt {
     /// Reads the block with cid and decodes it to ipld.
-    pub async fn read_ipld(&self, cid: &Cid) -> Result<Option<Ipld>> {
+    async fn read_ipld(&self, cid: &Cid) -> Result<Option<Ipld>>;
+}
+
+#[async_trait]
+impl<T: Store> StoreIpldExt for T {
+    async fn read_ipld(&self, cid: &Cid) -> Result<Option<Ipld>> {
         if let Some(data) = self.read(cid).await? {
             let ipld = decode_ipld(cid, &data).await?;
             return Ok(Some(ipld));
         }
         Ok(None)
     }
+}
 
+/// Cbor extension trait.
+#[async_trait]
+pub trait StoreCborExt {
     /// Reads the block with cid and decodes it to cbor.
-    pub async fn read_cbor<C: ReadCbor + Send>(&self, cid: &Cid) -> Result<Option<C>> {
+    async fn read_cbor<C: ReadCbor + Send>(&self, cid: &Cid) -> Result<Option<C>>;
+
+    /// Writes a block using the cbor codec.
+    async fn write_cbor<H: Hash, C: WriteCbor + Send + Sync>(&self, c: &C) -> Result<Cid>;
+}
+
+#[async_trait]
+impl<T: Store> StoreCborExt for T {
+    async fn read_cbor<C: ReadCbor + Send>(&self, cid: &Cid) -> Result<Option<C>> {
         if let Some(data) = self.read(cid).await? {
             let cbor = decode_cbor::<C>(cid, &data).await?;
             return Ok(Some(cbor));
@@ -86,101 +73,176 @@ impl<TStore: Store, TCache: Cache> BlockStore<TStore, TCache> {
         Ok(None)
     }
 
-    /// Writes a block using the cbor codec.
-    pub async fn write_cbor<H: Hash, C: WriteCbor>(&self, c: &C) -> Result<Cid> {
+    async fn write_cbor<H: Hash, C: WriteCbor + Send + Sync>(&self, c: &C) -> Result<Cid> {
         let (cid, data) = create_cbor_block::<H, C>(c).await?;
-        self.cache.put(cid.clone(), data.clone());
-        self.store.write(&cid, data).await?;
+        self.write(&cid, data).await?;
         Ok(cid)
     }
+}
 
-    /// Flush to disk.
-    pub async fn flush(&self) -> Result<()> {
-        // TODO add a write buffer and gc the write buffer
-        // before writing to disk.
+#[derive(Default)]
+struct BuildCidHasher;
+
+impl BuildHasher for BuildCidHasher {
+    type Hasher = CidHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        CidHasher(None)
+    }
+}
+
+struct CidHasher(Option<u64>);
+
+impl Hasher for CidHasher {
+    fn finish(&self) -> u64 {
+        self.0.unwrap()
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        unreachable!();
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = Some(i);
+    }
+}
+
+/// A memory backed store
+#[derive(Default)]
+pub struct MemStore {
+    blocks: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
+    pins: RwLock<HashSet<Cid, BuildCidHasher>>,
+    links: RwLock<HashMap<String, Cid>>,
+}
+
+#[async_trait]
+impl Store for MemStore {
+    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
+        Ok(self.blocks.read().await.get(cid).cloned())
+    }
+
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        self.blocks.write().await.insert(cid.clone(), data);
+        Ok(())
+    }
+
+    async fn flush(&self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn pin(&self, cid: &Cid) -> Result<()> {
+        self.pins.write().await.insert(cid.clone());
+        Ok(())
+    }
+
+    async fn unpin(&self, cid: &Cid) -> Result<()> {
+        self.pins.write().await.remove(&cid);
+        Ok(())
+    }
+
+    async fn autopin(&self, cid: &Cid, _: &Path) -> Result<()> {
+        self.pin(cid).await
+    }
+
+    async fn write_link(&self, link: &str, cid: &Cid) -> Result<()> {
+        self.links
+            .write()
+            .await
+            .insert(link.to_string(), cid.clone());
+        Ok(())
+    }
+
+    async fn read_link(&self, link: &str) -> Result<Option<Cid>> {
+        self.links.read().await.get(link);
+        Ok(None)
+    }
+
+    async fn remove_link(&self, link: &str) -> Result<()> {
+        self.links.write().await.remove(link);
         Ok(())
     }
 }
 
-pub mod mock {
-    //! Utilities for testing
-    use super::*;
-    use std::collections::{HashMap, HashSet};
-    use std::convert::TryFrom;
-    use std::sync::Mutex;
+/// A buffered store.
+pub struct BufStore<TStore: Store = MemStore> {
+    store: TStore,
+    cache: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
+    buffer: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
+    //pins: RwLock<HashSet<Cid, BuildCidHasher>>,
+    //unpins: RwLock<HashSet<Cid, BuildCidHasher>>,
+}
 
-    /// A memory backed store
-    #[derive(Default)]
-    pub struct MemStore {
-        blocks: Mutex<HashMap<Box<[u8]>, Box<[u8]>>>,
-        pins: Mutex<HashSet<Box<[u8]>>>,
-        links: Mutex<HashMap<String, Box<[u8]>>>,
-    }
-
-    #[async_trait]
-    impl Store for MemStore {
-        async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
-            let key = cid.to_bytes().into_boxed_slice();
-            let blocks = self.blocks.lock().unwrap();
-            Ok(blocks.get(&key).cloned())
-        }
-
-        async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
-            let key = cid.to_bytes().into_boxed_slice();
-            let mut blocks = self.blocks.lock().unwrap();
-            blocks.insert(key, data);
-            Ok(())
-        }
-
-        async fn pin(&self, cid: &Cid) -> Result<()> {
-            let key = cid.to_bytes().into_boxed_slice();
-            let mut pins = self.pins.lock().unwrap();
-            pins.insert(key);
-            Ok(())
-        }
-
-        async fn unpin(&self, cid: &Cid) -> Result<()> {
-            let key = cid.to_bytes().into_boxed_slice();
-            let mut pins = self.pins.lock().unwrap();
-            pins.remove(&key);
-            Ok(())
-        }
-
-        async fn write_link(&self, link: &str, cid: &Cid) -> Result<()> {
-            let key = cid.to_bytes().into_boxed_slice();
-            let mut links = self.links.lock().unwrap();
-            links.insert(link.to_string(), key);
-            Ok(())
-        }
-
-        async fn read_link(&self, link: &str) -> Result<Option<Cid>> {
-            let links = self.links.lock().unwrap();
-            if let Some(bytes) = links.get(link) {
-                let cid = Cid::try_from(bytes as &[u8])?;
-                return Ok(Some(cid));
-            }
-            Ok(None)
-        }
-
-        async fn remove_link(&self, link: &str) -> Result<()> {
-            let mut links = self.links.lock().unwrap();
-            links.remove(link);
-            Ok(())
+impl<TStore: Store> BufStore<TStore> {
+    /// Creates a new block store.
+    pub fn new(store: TStore, cache_cap: usize, buffer_cap: usize) -> Self {
+        Self {
+            store,
+            cache: RwLock::new(HashMap::with_capacity_and_hasher(cache_cap, BuildCidHasher)),
+            buffer: RwLock::new(HashMap::with_capacity_and_hasher(
+                buffer_cap,
+                BuildCidHasher,
+            )),
+            //pins: Default::default(),
+            //unpins: Default::default(),
         }
     }
+}
 
-    /// A memory backed cache
-    #[derive(Default)]
-    pub struct MemCache(Mutex<HashMap<Vec<u8>, Box<[u8]>>>);
-
-    impl Cache for MemCache {
-        fn get(&self, cid: &Cid) -> Option<Box<[u8]>> {
-            self.0.lock().unwrap().get(&cid.to_bytes()).cloned()
+#[async_trait]
+impl<TStore: Store> Store for BufStore<TStore> {
+    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
+        let cached = self.cache.read().await.get(cid).cloned();
+        if let Some(data) = cached {
+            return Ok(Some(data));
         }
-
-        fn put(&self, cid: Cid, data: Box<[u8]>) {
-            let bytes = cid.to_bytes();
-            self.0.lock().unwrap().insert(bytes.clone(), data);
+        let fresh = self.store.read(cid).await?;
+        if let Some(ref data) = fresh {
+            validate(cid, &data)?;
+            self.cache.write().await.insert(cid.clone(), data.clone());
         }
+        Ok(fresh)
+    }
+
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        self.cache.write().await.insert(cid.clone(), data.clone());
+        self.buffer.write().await.insert(cid.clone(), data);
+        Ok(())
+    }
+
+    async fn flush(&self) -> Result<()> {
+        // TODO gc writes
+        for (cid, data) in self.buffer.write().await.drain() {
+            self.store.write(&cid, data).await?;
+        }
+        self.store.flush().await?;
+        Ok(())
+    }
+
+    async fn pin(&self, cid: &Cid) -> Result<()> {
+        //self.pins.write().await.insert(cid.clone());
+        self.store.pin(cid).await?;
+        Ok(())
+    }
+
+    async fn unpin(&self, cid: &Cid) -> Result<()> {
+        //self.unpins.write().await.insert(cid.clone());
+        self.store.unpin(cid).await?;
+        Ok(())
+    }
+
+    async fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()> {
+        self.store.autopin(cid, auto_path).await
+    }
+
+    async fn write_link(&self, label: &str, cid: &Cid) -> Result<()> {
+        self.store.write_link(label, cid).await
+    }
+
+    async fn read_link(&self, label: &str) -> Result<Option<Cid>> {
+        self.store.read_link(label).await
+    }
+
+    async fn remove_link(&self, label: &str) -> Result<()> {
+        self.store.remove_link(label).await
     }
 }

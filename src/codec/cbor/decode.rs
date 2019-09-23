@@ -119,7 +119,7 @@ pub async fn read_link<R: Read + Unpin + Send>(r: &mut R) -> Result<Cid> {
 }
 
 #[async_trait]
-pub trait ReadCbor: Sized {
+pub trait ReadCbor: Send + Sized {
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>>;
 
     #[inline]
