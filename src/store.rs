@@ -153,8 +153,7 @@ impl Store for MemStore {
     }
 
     async fn read_link(&self, link: &str) -> Result<Option<Cid>> {
-        self.links.read().await.get(link);
-        Ok(None)
+        Ok(self.links.read().await.get(link).cloned())
     }
 
     async fn remove_link(&self, link: &str) -> Result<()> {
