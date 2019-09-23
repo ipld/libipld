@@ -7,12 +7,14 @@ use crate::ipld::{Cid, Ipld};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use core::hash::{BuildHasher, Hasher};
+use core::ops::Deref;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::Arc;
 
 /// Implementable by ipld storage backends.
 #[async_trait]
-pub trait Store: Send + Sync + Sized {
+pub trait Store: Send + Sync {
     /// Returns the block with cid.
     async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>>;
     /// Writes the block with cid.
@@ -25,7 +27,7 @@ pub trait Store: Send + Sync + Sized {
     /// Unpin a block.
     async fn unpin(&self, cid: &Cid) -> Result<()>;
     /// Create an indirect user managed pin.
-    async fn autopin(&self, cid: &Cid, _auto_path: &Path) -> Result<()>;
+    async fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()>;
 
     /// Write a link to a block.
     async fn write_link(&self, label: &str, cid: &Cid) -> Result<()>;
@@ -33,6 +35,45 @@ pub trait Store: Send + Sync + Sized {
     async fn read_link(&self, label: &str) -> Result<Option<Cid>>;
     /// Remove link to a block.
     async fn remove_link(&self, label: &str) -> Result<()>;
+}
+
+#[async_trait]
+impl<TStore: Store> Store for Arc<TStore> {
+    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
+        self.deref().read(cid).await
+    }
+
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        self.deref().write(cid, data).await
+    }
+
+    async fn flush(&self) -> Result<()> {
+        self.deref().flush().await
+    }
+
+    async fn pin(&self, cid: &Cid) -> Result<()> {
+        self.deref().pin(cid).await
+    }
+
+    async fn unpin(&self, cid: &Cid) -> Result<()> {
+        self.deref().unpin(cid).await
+    }
+
+    async fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()> {
+        self.deref().autopin(cid, auto_path).await
+    }
+
+    async fn write_link(&self, label: &str, cid: &Cid) -> Result<()> {
+        self.deref().write_link(label, cid).await
+    }
+
+    async fn read_link(&self, label: &str) -> Result<Option<Cid>> {
+        self.deref().read_link(label).await
+    }
+
+    async fn remove_link(&self, label: &str) -> Result<()> {
+        self.deref().remove_link(label).await
+    }
 }
 
 /// Ipld extension trait.
@@ -243,5 +284,24 @@ impl<TStore: Store> Store for BufStore<TStore> {
 
     async fn remove_link(&self, label: &str) -> Result<()> {
         self.store.remove_link(label).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_obj() {
+        let store = MemStore::default();
+        let _ = &store as &dyn Store;
+        let store = Arc::new(store);
+        let _ = &store as &dyn Store;
+
+        let store = MemStore::default();
+        let store = BufStore::new(store, 16, 16);
+        let _ = &store as &dyn Store;
+        let store = Arc::new(store);
+        let _ = &store as &dyn Store;
     }
 }
