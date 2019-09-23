@@ -16,6 +16,5 @@ multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" 
 
 [workspace]
 members = [
-  "cache",
   "dag-cbor-derive",
 ]
