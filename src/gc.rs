@@ -1,5 +1,5 @@
 //! Utilities for performing garbage collection.
-use crate::error::DagError;
+use crate::error::BlockError;
 use crate::ipld::{Cid, Ipld};
 use crate::store::{Store, StoreIpldExt};
 use std::collections::HashSet;
@@ -17,9 +17,9 @@ pub fn references(ipld: &Ipld) -> HashSet<Cid> {
 
 /// Returns the recursive references of an ipld block.
 pub async fn closure<TStore: Store>(
-    store: TStore,
+    store: &TStore,
     roots: HashSet<Cid>,
-) -> Result<HashSet<Cid>, DagError> {
+) -> Result<HashSet<Cid>, BlockError> {
     let mut stack = vec![roots];
     let mut set = HashSet::new();
     while let Some(mut roots) = stack.pop() {
@@ -41,10 +41,10 @@ pub async fn closure<TStore: Store>(
 /// This is currently not topologically sorted according to the references
 /// relationship. (p < q if q.is_reference(p))
 pub async fn dead_paths<TStore: Store>(
-    store: TStore,
+    store: &TStore,
     all_cids: HashSet<Cid>,
     roots: HashSet<Cid>,
-) -> Result<HashSet<Cid>, DagError> {
+) -> Result<HashSet<Cid>, BlockError> {
     let live = closure(store, roots).await?;
     let dead = all_cids.difference(&live).map(Clone::clone).collect();
     Ok(dead)
@@ -74,14 +74,14 @@ mod tests {
         assert!(refs.contains(&cid3));
     }
 
-    async fn run_test_closure() -> Result<(), DagError> {
+    async fn run_test_closure() -> Result<(), BlockError> {
         let store = BufStore::new(MemStore::default(), 16, 16);
         let cid1 = store.write_cbor::<H, _>(&ipld!(true)).await?;
         let cid2 = store.write_cbor::<H, _>(&ipld!({ "cid1": &cid1 })).await?;
         let cid3 = store.write_cbor::<H, _>(&ipld!([&cid2])).await?;
         let mut roots = HashSet::new();
         roots.insert(cid3.clone());
-        let refs = closure(store, roots).await?;
+        let refs = closure(&store, roots).await?;
         assert_eq!(refs.len(), 3);
         assert!(refs.contains(&cid1));
         assert!(refs.contains(&cid2));

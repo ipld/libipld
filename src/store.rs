@@ -21,6 +21,8 @@ pub trait Store: Send + Sync {
     async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()>;
     /// Flushes the write buffer.
     async fn flush(&self) -> Result<()>;
+    /// Gc's unused blocks.
+    async fn gc(&self) -> Result<()>;
 
     /// Pin a block.
     async fn pin(&self, cid: &Cid) -> Result<()>;
@@ -49,6 +51,10 @@ impl<TStore: Store> Store for Arc<TStore> {
 
     async fn flush(&self) -> Result<()> {
         self.deref().flush().await
+    }
+
+    async fn gc(&self) -> Result<()> {
+        self.deref().gc().await
     }
 
     async fn pin(&self, cid: &Cid) -> Result<()> {
@@ -171,6 +177,23 @@ impl Store for MemStore {
         Ok(())
     }
 
+    async fn gc(&self) -> Result<()> {
+        let pins = self.pins.read().await;
+        let roots = pins.iter().map(Clone::clone).collect();
+        let blocks = self
+            .blocks
+            .read()
+            .await
+            .iter()
+            .map(|(cid, _)| cid.clone())
+            .collect();
+        let dead = crate::gc::dead_paths(self, blocks, roots).await?;
+        for cid in dead {
+            self.blocks.write().await.remove(&cid);
+        }
+        Ok(())
+    }
+
     async fn pin(&self, cid: &Cid) -> Result<()> {
         self.pins.write().await.insert(cid.clone());
         Ok(())
@@ -258,6 +281,10 @@ impl<TStore: Store> Store for BufStore<TStore> {
         Ok(())
     }
 
+    async fn gc(&self) -> Result<()> {
+        self.store.gc().await
+    }
+
     async fn pin(&self, cid: &Cid) -> Result<()> {
         //self.pins.write().await.insert(cid.clone());
         self.store.pin(cid).await?;
@@ -290,6 +317,21 @@ impl<TStore: Store> Store for BufStore<TStore> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::block::{create_cbor_block, create_raw_block};
+    use crate::DefaultHash as H;
+    use async_std::task;
+    use core::future::Future;
+    use futures::join;
+    use model::*;
+
+    fn create_block_raw(n: u64) -> (Cid, Box<[u8]>) {
+        let data = n.to_ne_bytes().to_vec().into_boxed_slice();
+        create_raw_block::<H>(data).unwrap()
+    }
+
+    async fn create_block_ipld(ipld: &Ipld) -> (Cid, Box<[u8]>) {
+        create_cbor_block::<H, _>(ipld).await.unwrap()
+    }
 
     #[test]
     fn test_obj() {
@@ -303,5 +345,109 @@ mod tests {
         let _ = &store as &dyn Store;
         let store = Arc::new(store);
         let _ = &store as &dyn Store;
+    }
+
+    async fn run_gc_no_pin(store: &dyn Store) {
+        let (cid_0, data_0) = create_block_raw(0);
+        store.write(&cid_0, data_0).await.unwrap();
+        store.flush().await.unwrap();
+        store.gc().await.unwrap();
+        let data_0_2 = store.read(&cid_0).await.unwrap();
+        assert!(data_0_2.is_none());
+    }
+
+    #[test]
+    fn test_gc_no_pin() {
+        let store = MemStore::default();
+        task::block_on(run_gc_no_pin(&store));
+    }
+
+    async fn run_gc_pin(store: &dyn Store) {
+        let (cid_0, data_0) = create_block_raw(0);
+        store.write(&cid_0, data_0.clone()).await.unwrap();
+        store.pin(&cid_0).await.unwrap();
+        store.flush().await.unwrap();
+        store.gc().await.unwrap();
+        let data_0_2 = store.read(&cid_0).await.unwrap();
+        assert_eq!(data_0_2, Some(data_0));
+    }
+
+    #[test]
+    fn test_gc_pin() {
+        let store = MemStore::default();
+        task::block_on(run_gc_pin(&store));
+    }
+
+    async fn run_gc_pin_leaf(store: &dyn Store) {
+        let (cid_0, data_0) = create_block_raw(0);
+        let ipld = Ipld::Link(cid_0.clone());
+        let (cid_1, data_1) = create_block_ipld(&ipld).await;
+        store.write(&cid_0, data_0.clone()).await.unwrap();
+        store.write(&cid_1, data_1.clone()).await.unwrap();
+        store.pin(&cid_1).await.unwrap();
+        store.flush().await.unwrap();
+        store.gc().await.unwrap();
+        let data_0_2 = store.read(&cid_0).await.unwrap();
+        assert_eq!(data_0_2, Some(data_0));
+    }
+
+    #[test]
+    fn test_gc_pin_leaf() {
+        let store = MemStore::default();
+        task::block_on(run_gc_pin_leaf(&store));
+    }
+
+    fn join<T>(f1: impl Future<Output = Result<T>>, f2: impl Future<Output = Result<T>>) -> (T, T) {
+        task::block_on(async {
+            let f1_u = async { f1.await.unwrap() };
+            let f2_u = async { f2.await.unwrap() };
+            join!(f1_u, f2_u)
+        })
+    }
+
+    #[test]
+    fn mem_buf_store_eqv() {
+        model! {
+            Model => let mem_store = MemStore::default(),
+            Implementation => let buf_store = BufStore::new(MemStore::default(), 16, 16),
+            Read(u64)(v in 0u64..4) => {
+                let (cid_0, _) = create_block_raw(v);
+                let mem = mem_store.read(&cid_0);
+                let buf = buf_store.read(&cid_0);
+                let (mem, buf) = join(mem, buf);
+                // Element can be in cache after gc.
+                if !(mem.is_none() && buf.is_some()) {
+                    assert_eq!(mem, buf);
+                }
+            },
+            Write(u64)(v in 0u64..4) => {
+                let (cid_0, data_0) = create_block_raw(v);
+                let mem = mem_store.write(&cid_0, data_0.clone());
+                let buf = buf_store.write(&cid_0, data_0);
+                join(mem, buf);
+            },
+            Flush(u64)(_ in 0u64..1) => {
+                let mem = mem_store.flush();
+                let buf = buf_store.flush();
+                join(mem, buf);
+            },
+            Gc(u64)(_ in 0u64..1) => {
+                let mem = mem_store.gc();
+                let buf = buf_store.gc();
+                join(mem, buf);
+            },
+            Pin(u64)(v in 0u64..4) => {
+                let (cid_0, _) = create_block_raw(v);
+                let mem = mem_store.pin(&cid_0);
+                let buf = buf_store.pin(&cid_0);
+                join(mem, buf);
+            },
+            Unpin(u64)(v in 0u64..4) => {
+                let (cid_0, _) = create_block_raw(v);
+                let mem = mem_store.unpin(&cid_0);
+                let buf = buf_store.unpin(&cid_0);
+                join(mem, buf);
+            }
+        }
     }
 }

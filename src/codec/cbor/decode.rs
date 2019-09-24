@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use cid::Cid;
 use core::convert::TryFrom;
-pub use futures_io::AsyncRead as Read;
+pub use futures::io::AsyncRead as Read;
 use std::collections::BTreeMap;
 
 #[inline]

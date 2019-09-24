@@ -18,6 +18,16 @@ pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
     Ok(())
 }
 
+/// Create raw block.
+pub fn create_raw_block<H: Hash>(data: Box<[u8]>) -> Result<(Cid, Box<[u8]>), BlockError> {
+    if data.len() > MAX_BLOCK_SIZE {
+        return Err(BlockError::BlockToLarge(data.len()));
+    }
+    let hash = H::digest(&data);
+    let cid = Cid::new_v1(cid::Codec::Raw, hash);
+    Ok((cid, data))
+}
+
 /// Create cbor block.
 pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
     c: &C,
@@ -36,6 +46,7 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
 pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     let ipld = match cid.codec() {
         DagCborCodec::CODEC => DagCborCodec::decode(&data).await?,
+        cid::Codec::Raw => Ipld::Bytes(data.to_vec()),
         _ => return Err(BlockError::UnsupportedCodec(cid.codec())),
     };
     Ok(ipld)

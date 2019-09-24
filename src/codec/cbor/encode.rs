@@ -5,7 +5,7 @@ use crate::ipld::{Cid, Ipld};
 use async_std::io::Write as _;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-pub use futures_io::AsyncWrite as Write;
+pub use futures::io::AsyncWrite as Write;
 use std::collections::BTreeMap;
 
 #[inline]
