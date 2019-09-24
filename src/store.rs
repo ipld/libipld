@@ -324,7 +324,7 @@ mod tests {
     use futures::join;
     use model::*;
 
-    fn create_block_raw(n: u64) -> (Cid, Box<[u8]>) {
+    fn create_block_raw(n: usize) -> (Cid, Box<[u8]>) {
         let data = n.to_ne_bytes().to_vec().into_boxed_slice();
         create_raw_block::<H>(data).unwrap()
     }
@@ -407,47 +407,107 @@ mod tests {
 
     #[test]
     fn mem_buf_store_eqv() {
+        const LEN: usize = 4;
+        let blocks: Vec<_> = (0..LEN).into_iter().map(create_block_raw).collect();
         model! {
             Model => let mem_store = MemStore::default(),
             Implementation => let buf_store = BufStore::new(MemStore::default(), 16, 16),
-            Read(u64)(v in 0u64..4) => {
-                let (cid_0, _) = create_block_raw(v);
-                let mem = mem_store.read(&cid_0);
-                let buf = buf_store.read(&cid_0);
+            Read(usize)(i in 0..LEN) => {
+                let (cid, _) = &blocks[i];
+                let mem = mem_store.read(cid);
+                let buf = buf_store.read(cid);
                 let (mem, buf) = join(mem, buf);
                 // Element can be in cache after gc.
                 if !(mem.is_none() && buf.is_some()) {
                     assert_eq!(mem, buf);
                 }
             },
-            Write(u64)(v in 0u64..4) => {
-                let (cid_0, data_0) = create_block_raw(v);
-                let mem = mem_store.write(&cid_0, data_0.clone());
-                let buf = buf_store.write(&cid_0, data_0);
+            Write(usize)(i in 0..LEN) => {
+                let (cid, data) = &blocks[i];
+                let mem = mem_store.write(cid, data.clone());
+                let buf = buf_store.write(cid, data.clone());
                 join(mem, buf);
             },
-            Flush(u64)(_ in 0u64..1) => {
+            Flush(usize)(_ in 0..LEN) => {
                 let mem = mem_store.flush();
                 let buf = buf_store.flush();
                 join(mem, buf);
             },
-            Gc(u64)(_ in 0u64..1) => {
+            Gc(usize)(_ in 0..LEN) => {
                 let mem = mem_store.gc();
                 let buf = buf_store.gc();
                 join(mem, buf);
             },
-            Pin(u64)(v in 0u64..4) => {
-                let (cid_0, _) = create_block_raw(v);
-                let mem = mem_store.pin(&cid_0);
-                let buf = buf_store.pin(&cid_0);
+            Pin(usize)(i in 0..LEN) => {
+                let (cid, _) = &blocks[i];
+                let mem = mem_store.pin(&cid);
+                let buf = buf_store.pin(&cid);
                 join(mem, buf);
             },
-            Unpin(u64)(v in 0u64..4) => {
-                let (cid_0, _) = create_block_raw(v);
-                let mem = mem_store.unpin(&cid_0);
-                let buf = buf_store.unpin(&cid_0);
+            Unpin(usize)(i in 0..LEN) => {
+                let (cid, _) = &blocks[i];
+                let mem = mem_store.unpin(&cid);
+                let buf = buf_store.unpin(&cid);
                 join(mem, buf);
             }
         }
+    }
+
+    macro_rules! linearizable_store {
+        ($store:expr) => {
+            const LEN: usize = 4;
+            let blocks: Vec<_> = (0..LEN).into_iter().map(create_block_raw).collect();
+            let blocks = model::Shared::new(blocks);
+            const LLEN: usize = 3;
+            let links = model::Shared::new(["a", "b", "c"]);
+            linearizable! {
+                Implementation => let store = model::Shared::new($store),
+                Read(usize)(i in 0..LEN) -> Option<Box<[u8]>> {
+                    let (cid, _) = &blocks[i];
+                    task::block_on(store.read(cid)).unwrap()
+                },
+                Write(usize)(i in 0..LEN) -> () {
+                    let (cid, data) = &blocks[i];
+                    task::block_on(store.write(cid, data.clone())).unwrap()
+                },
+                Flush(usize)(_ in 0..LEN) -> () {
+                    task::block_on(store.flush()).unwrap()
+                },
+                Gc(usize)(_ in 0..LEN) -> () {
+                    task::block_on(store.gc()).unwrap()
+                },
+                Pin(usize)(i in 0..LEN) -> () {
+                    let (cid, _) = &blocks[i];
+                    task::block_on(store.pin(cid)).unwrap()
+                },
+                Unpin(usize)(i in 0..LEN) -> () {
+                    let (cid, _) = &blocks[i];
+                    task::block_on(store.unpin(cid)).unwrap()
+                },
+                WriteLink((usize, usize))((i1, i2) in (0..LLEN, 0..LEN)) -> () {
+                    let link = &links[i1];
+                    let (cid, _) = &blocks[i2];
+                    task::block_on(store.write_link(link, cid)).unwrap()
+                },
+                ReadLink(usize)(i in 0..LLEN) -> Option<Cid> {
+                    let link = &links[i];
+                    task::block_on(store.read_link(link)).unwrap()
+                },
+                RemoveLink(usize)(i in 0..LLEN) -> () {
+                    let link = &links[i];
+                    task::block_on(store.remove_link(link)).unwrap()
+                }
+            }
+        };
+    }
+
+    #[test]
+    fn mem_store_lin() {
+        linearizable_store!(MemStore::default());
+    }
+
+    #[test]
+    fn buf_store_lin() {
+        linearizable_store!(BufStore::new(MemStore::default(), 16, 16));
     }
 }
