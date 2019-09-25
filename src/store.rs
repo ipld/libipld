@@ -457,9 +457,9 @@ mod tests {
         ($store:expr) => {
             const LEN: usize = 4;
             let blocks: Vec<_> = (0..LEN).into_iter().map(create_block_raw).collect();
-            let blocks = model::Shared::new(blocks);
+            let blocks = Shared::new(blocks);
             const LLEN: usize = 3;
-            let links = model::Shared::new(["a", "b", "c"]);
+            let links = Shared::new(["a", "b", "c"]);
             linearizable! {
                 Implementation => let store = model::Shared::new($store),
                 Read(usize)(i in 0..LEN) -> Option<Box<[u8]>> {
