@@ -3,7 +3,7 @@ use crate::block::{create_cbor_block, decode_cbor, decode_ipld, validate};
 use crate::codec::cbor::{ReadCbor, WriteCbor};
 use crate::error::Result;
 use crate::gc::closure;
-use crate::hash::{Hash, CidHashMap, CidHashSet};
+use crate::hash::{CidHashMap, CidHashSet, Hash};
 use crate::ipld::{Cid, Ipld};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
@@ -81,6 +81,93 @@ impl<TStore: Store> Store for Arc<TStore> {
 
     async fn remove_link(&self, label: &str) -> Result<()> {
         self.deref().remove_link(label).await
+    }
+}
+
+/// A store wrapper for debugging.
+pub struct DebugStore<TStore: Store> {
+    prefix: &'static str,
+    store: TStore,
+}
+
+fn print_cid(cid: &Cid) -> String {
+    (&cid.to_string()[..30]).to_string()
+}
+
+impl<TStore: Store> DebugStore<TStore> {
+    /// Creates a new debug store.
+    pub fn new(store: TStore) -> Self {
+        Self::new_with_prefix(store, "")
+    }
+
+    /// Creates a new debug store.
+    pub fn new_with_prefix(store: TStore, prefix: &'static str) -> Self {
+        Self { store, prefix }
+    }
+}
+
+#[async_trait]
+impl<TStore: Store> Store for DebugStore<TStore> {
+    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
+        let res = self.store.read(cid).await?;
+        println!(
+            "{}read {} {:?}",
+            self.prefix,
+            print_cid(cid),
+            res.as_ref().map(|d| d.len())
+        );
+        Ok(res)
+    }
+
+    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        println!("{}write {} {}", self.prefix, print_cid(cid), data.len());
+        self.store.write(cid, data).await
+    }
+
+    async fn flush(&self) -> Result<()> {
+        println!("{}flush", self.prefix);
+        self.store.flush().await
+    }
+
+    async fn gc(&self) -> Result<()> {
+        println!("{}gc", self.prefix);
+        self.store.gc().await
+    }
+
+    async fn pin(&self, cid: &Cid) -> Result<()> {
+        println!("{}pin {}", self.prefix, print_cid(cid));
+        self.store.pin(cid).await
+    }
+
+    async fn unpin(&self, cid: &Cid) -> Result<()> {
+        println!("{}unpin {}", self.prefix, print_cid(cid));
+        self.store.unpin(cid).await
+    }
+
+    async fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()> {
+        println!("{}autopin {}", self.prefix, print_cid(cid));
+        self.store.autopin(cid, auto_path).await
+    }
+
+    async fn write_link(&self, label: &str, cid: &Cid) -> Result<()> {
+        println!("{}write_link {} {}", self.prefix, label, print_cid(cid));
+        self.store.write_link(label, cid).await
+    }
+
+    async fn read_link(&self, label: &str) -> Result<Option<Cid>> {
+        let res = self.store.read_link(label).await?;
+        println!(
+            "{}read_link {} {:?}",
+            self.prefix,
+            label,
+            res.as_ref().map(print_cid)
+        );
+        Ok(res)
+    }
+
+    async fn remove_link(&self, label: &str) -> Result<()> {
+        println!("{}remove_link {}", self.prefix, label);
+        self.store.remove_link(label).await
     }
 }
 
@@ -209,7 +296,10 @@ pub struct BufStore<TStore: Store = MemStore> {
     pins: RwLock<CidHashMap<PinOp>>,
 }
 
-enum PinOp { Pin, Unpin }
+enum PinOp {
+    Pin,
+    Unpin,
+}
 
 impl<TStore: Store> BufStore<TStore> {
     /// Creates a new block store.
