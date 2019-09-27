@@ -2,13 +2,15 @@
 use crate::block::{create_cbor_block, decode_cbor, decode_ipld, validate};
 use crate::codec::cbor::{ReadCbor, WriteCbor};
 use crate::error::Result;
-use crate::hash::Hash;
+use crate::gc::closure;
+use crate::hash::{Hash, CidHashMap, CidHashSet};
 use crate::ipld::{Cid, Ipld};
 use async_std::sync::RwLock;
 use async_trait::async_trait;
-use core::hash::{BuildHasher, Hasher};
 use core::ops::Deref;
-use std::collections::{HashMap, HashSet};
+use futures::join;
+use std::collections::HashMap;
+use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -127,38 +129,11 @@ impl<T: Store> StoreCborExt for T {
     }
 }
 
-#[derive(Default)]
-struct BuildCidHasher;
-
-impl BuildHasher for BuildCidHasher {
-    type Hasher = CidHasher;
-
-    fn build_hasher(&self) -> Self::Hasher {
-        CidHasher(None)
-    }
-}
-
-struct CidHasher(Option<u64>);
-
-impl Hasher for CidHasher {
-    fn finish(&self) -> u64 {
-        self.0.unwrap()
-    }
-
-    fn write(&mut self, _bytes: &[u8]) {
-        unreachable!();
-    }
-
-    fn write_u64(&mut self, i: u64) {
-        self.0 = Some(i);
-    }
-}
-
 /// A memory backed store
 #[derive(Default)]
 pub struct MemStore {
-    blocks: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
-    pins: RwLock<HashSet<Cid, BuildCidHasher>>,
+    blocks: RwLock<CidHashMap<Box<[u8]>>>,
+    pins: RwLock<CidHashSet>,
     links: RwLock<HashMap<String, Cid>>,
 }
 
@@ -229,24 +204,21 @@ impl Store for MemStore {
 /// A buffered store.
 pub struct BufStore<TStore: Store = MemStore> {
     store: TStore,
-    cache: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
-    buffer: RwLock<HashMap<Cid, Box<[u8]>, BuildCidHasher>>,
-    //pins: RwLock<HashSet<Cid, BuildCidHasher>>,
-    //unpins: RwLock<HashSet<Cid, BuildCidHasher>>,
+    cache: RwLock<CidHashMap<Box<[u8]>>>,
+    buffer: RwLock<CidHashMap<Box<[u8]>>>,
+    pins: RwLock<CidHashMap<PinOp>>,
 }
+
+enum PinOp { Pin, Unpin }
 
 impl<TStore: Store> BufStore<TStore> {
     /// Creates a new block store.
-    pub fn new(store: TStore, cache_cap: usize, buffer_cap: usize) -> Self {
+    pub fn new(store: TStore, _cache_cap: usize, _buffer_cap: usize) -> Self {
         Self {
             store,
-            cache: RwLock::new(HashMap::with_capacity_and_hasher(cache_cap, BuildCidHasher)),
-            buffer: RwLock::new(HashMap::with_capacity_and_hasher(
-                buffer_cap,
-                BuildCidHasher,
-            )),
-            //pins: Default::default(),
-            //unpins: Default::default(),
+            cache: Default::default(),
+            buffer: Default::default(),
+            pins: Default::default(),
         }
     }
 }
@@ -273,11 +245,38 @@ impl<TStore: Store> Store for BufStore<TStore> {
     }
 
     async fn flush(&self) -> Result<()> {
-        // TODO gc writes
-        for (cid, data) in self.buffer.write().await.drain() {
-            self.store.write(&cid, data).await?;
+        let (pins, buffer) = {
+            let (mut pins, mut buffer) = join!(self.pins.write(), self.buffer.write());
+            let pins = mem::replace(&mut *pins, Default::default());
+            let buffer = mem::replace(&mut *buffer, Default::default());
+            (pins, buffer)
+        };
+
+        let mut buffer_pins: CidHashSet = Default::default();
+        for (cid, op) in pins.into_iter() {
+            if buffer.contains_key(&cid) {
+                if let PinOp::Pin = op {
+                    buffer_pins.insert(cid);
+                }
+            } else {
+                match op {
+                    PinOp::Pin => self.store.pin(&cid).await?,
+                    PinOp::Unpin => self.store.unpin(&cid).await?,
+                }
+            }
+        }
+
+        let live = closure(self, buffer_pins.clone()).await?;
+        for (cid, data) in buffer {
+            if live.contains(&cid) {
+                self.store.write(&cid, data).await?;
+            }
+            if buffer_pins.contains(&cid) {
+                self.store.pin(&cid).await?;
+            }
         }
         self.store.flush().await?;
+
         Ok(())
     }
 
@@ -286,14 +285,12 @@ impl<TStore: Store> Store for BufStore<TStore> {
     }
 
     async fn pin(&self, cid: &Cid) -> Result<()> {
-        //self.pins.write().await.insert(cid.clone());
-        self.store.pin(cid).await?;
+        self.pins.write().await.insert(cid.clone(), PinOp::Pin);
         Ok(())
     }
 
     async fn unpin(&self, cid: &Cid) -> Result<()> {
-        //self.unpins.write().await.insert(cid.clone());
-        self.store.unpin(cid).await?;
+        self.pins.write().await.insert(cid.clone(), PinOp::Unpin);
         Ok(())
     }
 
@@ -321,7 +318,6 @@ mod tests {
     use crate::DefaultHash as H;
     use async_std::task;
     use core::future::Future;
-    use futures::join;
     use model::*;
 
     fn create_block_raw(n: usize) -> (Cid, Box<[u8]>) {

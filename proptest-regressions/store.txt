@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 xs 1016368761 1363479749 216686686 2138102038 # shrinks to [Write(0), Gc(0), Read(0)]
+xs 2139438734 2706388634 2509204682 147767866 # shrinks to [Write(0), Flush(0), Read(0)]

@@ -1,12 +1,12 @@
 //! Utilities for performing garbage collection.
 use crate::error::BlockError;
-use crate::ipld::{Cid, Ipld};
+use crate::hash::CidHashSet;
+use crate::ipld::Ipld;
 use crate::store::{Store, StoreIpldExt};
-use std::collections::HashSet;
 
 /// Returns the references in an ipld block.
-pub fn references(ipld: &Ipld) -> HashSet<Cid> {
-    let mut set = HashSet::new();
+pub fn references(ipld: &Ipld) -> CidHashSet {
+    let mut set: CidHashSet = Default::default();
     for ipld in ipld.iter() {
         if let Ipld::Link(cid) = ipld {
             set.insert(cid.to_owned());
@@ -18,10 +18,10 @@ pub fn references(ipld: &Ipld) -> HashSet<Cid> {
 /// Returns the recursive references of an ipld block.
 pub async fn closure<TStore: Store>(
     store: &TStore,
-    roots: HashSet<Cid>,
-) -> Result<HashSet<Cid>, BlockError> {
+    roots: CidHashSet,
+) -> Result<CidHashSet, BlockError> {
     let mut stack = vec![roots];
-    let mut set = HashSet::new();
+    let mut set: CidHashSet = Default::default();
     while let Some(mut roots) = stack.pop() {
         for cid in roots.drain() {
             if set.contains(&cid) {
@@ -42,9 +42,9 @@ pub async fn closure<TStore: Store>(
 /// relationship. (p < q if q.is_reference(p))
 pub async fn dead_paths<TStore: Store>(
     store: &TStore,
-    all_cids: HashSet<Cid>,
-    roots: HashSet<Cid>,
-) -> Result<HashSet<Cid>, BlockError> {
+    all_cids: CidHashSet,
+    roots: CidHashSet,
+) -> Result<CidHashSet, BlockError> {
     let live = closure(store, roots).await?;
     let dead = all_cids.difference(&live).map(Clone::clone).collect();
     Ok(dead)
@@ -53,6 +53,7 @@ pub async fn dead_paths<TStore: Store>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ipld::Cid;
     use crate::store::{BufStore, MemStore, StoreCborExt};
     use crate::{ipld, DefaultHash as H};
     use async_std::task;
@@ -79,7 +80,7 @@ mod tests {
         let cid1 = store.write_cbor::<H, _>(&ipld!(true)).await?;
         let cid2 = store.write_cbor::<H, _>(&ipld!({ "cid1": &cid1 })).await?;
         let cid3 = store.write_cbor::<H, _>(&ipld!([&cid2])).await?;
-        let mut roots = HashSet::new();
+        let mut roots: CidHashSet = Default::default();
         roots.insert(cid3.clone());
         let refs = closure(&store, roots).await?;
         assert_eq!(refs.len(), 3);

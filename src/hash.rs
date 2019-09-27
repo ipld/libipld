@@ -1,5 +1,8 @@
 //! Hash types.
+use crate::ipld::Cid;
+use core::hash::{BuildHasher, Hasher};
 use multihash::{Multihash, MultihashDigest};
+use std::collections::{HashMap, HashSet};
 
 /// Trait for hash type markers.
 pub trait Hash {
@@ -63,3 +66,38 @@ pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
         multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
     }
 }
+
+/// A hasher builder for cid hasher.
+#[derive(Clone, Default)]
+pub struct BuildCidHasher;
+
+impl BuildHasher for BuildCidHasher {
+    type Hasher = CidHasher;
+
+    fn build_hasher(&self) -> Self::Hasher {
+        CidHasher(None)
+    }
+}
+
+/// A hasher that avoids rehashing cids by using the fact that they already
+/// contain a hash.
+pub struct CidHasher(Option<u64>);
+
+impl Hasher for CidHasher {
+    fn finish(&self) -> u64 {
+        self.0.unwrap()
+    }
+
+    fn write(&mut self, _bytes: &[u8]) {
+        unreachable!();
+    }
+
+    fn write_u64(&mut self, i: u64) {
+        self.0 = Some(i);
+    }
+}
+
+/// A HashMap for Cid's
+pub type CidHashMap<V> = HashMap<Cid, V, BuildCidHasher>;
+/// A HashSet for Cid's
+pub type CidHashSet = HashSet<Cid, BuildCidHasher>;
