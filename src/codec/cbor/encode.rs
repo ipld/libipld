@@ -2,10 +2,9 @@
 #![allow(missing_docs)]
 use crate::codec::cbor::{CborError, CborResult as Result};
 use crate::ipld::{Cid, Ipld};
-use async_std::io::Write as _;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-pub use futures::io::AsyncWrite as Write;
+pub use futures::io::AsyncWriteExt as Write;
 use std::collections::BTreeMap;
 
 #[inline]
