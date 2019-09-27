@@ -26,3 +26,7 @@ members = [
 
 [profile.release]
 debug = true
+
+[[bench]]
+name = "store"
+harness = false
