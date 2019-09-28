@@ -2,7 +2,7 @@
 /// Construct an `Ipld` from a literal.
 ///
 /// ```edition2018
-/// # use libipld::ipld;
+/// # use libipld_macro::ipld;
 /// #
 /// let value = ipld!({
 ///     "code": 200,
@@ -24,7 +24,7 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use libipld::ipld;
+/// # use libipld_macro::ipld;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
@@ -41,7 +41,7 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use libipld::ipld;
+/// # use libipld_macro::ipld;
 /// #
 /// let value = ipld!([
 ///     "notice",
@@ -50,6 +50,9 @@
 ///     "comma -->",
 /// ]);
 /// ```
+pub use libipld_base::cid::Cid;
+pub use libipld_base::ipld::Ipld;
+
 #[macro_export(local_inner_macros)]
 macro_rules! ipld {
     // Hide distracting implementation details from the generated rustdoc.
@@ -289,8 +292,7 @@ macro_rules! ipld_unexpected {
 
 #[cfg(test)]
 mod tests {
-    use crate::ipld::Ipld;
-    use cid::Cid;
+    use super::*;
 
     #[test]
     fn test_macro() {

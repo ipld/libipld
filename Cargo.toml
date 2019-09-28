@@ -9,8 +9,12 @@ async-std = "0.99"
 async-trait = "0.1"
 byteorder = "*"
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
+dag-cbor = { path = "dag-cbor" }
+dag-cbor-derive = { path = "dag-cbor-derive" }
 failure = "0.1"
-futures-preview = { version = "0.3.0-alpha.18", features = ["async-await", "nightly"] }
+futures-preview = { version = "=0.3.0-alpha.18", features = ["async-await", "nightly"] }
+libipld-base = { path = "base" }
+libipld-macro = { path = "macro" }
 multibase = { git = "https://github.com/multiformats/rust-multibase" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
 
@@ -21,7 +25,8 @@ model = "0.1"
 
 [workspace]
 members = [
-  "dag-cbor-derive",
+  "base",
+  "macro",
 ]
 
 [profile.release]

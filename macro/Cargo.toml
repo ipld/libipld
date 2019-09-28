@@ -1,0 +1,8 @@
+[package]
+name = "libipld-macro"
+version = "0.1.0"
+authors = ["David Craven <david@craven.ch>"]
+edition = "2018"
+
+[dependencies]
+libipld-base = { path = "../base" }

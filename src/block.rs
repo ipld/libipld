@@ -1,10 +1,10 @@
 //! Block validation
-use crate::codec::cbor::{ReadCbor, WriteCbor};
-use crate::codec::{Codec, DagCborCodec};
+use crate::cid::Cid;
 use crate::error::BlockError;
 use crate::hash::{digest, Hash};
-use crate::ipld::{Cid, Ipld};
+use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
+use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
 
 /// Validate block.
 pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {

@@ -1,5 +1,5 @@
 //! Hash types.
-use crate::ipld::Cid;
+use crate::cid::Cid;
 use core::hash::{BuildHasher, Hasher};
 use multihash::{Multihash, MultihashDigest};
 use std::collections::{HashMap, HashSet};

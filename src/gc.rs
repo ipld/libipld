@@ -53,7 +53,7 @@ pub async fn dead_paths<TStore: Store>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld::Cid;
+    use crate::cid::Cid;
     use crate::store::{BufStore, MemStore, StoreCborExt};
     use crate::{ipld, DefaultHash as H};
     use async_std::task;

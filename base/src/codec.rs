@@ -5,10 +5,6 @@ use async_trait::async_trait;
 use core::fmt::Debug;
 use failure::Fail;
 
-pub mod cbor;
-
-pub use self::cbor::DagCborCodec;
-
 /// Codec trait.
 #[async_trait]
 pub trait Codec {

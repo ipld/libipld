@@ -1,12 +1,12 @@
 //! CBOR decoder
-#![allow(missing_docs)]
-use crate::codec::cbor::{CborError, CborResult as Result};
-use crate::ipld::Ipld;
+use crate::{CborError, CborResult as Result};
+use async_std::io::Read as _;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-use cid::Cid;
 use core::convert::TryFrom;
-pub use futures::io::AsyncReadExt as Read;
+pub use futures_io::AsyncRead as Read;
+use libipld_base::cid::Cid;
+use libipld_base::ipld::Ipld;
 use std::collections::BTreeMap;
 
 #[inline]

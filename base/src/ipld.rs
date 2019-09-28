@@ -1,5 +1,5 @@
 //! Ipld representation.
-pub use cid::Cid;
+use crate::cid::Cid;
 use std::collections::BTreeMap;
 
 /// Ipld
@@ -114,7 +114,6 @@ impl<'a> Iterator for IpldIter<'a> {
 mod tests {
     use super::*;
     use crate::hash::{Hash, Sha2_256};
-    use crate::ipld;
 
     #[test]
     fn ipld_bool_from() {
@@ -173,16 +172,16 @@ mod tests {
 
     #[test]
     fn index() {
-        let ipld = ipld!([0, 1, 2]);
+        let ipld = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
         assert_eq!(ipld.get(0).unwrap(), &Ipld::Integer(0));
         assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
         assert_eq!(ipld.get(2).unwrap(), &Ipld::Integer(2));
 
-        let ipld = ipld!({
-            "a": 0,
-            "b": 1,
-            "c": 2,
-        });
+        let mut map = BTreeMap::new();
+        map.insert("a".to_string(), Ipld::Integer(0));
+        map.insert("b".to_string(), Ipld::Integer(1));
+        map.insert("c".to_string(), Ipld::Integer(2));
+        let ipld = Ipld::Map(map);
         assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
     }
 }

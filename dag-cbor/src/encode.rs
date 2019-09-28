@@ -1,10 +1,11 @@
 //! CBOR encoder.
-#![allow(missing_docs)]
-use crate::codec::cbor::{CborError, CborResult as Result};
-use crate::ipld::{Cid, Ipld};
+use crate::{CborError, CborResult as Result};
+use async_std::io::Write as _;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-pub use futures::io::AsyncWriteExt as Write;
+pub use futures_io::AsyncWrite as Write;
+use libipld_base::cid::Cid;
+use libipld_base::ipld::Ipld;
 use std::collections::BTreeMap;
 
 #[inline]

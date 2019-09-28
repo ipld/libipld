@@ -1,9 +1,10 @@
 //! CBOR codec.
-use crate::codec::Codec;
-use crate::error::BlockError;
-use crate::ipld::Ipld;
 use async_trait::async_trait;
 use failure::Fail;
+pub use libipld_base::codec::Codec;
+use libipld_base::error::BlockError;
+pub use libipld_base::error::IpldError;
+use libipld_base::ipld::Ipld;
 
 pub mod decode;
 pub mod encode;
@@ -17,8 +18,8 @@ pub struct DagCborCodec;
 
 #[async_trait]
 impl Codec for DagCborCodec {
-    const VERSION: cid::Version = cid::Version::V1;
-    const CODEC: cid::Codec = cid::Codec::DagCBOR;
+    const VERSION: libipld_base::cid::Version = libipld_base::cid::Version::V1;
+    const CODEC: libipld_base::cid::Codec = libipld_base::cid::Codec::DagCBOR;
 
     type Error = CborError;
 
@@ -62,10 +63,10 @@ pub enum CborError {
     Utf8(std::str::Utf8Error),
     /// Cid error.
     #[fail(display = "{}", _0)]
-    Cid(cid::Error),
+    Cid(libipld_base::cid::Error),
     /// Ipld error.
     #[fail(display = "{}", _0)]
-    Ipld(crate::error::IpldError),
+    Ipld(libipld_base::error::IpldError),
 }
 
 impl From<std::io::Error> for CborError {
@@ -83,14 +84,14 @@ impl From<std::str::Utf8Error> for CborError {
     }
 }
 
-impl From<cid::Error> for CborError {
-    fn from(err: cid::Error) -> Self {
+impl From<libipld_base::cid::Error> for CborError {
+    fn from(err: libipld_base::cid::Error) -> Self {
         Self::Cid(err)
     }
 }
 
-impl From<crate::error::IpldError> for CborError {
-    fn from(err: crate::error::IpldError) -> Self {
+impl From<libipld_base::error::IpldError> for CborError {
+    fn from(err: libipld_base::error::IpldError) -> Self {
         Self::Ipld(err)
     }
 }
@@ -107,9 +108,9 @@ pub type CborResult<T> = Result<T, CborError>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld;
-    use crate::ipld::Cid;
     use async_std::task;
+    use libipld_base::cid::Cid;
+    use libipld_macro::ipld;
 
     async fn encode_decode_cbor() {
         let ipld = ipld!({

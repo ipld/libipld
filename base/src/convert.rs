@@ -1,5 +1,6 @@
 //! Conversion to and from ipld.
-use crate::ipld::{Cid, Ipld};
+use crate::cid::Cid;
+use crate::ipld::Ipld;
 use std::collections::BTreeMap;
 
 macro_rules! derive_to_ipld_prim {

@@ -1,13 +1,14 @@
 //! Traits for implementing a block store.
 use crate::block::{create_cbor_block, decode_cbor, decode_ipld, validate};
-use crate::codec::cbor::{ReadCbor, WriteCbor};
+use crate::cid::Cid;
 use crate::error::Result;
 use crate::gc::closure;
 use crate::hash::{CidHashMap, CidHashSet, Hash};
-use crate::ipld::{Cid, Ipld};
+use crate::ipld::Ipld;
 use async_std::sync::RwLock;
 use async_trait::async_trait;
 use core::ops::Deref;
+use dag_cbor::{ReadCbor, WriteCbor};
 use futures::join;
 use std::collections::HashMap;
 use std::mem;

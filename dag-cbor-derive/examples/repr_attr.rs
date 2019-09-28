@@ -1,8 +1,8 @@
 use async_std::task;
+use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
 use dag_cbor_derive::DagCbor;
 use failure::Error;
-use libipld::codec::cbor::{ReadCbor, WriteCbor};
-use libipld::{ipld, Codec, DagCborCodec};
+use libipld_macro::ipld;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 #[ipld(repr = "list")]

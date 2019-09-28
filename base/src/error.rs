@@ -86,38 +86,3 @@ impl From<cid::Error> for BlockError {
         Self::Cid(err)
     }
 }
-
-/// Dag error.
-#[derive(Debug, Fail)]
-pub enum DagError {
-    /// Path segment is not a number.
-    #[fail(display = "Path segment is not a number.")]
-    NotNumber(std::num::ParseIntError),
-    /// Cannot index into ipld.
-    #[fail(display = "Cannot index into")]
-    NotIndexable,
-    /// Ipld error.
-    #[fail(display = "{}", _0)]
-    Ipld(IpldError),
-    /// Block error.
-    #[fail(display = "{}", _0)]
-    Block(BlockError),
-}
-
-impl From<std::num::ParseIntError> for DagError {
-    fn from(err: std::num::ParseIntError) -> Self {
-        Self::NotNumber(err)
-    }
-}
-
-impl From<IpldError> for DagError {
-    fn from(err: IpldError) -> Self {
-        Self::Ipld(err)
-    }
-}
-
-impl From<BlockError> for DagError {
-    fn from(err: BlockError) -> Self {
-        Self::Block(err)
-    }
-}

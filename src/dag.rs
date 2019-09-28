@@ -1,9 +1,46 @@
 //! Ipld dag.
-use crate::error::DagError;
-use crate::ipld::{Cid, Ipld};
+use crate::cid::Cid;
+use crate::error::{BlockError, IpldError};
+use crate::ipld::Ipld;
 use crate::path::Path;
 use crate::store::{Store, StoreIpldExt};
 use async_trait::async_trait;
+use failure::Fail;
+
+/// Dag error.
+#[derive(Debug, Fail)]
+pub enum DagError {
+    /// Path segment is not a number.
+    #[fail(display = "Path segment is not a number.")]
+    NotNumber(std::num::ParseIntError),
+    /// Cannot index into ipld.
+    #[fail(display = "Cannot index into")]
+    NotIndexable,
+    /// Ipld error.
+    #[fail(display = "{}", _0)]
+    Ipld(IpldError),
+    /// Block error.
+    #[fail(display = "{}", _0)]
+    Block(BlockError),
+}
+
+impl From<std::num::ParseIntError> for DagError {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Self::NotNumber(err)
+    }
+}
+
+impl From<IpldError> for DagError {
+    fn from(err: IpldError) -> Self {
+        Self::Ipld(err)
+    }
+}
+
+impl From<BlockError> for DagError {
+    fn from(err: BlockError) -> Self {
+        Self::Block(err)
+    }
+}
 
 /// Path in a dag.
 #[derive(Clone, Debug, PartialEq, Hash)]

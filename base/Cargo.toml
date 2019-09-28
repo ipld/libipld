@@ -1,0 +1,11 @@
+[package]
+name = "libipld-base"
+version = "0.1.0"
+authors = ["David Craven <david@craven.ch>"]
+edition = "2018"
+
+[dependencies]
+async-trait = "0.1"
+cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
+multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
+failure = "0.1"
