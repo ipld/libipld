@@ -1,4 +1,4 @@
-//! CBOR decoder
+//! CBOR decoder.
 use crate::{CborError, CborResult as Result};
 use async_std::io::Read as _;
 use async_trait::async_trait;
