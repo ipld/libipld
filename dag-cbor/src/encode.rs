@@ -207,6 +207,14 @@ impl WriteCbor for str {
 }
 
 #[async_trait]
+impl WriteCbor for String {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        self.as_str().write_cbor(w).await
+    }
+}
+
+#[async_trait]
 impl WriteCbor for i128 {
     #[inline]
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {

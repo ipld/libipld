@@ -27,6 +27,7 @@ model = "0.1"
 members = [
   "base",
   "macro",
+  "schema"
 ]
 
 [profile.release]
