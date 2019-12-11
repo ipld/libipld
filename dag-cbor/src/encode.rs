@@ -197,6 +197,14 @@ impl WriteCbor for [u8] {
 }
 
 #[async_trait]
+impl WriteCbor for Vec<u8> {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        <[u8]>::write_cbor(self, w).await
+    }
+}
+
+#[async_trait]
 impl WriteCbor for str {
     #[inline]
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
@@ -260,7 +268,7 @@ impl<T: WriteCbor + Send + Sync> WriteCbor for Option<T> {
 #[async_trait]
 impl<T: WriteCbor + Send + Sync> WriteCbor for Vec<T> {
     #[inline]
-    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+    default async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
         write_u64(w, 4, self.len() as u64).await?;
         for value in self {
             value.write_cbor(w).await?;

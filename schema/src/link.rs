@@ -5,6 +5,7 @@ use libipld::{
 };
 
 ///
+#[derive(Debug)]
 pub enum Link<T> {
     ///
     Cid(Cid),

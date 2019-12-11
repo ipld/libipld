@@ -4,11 +4,13 @@
 /// ```edition2018
 /// # use libipld_schema;
 /// ```
+/// TODO: support pub/pub(crate) and additional #[derive(...)] statements
 pub use libipld::*;
 use link::Link;
 
 mod advanced;
 mod link;
+mod primitive;
 mod recursive;
 
 #[macro_export(local_inner_macros)]
@@ -28,75 +30,61 @@ macro_rules! schema_typedef {
 
     // Null
     (type $name:ident null) => {
-        #[derive(Debug)]
-        pub struct $name;
+        schema_typedef_null!($name);
     };
 
     // Bool
     (type $name:ident bool) => {
-        #[derive(Debug)]
-        pub struct $name(bool);
+        schema_typedef_bool!($name);
     };
 
     // Integer
     (type $name:ident i8) => {
-        #[derive(Debug)]
-        pub struct $name(i8);
+        schema_typedef_num!($name i8);
     };
     (type $name:ident i16) => {
-        #[derive(Debug)]
-        pub struct $name(i16);
+        schema_typedef_num!($name i16);
     };
     (type $name:ident i32) => {
-        #[derive(Debug)]
-        pub struct $name(i32);
+        schema_typedef_num!($name i32);
     };
     (type $name:ident i64) => {
-        #[derive(Debug)]
-        pub struct $name(i64);
+        schema_typedef_num!($name i64);
     };
     (type $name:ident u8) => {
-        #[derive(Debug)]
-        pub struct $name(u8);
+        schema_typedef_num!($name u8);
     };
     (type $name:ident u16) => {
-        #[derive(Debug)]
-        pub struct $name(u16);
+        schema_typedef_num!($name u16);
     };
     (type $name:ident u32) => {
-        #[derive(Debug)]
-        pub struct $name(u32);
+        schema_typedef_num!($name u32);
     };
     (type $name:ident u64) => {
-        #[derive(Debug)]
-        pub struct $name(u64);
+        schema_typedef_num!($name u64);
     };
 
     // Float
     (type $name:ident f32) => {
-        #[derive(Debug)]
-        pub struct $name(f32);
+        schema_typedef_num!($name f32);
     };
     (type $name:ident f64) => {
-        #[derive(Debug)]
-        pub struct $name(f64);
+        schema_typedef_num!($name f64);
     };
 
     // String
     (type $name:ident String) => {
-        #[derive(Debug)]
-        pub struct $name(String);
+        schema_typedef_str!($name);
     };
 
     // Bytes
-    (type $name:ident Box<u8>) => {
-        #[derive(Debug)]
-        pub struct $name(Box<[u8]>);
+    (type $name:ident bytes) => {
+        schema_typedef_bytes!($name);
     };
 
     // Copy
     (type $name:ident = $type:ty) => {
-        pub type $name = $type;
+        type $name = $type;
     };
 
     //////////////////////////////////////////////////////////////////////////
@@ -105,18 +93,31 @@ macro_rules! schema_typedef {
 
     // Link
     (type $name:ident Link<$type:ty>) => {
-        pub type $name = Link<$type>;
+        schema_typedef_link!($name $type);
     };
 
     // List
-    (type $name:ident [$elem_type:ty]) => {
+    (type $name:ident [ $elem_type:ty ]) => {
         schema_typedef_list!($name $elem_type);
     };
 
     // Map
-    (type $name:ident {$key:ty : $value:ty}) => {
+    (type $name:ident { $key:ty : $value:ty }) => {
         schema_typedef_map!($name { $key: $value });
     };
+    (type $name:ident { $key:ty : $value:ty } representation map) => {
+        schema_typedef_map!($name { $key: $value });
+    };
+    (type $name:ident { $key:ty : $value:ty } representation stringpairs {
+        innerDelim $inner:ident,
+        entryDelim $entry:ident
+    }) => {
+        schema_typedef_map!($name { $key: $value } { $inner : $entry });
+    };
+    (type $name:ident { $key:ty : $value:ty } representation listpairs) => {
+        schema_typedef_map!($name { $key: $value } listpairs);
+    };
+
 
     // Struct
     (type $name:ident struct {}) => {
@@ -165,8 +166,8 @@ mod tests {
     schema!(type Float32 f32);
     schema!(type Float64 f64);
     schema!(type TString String);
-    schema!(type Bytes Box<u8>);
-    schema!(type Bytes2 = Bytes);
+    schema!(type Bytes1 bytes);
+    schema!(type Bytes2 = Bytes1);
 
     schema!(type Next Link<String>);
     schema!(type List [String]);
