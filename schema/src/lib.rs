@@ -1,12 +1,17 @@
 //! `schema!` macro.
-/// Define a native type modelling an IPLD Schema and it's Representation.
-///
-/// ```edition2018
-/// # use libipld_schema;
-/// ```
-/// TODO: support pub/pub(crate) and additional #[derive(...)] statements
+//! Define a native type modelling an IPLD Schema and it's Representation.
+//!
+//! ```edition2018
+//! # use libipld_schema;
+//! ```
+//!
+//! TODO: next steps:
+//! - support pub/pub(crate) and additional #[derive(...)] statements
+//! - anything can have an advanced representation, so add support to all types
+pub use crate::link::Link;
+pub use async_trait::async_trait;
 pub use libipld::*;
-use link::Link;
+pub use std::collections::BTreeMap;
 
 mod advanced;
 mod link;
@@ -15,10 +20,8 @@ mod recursive;
 
 #[macro_export(local_inner_macros)]
 macro_rules! schema {
-    // Hide distracting implementation details from the generated rustdoc.
     ($($schema:tt)+) => {
         schema_typedef!($($schema)*);
-        schema_repr!($($schema)*);
     };
 }
 
@@ -109,13 +112,13 @@ macro_rules! schema_typedef {
         schema_typedef_map!($name { $key: $value });
     };
     (type $name:ident { $key:ty : $value:ty } representation stringpairs {
-        innerDelim $inner:ident,
-        entryDelim $entry:ident
+        innerDelim : $inner:expr,
+        entryDelim : $entry:expr
     }) => {
-        schema_typedef_map!($name { $key: $value } { $inner : $entry });
+        schema_typedef_map!($name { $key: $value } { $inner, $entry });
     };
     (type $name:ident { $key:ty : $value:ty } representation listpairs) => {
-        schema_typedef_map!($name { $key: $value } listpairs);
+        schema_typedef_map!($name { $key: $value } @listpairs);
     };
 
 
@@ -171,7 +174,12 @@ mod tests {
 
     schema!(type Next Link<String>);
     schema!(type List [String]);
-    schema!(type Map {String: u8});
+    schema!(type Map1 {String: u8} representation map);
+    schema!(type Map2 {String: u8} representation stringpairs {
+        innerDelim: ":",
+        entryDelim: ","
+    });
+    schema!(type Map3 {String: u8} representation listpairs);
     schema!(type A struct {});
 
     #[test]

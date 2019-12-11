@@ -1,5 +1,5 @@
 [package]
-name = "libipld_schema"
+name = "libipld-schema"
 version = "0.0.1"
 authors = ["sunny-g <sunny.gonna@gmail.com>"]
 edition = "2018"
