@@ -2,8 +2,7 @@
 #[macro_export(local_inner_macros)]
 macro_rules! schema_typedef_null {
     ($name:ident) => {
-        #[derive(Debug)]
-        struct $name;
+        type $name = ();
     };
 }
 
