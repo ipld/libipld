@@ -4,7 +4,7 @@ use crate::error::BlockError;
 use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
-use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
+use dag_cbor::{decode::Read, Codec, DagCborCodec, ReadCbor, WriteCbor};
 
 /// Validate block.
 pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
@@ -54,9 +54,17 @@ pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
 
 /// Decode block from cbor.
 pub async fn decode_cbor<C: ReadCbor>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
+    decode_cbor_read(cid, &mut data).await
+}
+
+/// Decode block from a cbor reader.
+pub async fn decode_cbor_read<R: Read + Unpin + Send, C: ReadCbor>(
+    cid: &Cid,
+    reader: &mut R,
+) -> Result<C, BlockError> {
     if cid.codec() != DagCborCodec::CODEC {
         return Err(BlockError::UnsupportedCodec(cid.codec()));
     }
-    let res = C::read_cbor(&mut data).await?;
+    let res = C::read_cbor(reader).await?;
     Ok(res)
 }
