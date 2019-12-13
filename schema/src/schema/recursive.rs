@@ -59,12 +59,12 @@ macro_rules! schema_repr_map_stringpairs {
     // TODO: impl ToString for the type, and require that it's member's implement it
     ($name:tt { $key:tt : $value:tt } { $inner:tt, $entry:tt }) => {
         #[async_trait]
-        impl cbor::encode::WriteCbor for $name {
+        impl WriteCbor for $name {
             #[inline]
-            async fn write_cbor<W: cbor::encode::Write + Unpin + Send>(
+            async fn write_cbor<W: Write + Unpin + Send>(
                 &self,
                 w: &mut W,
-            ) -> Result<(), cbor::CborError> {
+            ) -> Result<(), CborError> {
                 self.0.write_cbor(w).await
             }
         }
@@ -95,12 +95,12 @@ macro_rules! schema_repr_map_listpairs {
     // listpairs
     ($name:tt { $key:tt : $value:tt }) => {
         #[async_trait]
-        impl cbor::encode::WriteCbor for $name {
+        impl WriteCbor for $name {
             #[inline]
-            async fn write_cbor<W: cbor::encode::Write + Unpin + Send>(
+            async fn write_cbor<W: Write + Unpin + Send>(
                 &self,
                 w: &mut W,
-            ) -> Result<(), cbor::CborError> {
+            ) -> Result<(), CborError> {
                 self.0.write_cbor(w).await
             }
         }
