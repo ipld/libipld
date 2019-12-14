@@ -10,7 +10,12 @@ pub use async_trait::async_trait;
 pub use libipld::{
     cbor::{decode::Read, encode::Write, CborError, ReadCbor, WriteCbor},
     cid::Cid,
+    error::BlockError,
+    ipld::IpldIndex,
 };
 pub use link::Link;
-pub use representation::{BlockContext, Representation};
+pub use representation::{
+    context::{BlockContext, Context, RecursiveContext},
+    Representation,
+};
 pub use std::collections::BTreeMap;
