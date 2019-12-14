@@ -19,7 +19,7 @@ where
         C: 'async_trait;
 
     ///
-    async fn write(&self, ctx: &mut C) -> Result<Cid, CborError>
+    async fn write(&self, ctx: &mut C) -> Result<(), CborError>
     where
         R: 'async_trait,
         W: 'async_trait,
@@ -45,13 +45,55 @@ where
     }
 
     ///
-    default async fn write(&self, ctx: &mut C) -> Result<Cid, CborError>
+    default async fn write(&self, ctx: &mut C) -> Result<(), CborError>
     where
         R: 'async_trait,
         W: 'async_trait,
         C: 'async_trait,
     {
-        self.write_cbor(ctx.writer()).await?;
-        Ok(Cid::random())
+        self.write_cbor(ctx.writer()).await
     }
 }
+
+#[async_trait]
+impl<R, W, C, T> Representation<R, W, C> for Option<T>
+where
+    R: Read + Unpin + Send,
+    W: Write + Unpin + Send,
+    C: RecursiveContext<R, W> + Send,
+    T: ReadCbor + WriteCbor + Sync,
+{
+    ///
+    async fn read(ctx: &mut C) -> Result<Self, CborError>
+    where
+        R: 'async_trait,
+        W: 'async_trait,
+        C: 'async_trait,
+    {
+        match u8::read(ctx).await? {
+            0xf6 => Ok(None),
+            0xf7 => Ok(None),
+            // TODO: is this right?
+            _ => match T::read(ctx).await {
+                Err(CborError::UnexpectedCode) => Ok(None),
+                Err(err) => Err(err),
+                Ok(t) => Ok(Some(t)),
+            },
+        }
+    }
+
+    ///
+    async fn write(&self, ctx: &mut C) -> Result<(), CborError>
+    where
+        R: 'async_trait,
+        W: 'async_trait,
+        C: 'async_trait,
+    {
+        if let Some(value) = self {
+            value.write(ctx).await
+        } else {
+            self.write_cbor(ctx.writer()).await
+        }
+    }
+}
+
