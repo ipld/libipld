@@ -1,21 +1,31 @@
-#![feature(associated_type_defaults)]
 #![feature(specialization)]
 
-mod advanced;
 mod link;
 mod representation;
 mod schema;
 
+// public internal and dependency exports
+pub use crate::{
+    link::Link,
+    representation::{
+        error::Error, BlockReadContext, BlockWriteContext, Mutable, Queryable, ReadContext,
+        RecursiveContext, Representation, WriteContext,
+    },
+};
 pub use async_trait::async_trait;
 pub use libipld::{
-    cbor::{decode::Read, encode::Write, CborError, ReadCbor, WriteCbor},
+    cbor::{
+        decode::{self, Read},
+        encode::{self, Write},
+    },
     cid::Cid,
-    error::BlockError,
-    ipld::IpldIndex,
+    ipld::{Ipld, IpldIndex},
 };
-pub use link::Link;
-pub use representation::{
-    context::{BlockContext, Context, RecursiveContext},
-    Representation,
+
+// internal exports for convenience
+pub(crate) use libipld::{
+    cbor::{CborError, ReadCbor, WriteCbor},
+    cid::Error as CidError,
+    error::{BlockError, IpldError},
 };
-pub use std::collections::BTreeMap;
+pub(crate) use std::collections::BTreeMap;
