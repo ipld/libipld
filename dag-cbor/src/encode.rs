@@ -68,9 +68,25 @@ pub async fn write_tag<W: Write + Unpin + Send>(w: &mut W, tag: u64) -> Result<(
     Ok(())
 }
 
+// #[async_trait]
+// pub trait WriteDag {
+//     async fn write<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()>;
+// }
+// impl<T> WriteCbor for T where T: WriteDag {
+
+// }
+
 #[async_trait]
 pub trait WriteCbor {
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()>;
+}
+
+#[async_trait]
+impl WriteCbor for () {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        write_null(w).await
+    }
 }
 
 #[async_trait]

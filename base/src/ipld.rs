@@ -26,6 +26,7 @@ pub enum Ipld {
 }
 
 /// An index into ipld
+#[derive(Debug, Eq, PartialEq)]
 pub enum IpldIndex<'a> {
     /// An index into an ipld list.
     List(usize),
