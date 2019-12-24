@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 // Link
 #[macro_export(local_inner_macros)]
 macro_rules! schema_typedef_link {
@@ -14,27 +12,30 @@ macro_rules! schema_typedef_list {
     ($name:ident $elem_type:ty) => {
         #[derive(Debug)]
         struct $name(Vec<$elem_type>);
-        schema_repr_delegate!($name: (Vec<$elem_type>));
+        schema_repr_delegate_recursive!($name: ((Vec<$elem_type>)));
     };
 }
 
 // Map
 #[macro_export(local_inner_macros)]
 macro_rules! schema_typedef_map {
+    // normal representation
     ($name:ident { $key:ty : $value:ty }) => {
         #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
-        schema_repr_delegate!($name: (BTreeMap<$key, $value>));
+        schema_repr_delegate_recursive!($name: ((BTreeMap<$key, $value>)));
     };
+    // stringpairs
     ($name:ident { $key:ty : $value:ty } { $inner:expr, $entry:expr }) => {
         #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
-        schema_repr_map_stringpairs!($name { $key : $value } { $inner, $entry });
+        schema_repr_map_impl_stringpairs!($name { $key : $value } { $inner, $entry });
     };
+    // listpairs
     ($name:ident { $key:ty : $value:ty } @listpairs) => {
         #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
-        schema_repr_map_listpairs!($name { $key : $value });
+        schema_repr_map_impl_listpairs!($name { $key : $value });
     };
 }
 
@@ -52,57 +53,55 @@ macro_rules! schema_typedef_struct {
 // Representation Impls
 //////////////////////////////////////////////////////////////////////////
 
-// Map representations
+// TODO: get rid of this since context constraints arent working
 #[macro_export(local_inner_macros)]
-macro_rules! schema_repr_map_stringpairs {
-    // stringpairs
-    // TODO: impl ToString for the type, and require that it's member's implement it
-    ($name:tt { $key:tt : $value:tt } { $inner:tt, $entry:tt }) => {
+macro_rules! schema_repr_delegate_recursive {
+    ($name:tt : (($type:tt))) => {
+        schema_repr_delegate_recursive!($name: ($type))
+    };
+
+    // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
+    ($name:tt : ($type:tt)) => {
         #[async_trait]
-        impl WriteCbor for $name {
+        impl<R, W, C> Representation<R, W, C> for $name
+        where
+            R: Read + Unpin + Send,
+            W: Write + Unpin + Send,
+            C: ReadContext<R> + WriteContext<W> + RecursiveContext + Send,
+        {
             #[inline]
-            async fn write_cbor<W: Write + Unpin + Send>(
-                &self,
-                w: &mut W,
-            ) -> Result<(), CborError> {
-                self.0.write_cbor(w).await
+            async fn read(ctx: &mut C) -> Result<Self, Error>
+            where
+                R: 'async_trait,
+                W: 'async_trait,
+                C: 'async_trait,
+            {
+                Ok($name(<$type>::read(ctx).await?))
+            }
+
+            #[inline]
+            async fn write(&self, ctx: &mut C) -> Result<(), Error>
+            where
+                R: 'async_trait,
+                W: 'async_trait,
+                C: 'async_trait,
+            {
+                <$type>::write(&self.0, ctx).await
             }
         }
-
-        // #[async_trait]
-        // impl cbor::decode::ReadCbor for $name {
-        //     async fn try_read_cbor<R: cbor::decode::Read + Unpin + Send>(
-        //         r: &mut R,
-        //         major: u8,
-        //     ) -> Result<Option<Self>, cbor::CborError> {
-        //         match <$type>::try_read_cbor(r, major).await? {
-        //             Some(inner) => Ok(Some($name(inner))),
-        //             None => Ok(None),
-        //         }
-        //     }
-
-        //     #[inline]
-        //     async fn read_cbor<R: cbor::decode::Read + Unpin + Send>(
-        //         r: &mut R,
-        //     ) -> Result<Self, cbor::CborError> {
-        //         Ok($name(<$type>::read_cbor(r).await?))
-        //     }
-        // }
     };
 }
+
+// stringpairs
 #[macro_export(local_inner_macros)]
-macro_rules! schema_repr_map_listpairs {
-    // listpairs
-    ($name:tt { $key:tt : $value:tt }) => {
-        #[async_trait]
-        impl WriteCbor for $name {
-            #[inline]
-            async fn write_cbor<W: Write + Unpin + Send>(
-                &self,
-                w: &mut W,
-            ) -> Result<(), CborError> {
-                self.0.write_cbor(w).await
-            }
-        }
-    };
+// TODO: impl ToString for the type, and require that it's member's implement it
+macro_rules! schema_repr_map_impl_stringpairs {
+    ($name:tt { $key:tt : $value:tt } { $inner:tt, $entry:tt }) => {};
+}
+
+// listpairs
+// TODO:
+#[macro_export(local_inner_macros)]
+macro_rules! schema_repr_map_impl_listpairs {
+    ($name:tt { $key:tt : $value:tt }) => {};
 }

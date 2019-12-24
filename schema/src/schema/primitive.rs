@@ -41,8 +41,8 @@ macro_rules! schema_typedef_str {
 macro_rules! schema_typedef_bytes {
     ($name:ident) => {
         #[derive(Debug)]
-        struct $name(Vec<u8>);
-        schema_repr_delegate!($name: (Vec<u8>));
+        struct $name(Bytes);
+        schema_repr_delegate!($name: Bytes);
     };
 }
 
@@ -53,38 +53,32 @@ macro_rules! schema_typedef_bytes {
 // Delegate representation
 #[macro_export(local_inner_macros)]
 macro_rules! schema_repr_delegate {
-    ($name:tt : ($type:tt)) => {
-        schema_repr_delegate!($name: $type);
-    };
-
-    // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
     ($name:tt : $type:tt) => {
         #[async_trait]
-        impl WriteCbor for $name {
+        impl<R, W, C> Representation<R, W, C> for $name
+        where
+            R: Read + Unpin + Send,
+            W: Write + Unpin + Send,
+            C: ReadContext<R> + WriteContext<W> + Send,
+        {
             #[inline]
-            async fn write_cbor<W: Write + Unpin + Send>(
-                &self,
-                w: &mut W,
-            ) -> Result<(), CborError> {
-                self.0.write_cbor(w).await
-            }
-        }
-
-        #[async_trait]
-        impl ReadCbor for $name {
-            async fn try_read_cbor<R: Read + Unpin + Send>(
-                r: &mut R,
-                major: u8,
-            ) -> Result<Option<Self>, CborError> {
-                match <$type>::try_read_cbor(r, major).await? {
-                    Some(inner) => Ok(Some($name(inner))),
-                    None => Ok(None),
-                }
+            async fn read(ctx: &mut C) -> Result<Self, Error>
+            where
+                R: 'async_trait,
+                W: 'async_trait,
+                C: 'async_trait,
+            {
+                Ok($name(<$type>::read(ctx).await?))
             }
 
             #[inline]
-            async fn read_cbor<R: Read + Unpin + Send>(r: &mut R) -> Result<Self, CborError> {
-                Ok($name(<$type>::read_cbor(r).await?))
+            async fn write(&self, ctx: &mut C) -> Result<(), Error>
+            where
+                R: 'async_trait,
+                W: 'async_trait,
+                C: 'async_trait,
+            {
+                <$type>::write(&self.0, ctx).await
             }
         }
     };

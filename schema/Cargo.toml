@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1"
+bytes = "0.5.3"
 failure = "0.1"
 libipld = { path = "../" }
 libipld-macro = { path = "../macro" }

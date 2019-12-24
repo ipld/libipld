@@ -1,5 +1,5 @@
-use crate::{async_trait, CborError, IpldError, ReadCbor, WriteCbor};
-use crate::{BlockReadContext, BlockWriteContext, Cid, Error, Ipld, Read, Representation, Write};
+use crate::{async_trait, CborError, ReadCbor, WriteCbor};
+use crate::{BlockReadContext, BlockWriteContext, Cid, Error, Read, Representation, Write};
 
 /// Link type, used to switch between a `Cid` and it's underlying dag.
 #[derive(Debug)]
@@ -19,8 +19,6 @@ where
     C: BlockReadContext<R> + BlockWriteContext<W> + Send,
     T: Representation<R, W, C> + Sync,
 {
-    type Repr = Self;
-
     #[inline]
     async fn read(ctx: &mut C) -> Result<Self, Error>
     where
@@ -46,16 +44,16 @@ where
     {
         match self {
             Link::Cid(cid) => {
-                cid.write(ctx).await?;
+                Cid::write(cid, ctx).await?;
                 Ok(())
             }
             Link::Dag(old_cid, dag) => {
                 if ctx.start() {
-                    dag.write(ctx).await?;
+                    T::write(dag, ctx).await?;
                     let cid = ctx.end(Some(old_cid)).await?;
-                    cid.write(ctx).await?;
+                    Cid::write(&cid, ctx).await?;
                 } else {
-                    old_cid.write(ctx).await?;
+                    Cid::write(old_cid, ctx).await?;
                 }
                 Ok(())
             }

@@ -1,3 +1,5 @@
+//! `libipld-schema`
+//! IPLD Schemas and Representations
 #![feature(specialization)]
 
 mod link;
@@ -13,6 +15,7 @@ pub use crate::{
     },
 };
 pub use async_trait::async_trait;
+pub use bytes::Bytes;
 pub use libipld::{
     cbor::{
         decode::{self, Read},
