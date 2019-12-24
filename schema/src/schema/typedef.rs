@@ -1,3 +1,4 @@
+#[doc(hidden)]
 #[macro_export(local_inner_macros)]
 macro_rules! schema_typedef {
     //////////////////////////////////////////////////////////////////////////
@@ -82,15 +83,18 @@ macro_rules! schema_typedef {
     (type $name:ident { $key:ty : $value:ty }) => {
         schema_typedef_map!($name { $key: $value });
     };
+    // basic map representation
     (type $name:ident { $key:ty : $value:ty } representation map) => {
         schema_typedef_map!($name { $key: $value });
     };
+    // stringpairs map representation
     (type $name:ident { $key:ty : $value:ty } representation stringpairs {
         innerDelim : $inner:expr,
         entryDelim : $entry:expr
     }) => {
         schema_typedef_map!($name { $key: $value } { $inner, $entry });
     };
+    // listpairs map representation
     (type $name:ident { $key:ty : $value:ty } representation listpairs) => {
         schema_typedef_map!($name { $key: $value } @listpairs);
     };

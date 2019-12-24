@@ -41,18 +41,20 @@ mod tests {
     schema!(type Bytes2 = Bytes1);
 
     // recursive types
-    schema!(type Next Link<String>);
+    schema!(type StringLink Link<String>);
     schema!(type List [TString]);
-    schema!(type Map1 {String: Next});
+    schema!(type Map {String: List});
 
-    // IPLD representations
-    schema!(type A struct {});
-    schema!(type Map2 {String: Next} representation map);
-    schema!(type Map3 {String: Next} representation stringpairs {
+    // IPLD schema types and representations
+    schema!(type MapMap {String: List} representation map);
+    schema!(type MapStringpairs {String: List} representation stringpairs {
         innerDelim: ":",
         entryDelim: ","
     });
-    schema!(type Map4 {String: Next} representation listpairs);
+    schema!(type MapListpairs {String: List} representation listpairs);
+
+    // struct
+    schema!(type Struct struct {});
 
     // advanced representations
 

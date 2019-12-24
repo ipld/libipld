@@ -1,23 +1,23 @@
 use crate::{async_trait, BTreeMap, CborError, ReadCbor};
 use crate::{
+    context::{PopElement, PushElement},
     encode::{write_null, write_u64},
-    Error, Read, ReadContext, RecursiveContext, Representation, Write, WriteContext,
+    Context, Error, Read, Representation, Write,
 };
 
 #[async_trait]
-impl<R, W, C, T> Representation<R, W, C> for Option<T>
+impl<R, W, T> Representation<R, W> for Option<T>
 where
     R: Read + Unpin + Send,
     W: Write + Unpin + Send,
-    C: ReadContext<R> + WriteContext<W> + Send,
-    T: Representation<R, W, C> + Sync,
+    T: Representation<R, W> + Sync,
 {
     #[inline]
-    async fn read(ctx: &mut C) -> Result<Self, Error>
+    async fn read<C>(ctx: &mut C) -> Result<Self, Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         match u8::read(ctx).await? {
             0xf6 => Ok(None),
@@ -31,11 +31,11 @@ where
     }
 
     #[inline]
-    async fn write(&self, ctx: &mut C) -> Result<(), Error>
+    async fn write<C>(&self, ctx: &mut C) -> Result<(), Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         match self {
             Some(value) => T::write(value, ctx).await,
@@ -48,89 +48,85 @@ where
 }
 
 #[async_trait]
-impl<R, W, C, T> Representation<R, W, C> for Vec<T>
+impl<R, W, T> Representation<R, W> for Vec<T>
 where
     R: Read + Unpin + Send,
     W: Write + Unpin + Send,
-    C: ReadContext<R> + WriteContext<W> + RecursiveContext + Send,
-    T: Representation<R, W, C> + Send + Sync,
+    T: Representation<R, W> + Send + Sync,
 {
     #[inline]
-    default async fn read(ctx: &mut C) -> Result<Self, Error>
+    default async fn read<C>(ctx: &mut C) -> Result<Self, Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         let major = u8::read_cbor(ctx.reader()).await?;
         let len = read_list_len(ctx.reader(), major).await?;
         let mut list: Self = Vec::with_capacity(len);
         for idx in 0..len {
-            ctx.push(idx);
+            ctx.try_apply(PushElement::new(&idx));
             list.push(T::read(ctx).await?);
-            ctx.pop();
+            ctx.try_apply(PopElement);
         }
         Ok(list)
     }
 
     #[inline]
-    default async fn write(&self, ctx: &mut C) -> Result<(), Error>
+    default async fn write<C>(&self, ctx: &mut C) -> Result<(), Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         write_u64(ctx.writer(), 4, self.len() as u64).await?;
         for (idx, value) in self.iter().enumerate() {
-            ctx.push(idx);
+            ctx.try_apply(PushElement::new(&idx));
             T::write(value, ctx).await?;
-            ctx.pop();
+            ctx.try_apply(PopElement);
         }
         Ok(())
     }
 }
 
-// TODO: why 'static?
+// NOTE: why 'static?
 #[async_trait]
-impl<R, W, C, T> Representation<R, W, C> for BTreeMap<String, T>
+impl<R, W, T> Representation<R, W> for BTreeMap<String, T>
 where
     R: Read + Unpin + Send,
     W: Write + Unpin + Send,
-    C: ReadContext<R> + WriteContext<W> + RecursiveContext + Send,
-    T: 'static + Representation<R, W, C> + Send + Sync,
+    T: 'static + Representation<R, W> + Send + Sync,
 {
-    ///
-    default async fn read(ctx: &mut C) -> Result<Self, Error>
+    default async fn read<C>(ctx: &mut C) -> Result<Self, Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         let major = u8::read(ctx).await?;
         let len = read_map_len(ctx.reader(), major).await?;
         let mut map: Self = BTreeMap::new();
         for _ in 0..len {
             let key = String::read(ctx).await?;
-            ctx.push(format!("{}", key));
+            ctx.try_apply(PushElement::new(&key));
             map.insert(key, T::read(ctx).await?);
-            ctx.pop();
+            ctx.try_apply(PopElement);
         }
         Ok(map)
     }
 
-    ///
-    default async fn write(&self, ctx: &mut C) -> Result<(), Error>
+    default async fn write<C>(&self, ctx: &mut C) -> Result<(), Error>
     where
         R: 'async_trait,
         W: 'async_trait,
-        C: 'async_trait,
+        C: Context<R, W> + Send,
     {
         write_u64(ctx.writer(), 5, self.len() as u64).await?;
         for (key, value) in self {
             String::write(key, ctx).await?;
-            ctx.push(format!("{}", key));
+            ctx.try_apply(PushElement::new(&key.as_str()));
             T::write(value, ctx).await?;
-            ctx.pop();
+            ctx.try_apply(PopElement);
         }
         Ok(())
     }

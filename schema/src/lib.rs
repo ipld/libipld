@@ -2,6 +2,8 @@
 //! IPLD Schemas and Representations
 #![feature(specialization)]
 
+extern crate derive_more;
+
 mod link;
 mod representation;
 mod schema;
@@ -10,8 +12,9 @@ mod schema;
 pub use crate::{
     link::Link,
     representation::{
-        error::Error, BlockReadContext, BlockWriteContext, Mutable, Queryable, ReadContext,
-        RecursiveContext, Representation, WriteContext,
+        context::{self, Context},
+        error::Error,
+        Representation,
     },
 };
 pub use async_trait::async_trait;
