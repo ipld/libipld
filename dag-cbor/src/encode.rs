@@ -294,6 +294,14 @@ impl<T: WriteCbor + Send + Sync> WriteCbor for Vec<T> {
 }
 
 #[async_trait]
+impl<T: WriteCbor + Send + Sync> WriteCbor for Box<T> {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        T::write_cbor(self.as_ref(), w).await
+    }
+}
+
+#[async_trait]
 impl<T: WriteCbor + Send + Sync + 'static> WriteCbor for BTreeMap<String, T> {
     #[inline]
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {

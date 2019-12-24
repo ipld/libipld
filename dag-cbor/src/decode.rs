@@ -276,6 +276,20 @@ impl ReadCbor for f64 {
 }
 
 #[async_trait]
+impl ReadCbor for Vec<u8> {
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(
+        r: &mut R,
+        major: u8,
+    ) -> Result<Option<Vec<u8>>> {
+        match <Box<[u8]> as ReadCbor>::try_read_cbor(r, major).await? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(Vec::from(bytes))),
+        }
+    }
+}
+
+#[async_trait]
 impl ReadCbor for String {
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -351,7 +365,10 @@ impl<T: ReadCbor> ReadCbor for Option<T> {
 #[async_trait]
 impl<T: ReadCbor + Send> ReadCbor for Vec<T> {
     #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    default async fn try_read_cbor<R: Read + Unpin + Send>(
+        r: &mut R,
+        major: u8,
+    ) -> Result<Option<Self>> {
         let len = match major {
             0x80..=0x97 => major as usize - 0x80,
             0x98 => read_u8(r).await? as usize,
