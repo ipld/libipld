@@ -1,9 +1,4 @@
 //! `schema!` macro.
-//! Define a native type modelling an IPLD Schema and it's Representation.
-//!
-//! ```edition2018
-//! # use libipld_schema;
-//! ```
 //!
 //! TODO: next steps:
 //! - support pub/pub(crate) and additional #[derive(...)] statements
@@ -12,16 +7,25 @@ mod primitive;
 mod recursive;
 mod typedef;
 
+/// Defines a native type with a standard IPLD Schema and Representation.
+///
+/// ```edition2018
+/// # use libipld_schema;
+/// ```
 #[macro_export]
 macro_rules! schema {
     ($($schema:tt)+) => {
-        schema_typedef!($($schema)*);
+        typedef!($($schema)*);
     };
 }
 
 #[cfg(test)]
 mod tests {
     use crate::*;
+
+    //////////////////////////////////////////////////////////////////////////
+    // IPLD data types
+    //////////////////////////////////////////////////////////////////////////
 
     // primitive types
     schema!(type Null null);
@@ -38,14 +42,18 @@ mod tests {
     schema!(type Float64 f64);
     schema!(type TString String);
     schema!(type Bytes1 bytes);
-    schema!(type Bytes2 = Bytes1);
+    schema!(type BytesCopy = Bytes1);
 
     // recursive types
     schema!(type StringLink Link<String>);
     schema!(type List [TString]);
     schema!(type Map {String: List});
 
+    //////////////////////////////////////////////////////////////////////////
     // IPLD schema types and representations
+    //////////////////////////////////////////////////////////////////////////
+
+    // map
     schema!(type MapMap {String: List} representation map);
     schema!(type MapStringpairs {String: List} representation stringpairs {
         innerDelim: ":",
@@ -54,10 +62,23 @@ mod tests {
     schema!(type MapListpairs {String: List} representation listpairs);
 
     // struct
-    schema!(type Struct struct {});
+    // schema!(type Struct struct {});
+    // schema!(type StructMap struct {} representation map);
+    // schema!(type StructTuple struct {} representation tuple);
+    // schema!(type StructStringpairs struct {} representation stringpairs);
+    // schema!(type StructStringjoin struct {} representation stringjoin);
+    // schema!(type StructListpairs struct {} representation listpairs);
 
-    // advanced representations
+    // enum
+    // schema!(type Enum enum {});
+    // schema!(type EnumString enum {} representation string);
+    // schema!(type EnumInt enum {} representation int);
 
-    #[test]
-    fn test_macro() {}
+    // union
+    // schema!(type Union union {});
+    // schema!(type UnionKeyed union {} representation keyed);
+    // schema!(type UnionKinded union {} representation kinded);
+    // schema!(type UnionEnvelope union {} representation envelope);
+    // schema!(type UnionInline union {} representation inline);
+    // schema!(type UnionByteprefix union {} representation byteprefix);
 }

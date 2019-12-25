@@ -1,6 +1,6 @@
 use crate::{async_trait, CborError, ReadCbor, WriteCbor};
 use crate::{
-    context::{ResolveLink, WriteLink},
+    context::{FlushBlock, ResolveBlock},
     Cid, Context, Error, Read, Representation, Write,
 };
 
@@ -29,7 +29,7 @@ where
         C: Context<R, W> + Send,
     {
         let cid = Cid::read(ctx).await?;
-        if ctx.try_apply(ResolveLink::new(&cid)).await {
+        if ctx.try_apply(ResolveBlock::new(&cid)).await {
             let dag = T::read(ctx).await?;
             Ok(Link::Dag(cid, dag))
         } else {
@@ -50,9 +50,9 @@ where
                 Ok(())
             }
             Link::Dag(old_cid, dag) => {
-                if ctx.try_apply(ResolveLink::new(&old_cid)).await {
+                if ctx.try_apply(ResolveBlock::new(&old_cid)).await {
                     T::write(dag, ctx).await?;
-                    let cid = ctx.try_apply(WriteLink::new(&old_cid)).await?;
+                    let cid = ctx.try_apply(FlushBlock::new(&old_cid)).await?;
                     Cid::write(&cid, ctx).await?;
                 } else {
                     Cid::write(old_cid, ctx).await?;

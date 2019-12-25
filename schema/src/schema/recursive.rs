@@ -1,7 +1,7 @@
 // Link
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_link {
+macro_rules! typedef_link {
     ($name:ident $type:ty) => {
         type $name = Link<$type>;
     };
@@ -10,67 +10,85 @@ macro_rules! schema_typedef_link {
 // List
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_list {
+macro_rules! typedef_list {
     ($name:ident $elem_type:ty) => {
-        #[derive(Debug)]
         struct $name(Vec<$elem_type>);
         // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
-        // schema_repr_delegate!($name: (Vec<$elem_type>));
+        // delegate_repr_impl!($name: (Vec<$elem_type>));
     };
 }
 
+//////////////////////////////////////////////////////////////////////////
 // Map
+//////////////////////////////////////////////////////////////////////////
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_map {
-    // normal representation
+macro_rules! typedef_map {
+    // basic map representation
     ($name:ident { $key:ty : $value:ty }) => {
-        #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
         // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
-        // schema_repr_delegate!($name: (BTreeMap<$key, $value>));
+        // delegate_repr_impl!($name: (BTreeMap<$key, $value>));
     };
-    // stringpairs
+    // map stringpairs representation
     ($name:ident { $key:ty : $value:ty } { $inner:expr, $entry:expr }) => {
-        #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
-        schema_repr_map_impl_stringpairs!($name { $key : $value } { $inner, $entry });
+        // repr_map_impl_stringpairs!($name { $key : $value } { $inner, $entry });
     };
-    // listpairs
+    // map listpairs representation
     ($name:ident { $key:ty : $value:ty } @listpairs) => {
-        #[derive(Debug)]
         struct $name(BTreeMap<$key, $value>);
-        schema_repr_map_impl_listpairs!($name { $key : $value });
+        // repr_map_impl_listpairs!($name { $key : $value });
     };
 }
 
+//////////////////////////////////////////////////////////////////////////
 // Struct
+//////////////////////////////////////////////////////////////////////////
 // TODO:
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_struct {
-    ($name:ident {}) => {
-        #[derive(Debug)]
-        pub struct $name;
-    };
+macro_rules! typedef_struct {
+    // struct map representation
+    ($name:ident { /* fields */ }) => {};
+    // struct tuple representation
+    ($name:ident { /* fields */ }) => {};
+    // struct stringpairs representation
+    ($name:ident { /* fields */ }) => {};
+    // struct stringjoin representation
+    ($name:ident { /* fields */ }) => {};
+    // struct listpairs representation
+    ($name:ident { /* fields */ }) => {};
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Representation Impls
+// Enum
 //////////////////////////////////////////////////////////////////////////
-
-// stringpairs
-#[doc(hidden)]
-#[macro_export(local_inner_macros)]
-// TODO: impl ToString for the type, and require that it's member's implement it
-macro_rules! schema_repr_map_impl_stringpairs {
-    ($name:tt { $key:tt : $value:tt } { $inner:tt, $entry:tt }) => {};
-}
-
-// listpairs
 // TODO:
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_repr_map_impl_listpairs {
-    ($name:tt { $key:tt : $value:tt }) => {};
+macro_rules! typedef_enum {
+    // enum string representation
+    ($name:ident { /* fields */ }) => {};
+    // enum int representation
+    ($name:ident { /* fields */ }) => {};
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Union
+//////////////////////////////////////////////////////////////////////////
+// TODO:
+#[doc(hidden)]
+#[macro_export(local_inner_macros)]
+macro_rules! typedef_union {
+    // union keyed representation
+    ($name:ident { /* fields */ }) => {};
+    // union kinded representation
+    ($name:ident { /* fields */ }) => {};
+    // union envelope representation
+    ($name:ident { /* fields */ }) => {};
+    // union inline representation
+    ($name:ident { /* fields */ }) => {};
+    // union byteprefix representation
+    ($name:ident { /* fields */ }) => {};
 }

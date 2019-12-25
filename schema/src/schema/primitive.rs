@@ -1,7 +1,7 @@
 // Null
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_null {
+macro_rules! typedef_null {
     ($name:ident) => {
         type $name = ();
     };
@@ -10,45 +10,41 @@ macro_rules! schema_typedef_null {
 // Bool
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_bool {
+macro_rules! typedef_bool {
     ($name:ident) => {
-        #[derive(Debug)]
         struct $name(bool);
-        schema_repr_delegate!($name: bool);
+        delegate_repr_impl!($name: bool);
     };
 }
 
 // Int, Float
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_num {
+macro_rules! typedef_num {
     ($name:ident $type:ty) => {
-        #[derive(Debug)]
         struct $name($type);
         // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
-        // schema_repr_delegate!($name: $type);
+        // delegate_repr_impl!($name: $type);
     };
 }
 
 // String
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_str {
+macro_rules! typedef_str {
     ($name:ident) => {
-        #[derive(Debug)]
         struct $name(String);
-        schema_repr_delegate!($name: String);
+        delegate_repr_impl!($name: String);
     };
 }
 
 // Bytes
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_typedef_bytes {
+macro_rules! typedef_bytes {
     ($name:ident) => {
-        #[derive(Debug)]
         struct $name(Bytes);
-        schema_repr_delegate!($name: Bytes);
+        delegate_repr_impl!($name: Bytes);
     };
 }
 
@@ -60,9 +56,9 @@ macro_rules! schema_typedef_bytes {
 // delegates to the inner type's `Representation` implementation
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
-macro_rules! schema_repr_delegate {
+macro_rules! delegate_repr_impl {
     ($name:tt : ($type:tt)) => {
-        schema_repr_delegate!($name: $type);
+        delegate_repr_impl!($name: $type);
     };
 
     ($name:tt : $type:tt) => {

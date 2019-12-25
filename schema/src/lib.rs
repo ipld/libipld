@@ -1,36 +1,37 @@
-//! `libipld-schema`
 //! IPLD Schemas and Representations
 #![feature(specialization)]
 
 extern crate derive_more;
 
+mod error;
 mod link;
 mod representation;
+
+#[macro_use]
 mod schema;
+#[macro_use]
+mod advanced;
 
 // public internal and dependency exports
 pub use crate::{
+    error::Error,
     link::Link,
     representation::{
         context::{self, Context},
-        error::Error,
         Representation,
     },
 };
-pub use async_trait::async_trait;
 pub use bytes::Bytes;
 pub use libipld::{
-    cbor::{
-        decode::{self, Read},
-        encode::{self, Write},
-    },
+    cbor::{decode::Read, encode::Write},
     cid::Cid,
     ipld::{Ipld, IpldIndex},
 };
 
 // internal exports for convenience
+pub(crate) use async_trait::async_trait;
 pub(crate) use libipld::{
-    cbor::{CborError, ReadCbor, WriteCbor},
+    cbor::{encode, CborError, ReadCbor, WriteCbor},
     cid::Error as CidError,
     error::{BlockError, IpldError},
 };
