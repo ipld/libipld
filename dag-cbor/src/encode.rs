@@ -1,9 +1,9 @@
 //! CBOR encoder.
 use crate::{CborError, CborResult as Result};
-use async_std::io::Write as _;
+pub use async_std::io::Write;
+use async_std::prelude::*;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
-pub use futures_io::AsyncWrite as Write;
 use libipld_base::cid::Cid;
 use libipld_base::ipld::Ipld;
 use std::collections::BTreeMap;

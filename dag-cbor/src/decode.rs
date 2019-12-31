@@ -1,10 +1,10 @@
 //! CBOR decoder.
 use crate::{CborError, CborResult as Result};
-use async_std::io::Read as _;
+pub use async_std::io::Read;
+use async_std::prelude::*;
 use async_trait::async_trait;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-pub use futures_io::AsyncRead as Read;
 use libipld_base::cid::Cid;
 use libipld_base::ipld::Ipld;
 use std::collections::BTreeMap;
