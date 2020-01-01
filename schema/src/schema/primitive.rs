@@ -12,6 +12,7 @@ macro_rules! typedef_null {
 #[macro_export(local_inner_macros)]
 macro_rules! typedef_bool {
     ($name:ident) => {
+        #[cfg_attr(feature = "graphql", derive(juniper::GraphQLScalarValue))]
         struct $name(bool);
         delegate_repr_impl!($name: bool);
     };
@@ -22,6 +23,8 @@ macro_rules! typedef_bool {
 #[macro_export(local_inner_macros)]
 macro_rules! typedef_num {
     ($name:ident $type:ty) => {
+        // TODO: GraphQL nums are fixed to i32 and f64
+        #[cfg_attr(feature = "graphql", derive(juniper::GraphQLScalarValue))]
         struct $name($type);
         // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
         // delegate_repr_impl!($name: $type);
@@ -33,6 +36,7 @@ macro_rules! typedef_num {
 #[macro_export(local_inner_macros)]
 macro_rules! typedef_str {
     ($name:ident) => {
+        #[cfg_attr(feature = "graphql", derive(juniper::GraphQLScalarValue))]
         struct $name(String);
         delegate_repr_impl!($name: String);
     };

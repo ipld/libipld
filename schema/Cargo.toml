@@ -6,8 +6,13 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1"
-bytes = "0.5.3"
+bytes = "0.5"
 derive_more = "0.99.2"
 failure = "0.1"
 libipld = { path = "../" }
 libipld-macro = { path = "../macro" }
+juniper = { version = "0.14", optional = true }
+
+[features]
+default = []
+graphql = ["juniper"]

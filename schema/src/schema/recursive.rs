@@ -31,7 +31,7 @@ macro_rules! typedef_map {
         // delegate_repr_impl!($name: (BTreeMap<$key, $value>));
     };
     // map stringpairs representation
-    ($name:ident { $key:ty : $value:ty } { $inner:expr, $entry:expr }) => {
+    ($name:ident { $key:ty : $value:ty } @stringpairs $inner:expr, $entry:expr) => {
         struct $name(BTreeMap<$key, $value>);
         // repr_map_impl_stringpairs!($name { $key : $value } { $inner, $entry });
     };
