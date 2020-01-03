@@ -5,7 +5,6 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
-async-std = "0.99"
 async-trait = "0.1"
 byteorder = "*"
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
@@ -17,6 +16,11 @@ libipld-base = { path = "base" }
 libipld-macro = { path = "macro" }
 multibase = { git = "https://github.com/multiformats/rust-multibase" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
+
+[dependencies.async-std]
+version = "0.99"
+default-features = false
+features = ["std"]
 
 [dev-dependencies]
 criterion = "0.3"

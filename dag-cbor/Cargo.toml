@@ -5,11 +5,18 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
-async-std = "0.99"
 async-trait = "0.1"
 byteorder = "1.3"
 failure = "0.1"
 libipld-base = { path = "../base" }
 
+[dependencies.async-std]
+version = "0.99"
+default-features = false
+features = ["std"]
+
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
+
+[dev-dependencies.async-std]
+version = "0.99"

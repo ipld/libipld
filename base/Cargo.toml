@@ -6,6 +6,6 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1"
-cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
+cid = { git = "https://github.com/datalove-app/rust-cid", branch = "cli" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
 failure = "0.1"
