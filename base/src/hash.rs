@@ -1,13 +1,13 @@
 //! Hash types.
 use crate::cid::Cid;
 use core::hash::{BuildHasher, Hasher};
-use multihash::{Multihash, MultihashDigest};
+use multihash::{encode, Hash as Code, Multihash};
 use std::collections::{HashMap, HashSet};
 
 /// Trait for hash type markers.
 pub trait Hash {
     /// The multihash code.
-    const CODE: multihash::Code;
+    const CODE: Code;
 
     /// Computes the multihash of a byte slice.
     fn digest(bytes: &[u8]) -> Multihash;
@@ -21,49 +21,49 @@ macro_rules! hash {
 
         #[allow(clippy::derive_hash_xor_eq)]
         impl Hash for $name {
-            const CODE: multihash::Code = multihash::Code::$name;
+            const CODE: Code = Code::$name;
 
             fn digest(bytes: &[u8]) -> Multihash {
-                multihash::$name::digest(bytes)
+                encode(Self::CODE, bytes).unwrap()
             }
         }
     };
 }
 
-hash!(Sha1);
-hash!(Sha2_256);
-hash!(Sha2_512);
-hash!(Sha3_224);
-hash!(Sha3_256);
-hash!(Sha3_384);
-hash!(Sha3_512);
+hash!(SHA1);
+hash!(SHA2256);
+hash!(SHA2512);
+hash!(SHA3224);
+hash!(SHA3256);
+hash!(SHA3384);
+hash!(SHA3512);
 hash!(Keccak224);
 hash!(Keccak256);
 hash!(Keccak384);
 hash!(Keccak512);
-hash!(Blake2b);
-hash!(Blake2s);
-hash!(Murmur3_32);
-hash!(Murmur3_128X64);
+hash!(Blake2b256);
+hash!(Blake2b512);
+hash!(Blake2s128);
+hash!(Blake2s256);
 
 /// Compute digest of bytes.
-pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
+pub fn digest(code: Code, bytes: &[u8]) -> Multihash {
     match code {
-        multihash::Code::Sha1 => multihash::Sha1::digest(bytes),
-        multihash::Code::Sha2_256 => multihash::Sha2_256::digest(bytes),
-        multihash::Code::Sha2_512 => multihash::Sha2_512::digest(bytes),
-        multihash::Code::Sha3_224 => multihash::Sha3_224::digest(bytes),
-        multihash::Code::Sha3_256 => multihash::Sha3_256::digest(bytes),
-        multihash::Code::Sha3_384 => multihash::Sha3_384::digest(bytes),
-        multihash::Code::Sha3_512 => multihash::Sha3_512::digest(bytes),
-        multihash::Code::Keccak224 => multihash::Keccak224::digest(bytes),
-        multihash::Code::Keccak256 => multihash::Keccak256::digest(bytes),
-        multihash::Code::Keccak384 => multihash::Keccak384::digest(bytes),
-        multihash::Code::Keccak512 => multihash::Keccak512::digest(bytes),
-        multihash::Code::Blake2b => multihash::Blake2b::digest(bytes),
-        multihash::Code::Blake2s => multihash::Blake2s::digest(bytes),
-        multihash::Code::Murmur3_32 => multihash::Murmur3_32::digest(bytes),
-        multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
+        Code::SHA1 => encode(Code::SHA1, bytes).unwrap(),
+        Code::SHA2256 => encode(Code::SHA2256, bytes).unwrap(),
+        Code::SHA2512 => encode(Code::SHA2512, bytes).unwrap(),
+        Code::SHA3224 => encode(Code::SHA3224, bytes).unwrap(),
+        Code::SHA3256 => encode(Code::SHA3256, bytes).unwrap(),
+        Code::SHA3384 => encode(Code::SHA3384, bytes).unwrap(),
+        Code::SHA3512 => encode(Code::SHA3512, bytes).unwrap(),
+        Code::Keccak224 => encode(Code::Keccak224, bytes).unwrap(),
+        Code::Keccak256 => encode(Code::Keccak256, bytes).unwrap(),
+        Code::Keccak384 => encode(Code::Keccak384, bytes).unwrap(),
+        Code::Keccak512 => encode(Code::Keccak512, bytes).unwrap(),
+        Code::Blake2b256 => encode(Code::Blake2b256, bytes).unwrap(),
+        Code::Blake2b512 => encode(Code::Blake2b512, bytes).unwrap(),
+        Code::Blake2s128 => encode(Code::Blake2s128, bytes).unwrap(),
+        Code::Blake2s256 => encode(Code::Blake2s256, bytes).unwrap(),
     }
 }
 
