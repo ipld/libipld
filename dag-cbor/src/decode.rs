@@ -276,6 +276,28 @@ impl ReadCbor for f64 {
 }
 
 #[async_trait]
+impl ReadCbor for Box<[u8]> {
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        let len = match major {
+            0x40..=0x57 => major as usize - 0x40,
+            0x58 => read_u8(r).await? as usize,
+            0x59 => read_u16(r).await? as usize,
+            0x5a => read_u32(r).await? as usize,
+            0x5b => {
+                let len = read_u64(r).await?;
+                if len > usize::max_value() as u64 {
+                    return Err(CborError::LengthOutOfRange);
+                }
+                len as usize
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(read_bytes(r, len).await?.into_boxed_slice()))
+    }
+}
+
+#[async_trait]
 impl ReadCbor for Vec<u8> {
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(
@@ -319,28 +341,6 @@ impl ReadCbor for Cid {
             0xd8 => Ok(Some(read_link(r).await?)),
             _ => Ok(None),
         }
-    }
-}
-
-#[async_trait]
-impl ReadCbor for Box<[u8]> {
-    #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x40..=0x57 => major as usize - 0x40,
-            0x58 => read_u8(r).await? as usize,
-            0x59 => read_u16(r).await? as usize,
-            0x5a => read_u32(r).await? as usize,
-            0x5b => {
-                let len = read_u64(r).await?;
-                if len > usize::max_value() as u64 {
-                    return Err(CborError::LengthOutOfRange);
-                }
-                len as usize
-            }
-            _ => return Ok(None),
-        };
-        Ok(Some(read_bytes(r, len).await?.into_boxed_slice()))
     }
 }
 

@@ -213,6 +213,14 @@ impl WriteCbor for [u8] {
 }
 
 #[async_trait]
+impl WriteCbor for Box<[u8]> {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        <[u8]>::write_cbor(self, w).await
+    }
+}
+
+#[async_trait]
 impl WriteCbor for Vec<u8> {
     #[inline]
     async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
