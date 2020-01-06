@@ -5,9 +5,10 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
+async-std = { version = "0.99", default-features = false, features = ["std"] }
 async-trait = "0.1"
 byteorder = "*"
-cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
+cid = { git = "https://github.com/datalove-app/rust-cid", branch = "cli" }
 dag-cbor = { path = "dag-cbor" }
 dag-cbor-derive = { path = "dag-cbor-derive" }
 failure = "0.1"
@@ -15,12 +16,7 @@ futures = "0.3"
 libipld-base = { path = "base" }
 libipld-macro = { path = "macro" }
 multibase = { git = "https://github.com/multiformats/rust-multibase" }
-multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
-
-[dependencies.async-std]
-version = "0.99"
-default-features = false
-features = ["std"]
+multihash = "0.9"
 
 [dev-dependencies]
 criterion = "0.3"
