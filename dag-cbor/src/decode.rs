@@ -311,6 +311,21 @@ impl ReadCbor for Vec<u8> {
     }
 }
 
+#[cfg(feature = "bytes_")]
+#[async_trait]
+impl ReadCbor for bytes::Bytes {
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(
+        r: &mut R,
+        major: u8,
+    ) -> Result<Option<bytes::Bytes>> {
+        match <Vec<u8> as ReadCbor>::try_read_cbor(r, major).await? {
+            None => Ok(None),
+            Some(bytes) => Ok(Some(bytes::Bytes::from(bytes))),
+        }
+    }
+}
+
 #[async_trait]
 impl ReadCbor for String {
     #[inline]

@@ -228,6 +228,15 @@ impl WriteCbor for Vec<u8> {
     }
 }
 
+#[cfg(feature = "bytes_")]
+#[async_trait]
+impl WriteCbor for bytes::Bytes {
+    #[inline]
+    async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        <[u8]>::write_cbor(self.as_ref(), w).await
+    }
+}
+
 #[async_trait]
 impl WriteCbor for str {
     #[inline]

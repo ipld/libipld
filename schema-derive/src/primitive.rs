@@ -22,12 +22,11 @@ macro_rules! typedef_bool {
 #[doc(hidden)]
 #[macro_export(local_inner_macros)]
 macro_rules! typedef_num {
-    ($name:ident $type:ty) => {
+    ($name:ident : $type:tt) => {
         // TODO: GraphQL nums are fixed to i32 and f64
         #[cfg_attr(feature = "graphql", derive(juniper::GraphQLScalarValue))]
         struct $name($type);
-        // TODO: fix matching against `tt`: https://github.com/dtolnay/async-trait/issues/46#issuecomment-547572251
-        // delegate_repr_impl!($name: $type);
+        delegate_repr_impl!($name: $type);
     };
 }
 
@@ -47,8 +46,24 @@ macro_rules! typedef_str {
 #[macro_export(local_inner_macros)]
 macro_rules! typedef_bytes {
     ($name:ident) => {
-        struct $name(Bytes);
-        delegate_repr_impl!($name: Bytes);
+        struct $name(::libipld_schema::prelude::Bytes);
+        delegate_repr_impl!($name : (::libipld_schema::prelude::Bytes));
+
+        // #[cfg(feature = "graphql")]
+        // juniper::graphql_scalar!($name {
+        //     description: ""
+        //     resolve(&self) -> juniper::Value {
+        //         juniper::Value::string(&self.0)
+        //     }
+
+        //     from_input_value(v: &juniper::InputValue) -> Option<$name> {
+        //         v.as_string_value().map(|s| $name(s.to_owned()))
+        //     }
+
+        //     from_str<'a>(value: juniper::ScalarToken<'a>) -> juniper::ParseScalarResult<'a> {
+        //         <String as juniper::ParseScalarValue>::from_str(value)
+        //     }
+        // });
     };
 }
 
@@ -65,29 +80,30 @@ macro_rules! delegate_repr_impl {
         delegate_repr_impl!($name: $type);
     };
 
+    // delegation impl
     ($name:tt : $type:tt) => {
-        #[async_trait]
-        impl<R, W> Representation<R, W> for $name
+        #[::libipld_schema::prelude::async_trait]
+        impl<R, W> ::libipld_schema::Representation<R, W> for $name
         where
-            R: Read + Unpin + Send,
-            W: Write + Unpin + Send,
+            R: ::libipld_schema::prelude::Read + Unpin + Send,
+            W: ::libipld_schema::prelude::Write + Unpin + Send,
         {
             #[inline]
-            async fn read<C>(ctx: &mut C) -> Result<Self, Error>
+            async fn read<C>(ctx: &mut C) -> Result<Self, ::libipld_schema::Error>
             where
                 R: 'async_trait,
                 W: 'async_trait,
-                C: Context<R, W> + Send,
+                C: ::libipld_schema::Context<R, W> + Send,
             {
                 Ok($name(<$type>::read(ctx).await?))
             }
 
             #[inline]
-            async fn write<C>(&self, ctx: &mut C) -> Result<(), Error>
+            async fn write<C>(&self, ctx: &mut C) -> Result<(), ::libipld_schema::Error>
             where
                 R: 'async_trait,
                 W: 'async_trait,
-                C: Context<R, W> + Send,
+                C: ::libipld_schema::Context<R, W> + Send,
             {
                 <$type>::write(&self.0, ctx).await
             }

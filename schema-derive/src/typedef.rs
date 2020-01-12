@@ -17,42 +17,42 @@ macro_rules! typedef {
 
     // Integer
     (type $name:ident int) => {
-        typedef_num!($name i32);
+        typedef_num!($name : i32);
     };
     (type $name:ident i8) => {
-        typedef_num!($name i8);
+        typedef_num!($name : i8);
     };
     (type $name:ident i16) => {
-        typedef_num!($name i16);
+        typedef_num!($name : i16);
     };
     (type $name:ident i32) => {
-        typedef_num!($name i32);
+        typedef_num!($name : i32);
     };
     (type $name:ident i64) => {
-        typedef_num!($name i64);
+        typedef_num!($name : i64);
     };
     (type $name:ident u8) => {
-        typedef_num!($name u8);
+        typedef_num!($name : u8);
     };
     (type $name:ident u16) => {
-        typedef_num!($name u16);
+        typedef_num!($name : u16);
     };
     (type $name:ident u32) => {
-        typedef_num!($name u32);
+        typedef_num!($name : u32);
     };
     (type $name:ident u64) => {
-        typedef_num!($name u64);
+        typedef_num!($name : u64);
     };
 
     // Float
     (type $name:ident float) => {
-        typedef_num!($name f64);
+        typedef_num!($name : f64);
     };
     (type $name:ident f32) => {
-        typedef_num!($name f32);
+        typedef_num!($name : f32);
     };
     (type $name:ident f64) => {
-        typedef_num!($name f64);
+        typedef_num!($name : f64);
     };
 
     // String
