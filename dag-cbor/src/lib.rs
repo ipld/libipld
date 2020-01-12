@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 //! CBOR codec.
 use async_trait::async_trait;
 use failure::Fail;
