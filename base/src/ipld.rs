@@ -1,5 +1,5 @@
 //! Ipld representation.
-use crate::cid::Cid;
+use cid::Cid;
 use std::collections::BTreeMap;
 
 /// Ipld
@@ -72,7 +72,7 @@ impl Ipld {
     }
 
     /// Returns an iterator.
-    pub fn iter<'a>(&'a self) -> IpldIter<'a> {
+    pub fn iter(&self) -> IpldIter {
         IpldIter {
             stack: vec![Box::new(vec![self].into_iter())],
         }

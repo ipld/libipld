@@ -9,116 +9,21 @@ use libipld_base::cid::Cid;
 use libipld_base::ipld::Ipld;
 use std::collections::BTreeMap;
 
-#[inline]
-pub async fn read_u8<R: Read + Unpin + Send>(r: &mut R) -> Result<u8> {
-    let mut buf = [0; 1];
-    r.read_exact(&mut buf).await?;
-    Ok(buf[0])
-}
-
-#[inline]
-pub async fn read_u16<R: Read + Unpin + Send>(r: &mut R) -> Result<u16> {
-    let mut buf = [0; 2];
-    r.read_exact(&mut buf).await?;
-    Ok(BigEndian::read_u16(&buf))
-}
-
-#[inline]
-pub async fn read_u32<R: Read + Unpin + Send>(r: &mut R) -> Result<u32> {
-    let mut buf = [0; 4];
-    r.read_exact(&mut buf).await?;
-    Ok(BigEndian::read_u32(&buf))
-}
-
-#[inline]
-pub async fn read_u64<R: Read + Unpin + Send>(r: &mut R) -> Result<u64> {
-    let mut buf = [0; 8];
-    r.read_exact(&mut buf).await?;
-    Ok(BigEndian::read_u64(&buf))
-}
-
-#[inline]
-pub async fn read_f32<R: Read + Unpin + Send>(r: &mut R) -> Result<f32> {
-    let mut buf = [0; 4];
-    r.read_exact(&mut buf).await?;
-    Ok(BigEndian::read_f32(&buf))
-}
-
-#[inline]
-pub async fn read_f64<R: Read + Unpin + Send>(r: &mut R) -> Result<f64> {
-    let mut buf = [0; 8];
-    r.read_exact(&mut buf).await?;
-    Ok(BigEndian::read_f64(&buf))
-}
-
-#[inline]
-pub async fn read_bytes<R: Read + Unpin + Send>(r: &mut R, len: usize) -> Result<Vec<u8>> {
-    let mut buf = vec![0; len];
-    r.read_exact(&mut buf).await?;
-    Ok(buf)
-}
-
-#[inline]
-pub async fn read_str<R: Read + Unpin + Send>(r: &mut R, len: usize) -> Result<String> {
-    let bytes = read_bytes(r, len).await?;
-    let string = std::str::from_utf8(&bytes)?;
-    Ok(string.to_string())
-}
-
-#[inline]
-pub async fn read_key<R: Read + Unpin + Send>(r: &mut R, key: &str) -> Result<()> {
-    let key_bytes = key.as_bytes();
-    let bytes = read_bytes(r, key.len() + 1).await?;
-    if key_bytes == &bytes[1..] {
-        Ok(())
-    } else {
-        Err(CborError::UnexpectedKey)
-    }
-}
-
-#[inline]
-pub async fn read_list<R: Read + Unpin + Send, T: ReadCbor + Send>(
-    r: &mut R,
-    len: usize,
-) -> Result<Vec<T>> {
-    let mut list: Vec<T> = Vec::with_capacity(len);
-    for _ in 0..len {
-        list.push(T::read_cbor(r).await?);
-    }
-    Ok(list)
-}
-
-#[inline]
-pub async fn read_map<R: Read + Unpin + Send, T: ReadCbor + Send>(
-    r: &mut R,
-    len: usize,
-) -> Result<BTreeMap<String, T>> {
-    let mut map: BTreeMap<String, T> = BTreeMap::new();
-    for _ in 0..len {
-        let key = String::read_cbor(r).await?;
-        let value = T::read_cbor(r).await?;
-        map.insert(key, value);
-    }
-    Ok(map)
-}
-
-#[inline]
-pub async fn read_link<R: Read + Unpin + Send>(r: &mut R) -> Result<Cid> {
-    let tag = read_u8(r).await?;
-    if tag != 42 {
-        return Err(CborError::UnknownTag);
-    }
-    let ty = read_u8(r).await?;
-    if ty != 0x58 {
-        return Err(CborError::UnknownTag);
-    }
-    let len = read_u8(r).await?;
-    let bytes = read_bytes(r, len as usize).await?;
-    Ok(Cid::try_from(bytes)?)
-}
-
 #[async_trait]
 pub trait ReadCbor: Send + Sized {
+    /// Returns the length of the serialized type, sans the CBOR tag byte.
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>>;
+
+    #[inline]
+    async fn read_len<R: Read + Unpin + Send>(r: &mut R) -> Result<usize> {
+        let major = read_u8(r).await?;
+        if let Some(len) = Self::try_read_len(r, major).await? {
+            Ok(len)
+        } else {
+            Err(CborError::UnexpectedCode)
+        }
+    }
+
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>>;
 
     #[inline]
@@ -135,6 +40,14 @@ pub trait ReadCbor: Send + Sized {
 #[async_trait]
 impl ReadCbor for bool {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(_: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xf4 | 0xf5 => Ok(Some(0)),
+            _ => Ok(None),
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(_: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xf4 => Ok(Some(false)),
@@ -147,6 +60,15 @@ impl ReadCbor for bool {
 #[async_trait]
 impl ReadCbor for u8 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(_: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x00..=0x17 => Ok(Some(0)),
+            0x18 => Ok(Some(1)),
+            _ => Ok(None),
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major)),
@@ -158,6 +80,14 @@ impl ReadCbor for u8 {
 
 #[async_trait]
 impl ReadCbor for u16 {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x19 => Ok(Some(2)),
+            _ => u8::try_read_len(r, major).await,
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -172,6 +102,14 @@ impl ReadCbor for u16 {
 #[async_trait]
 impl ReadCbor for u32 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x1a => Ok(Some(4)),
+            _ => u16::try_read_len(r, major).await,
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major as u32)),
@@ -185,6 +123,14 @@ impl ReadCbor for u32 {
 
 #[async_trait]
 impl ReadCbor for u64 {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x1b => Ok(Some(8)),
+            _ => u32::try_read_len(r, major).await,
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -201,6 +147,15 @@ impl ReadCbor for u64 {
 #[async_trait]
 impl ReadCbor for i8 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(_: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x20..=0x37 => Ok(Some(0)),
+            0x38 => Ok(Some(1)),
+            _ => Ok(None),
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i8)),
@@ -212,6 +167,14 @@ impl ReadCbor for i8 {
 
 #[async_trait]
 impl ReadCbor for i16 {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x39 => Ok(Some(2)),
+            _ => i8::try_read_len(r, major).await,
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -226,6 +189,14 @@ impl ReadCbor for i16 {
 #[async_trait]
 impl ReadCbor for i32 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x3a => Ok(Some(4)),
+            _ => i16::try_read_len(r, major).await,
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i32)),
@@ -239,6 +210,14 @@ impl ReadCbor for i32 {
 
 #[async_trait]
 impl ReadCbor for i64 {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x3b => Ok(Some(8)),
+            _ => i32::try_read_len(r, major).await,
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -255,8 +234,22 @@ impl ReadCbor for i64 {
 #[async_trait]
 impl ReadCbor for f32 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(_r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xf9 => Ok(Some(2)),
+            0xfa => Ok(Some(4)),
+            _ => Ok(None),
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
+            0xf9 => {
+                let mut buf: [u8; 4] = [0; 4];
+                r.read_exact(&mut buf[0..2]).await?;
+                Ok(Some(BigEndian::read_f32(&buf)))
+            }
             0xfa => Ok(Some(read_f32(r).await?)),
             _ => Ok(None),
         }
@@ -266,11 +259,18 @@ impl ReadCbor for f32 {
 #[async_trait]
 impl ReadCbor for f64 {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xfb => Ok(Some(8)),
+            _ => f32::try_read_len(r, major).await,
+        }
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
-            0xfa => Ok(Some(read_f32(r).await? as f64)),
             0xfb => Ok(Some(read_f64(r).await?)),
-            _ => Ok(None),
+            _ => Ok(f32::try_read_cbor(r, major).await?.map(|f| f as f64)),
         }
     }
 }
@@ -278,22 +278,30 @@ impl ReadCbor for f64 {
 #[async_trait]
 impl ReadCbor for Box<[u8]> {
     #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x40..=0x57 => major as usize - 0x40,
-            0x58 => read_u8(r).await? as usize,
-            0x59 => read_u16(r).await? as usize,
-            0x5a => read_u32(r).await? as usize,
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x40..=0x57 => Ok(Some((major - 0x40) as usize)),
+            0x58 => Ok(Some(read_u8(r).await? as usize)),
+            0x59 => Ok(Some(read_u16(r).await? as usize)),
+            0x5a => Ok(Some(read_u32(r).await? as usize)),
             0x5b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
                     return Err(CborError::LengthOutOfRange);
                 }
-                len as usize
+                Ok(Some(len as usize))
             }
             _ => return Ok(None),
-        };
-        Ok(Some(read_bytes(r, len).await?.into_boxed_slice()))
+        }
+    }
+
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(len) = Self::try_read_len(r, major).await? {
+            Ok(Some(read_bytes(r, len).await?.into_boxed_slice()))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -301,13 +309,19 @@ impl ReadCbor for Box<[u8]> {
 #[async_trait]
 impl ReadCbor for bytes::Bytes {
     #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        <Box<[u8]>>::try_read_len(r, major).await
+    }
+
+    #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(
         r: &mut R,
         major: u8,
     ) -> Result<Option<bytes::Bytes>> {
-        match <Vec<u8> as ReadCbor>::try_read_cbor(r, major).await? {
-            None => Ok(None),
-            Some(bytes) => Ok(Some(bytes::Bytes::from(bytes))),
+        if let Some(b) = <Box<[u8]>>::try_read_cbor(r, major).await? {
+            Ok(Some(bytes::Bytes::copy_from_slice(b.as_ref())))
+        } else {
+            Ok(None)
         }
     }
 }
@@ -315,27 +329,53 @@ impl ReadCbor for bytes::Bytes {
 #[async_trait]
 impl ReadCbor for String {
     #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x60..=0x77 => major as usize - 0x60,
-            0x78 => read_u8(r).await? as usize,
-            0x79 => read_u16(r).await? as usize,
-            0x7a => read_u32(r).await? as usize,
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x60..=0x77 => Ok(Some((major - 0x60) as usize)),
+            0x78 => Ok(Some(read_u8(r).await? as usize)),
+            0x79 => Ok(Some(read_u16(r).await? as usize)),
+            0x7a => Ok(Some(read_u32(r).await? as usize)),
             0x7b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
                     return Err(CborError::LengthOutOfRange);
                 }
-                len as usize
+                Ok(Some(len as usize))
             }
             _ => return Ok(None),
-        };
-        Ok(Some(read_str(r, len).await?))
+        }
+    }
+
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(len) = Self::try_read_len(r, major).await? {
+            Ok(Some(read_str(r, len).await?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
 #[async_trait]
 impl ReadCbor for Cid {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xd8 => {
+                let tag = read_u8(r).await?;
+                if tag != 42 {
+                    return Err(CborError::UnknownTag);
+                }
+                let ty = read_u8(r).await?;
+                if ty != 0x58 {
+                    return Err(CborError::UnknownTag);
+                }
+                Ok(Some(read_u8(r).await? as usize))
+            }
+            _ => Ok(None),
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -346,7 +386,15 @@ impl ReadCbor for Cid {
 }
 
 #[async_trait]
-impl<T: ReadCbor> ReadCbor for Option<T> {
+impl<T: 'static + ReadCbor> ReadCbor for Option<T> {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xf6 | 0xf7 => Ok(Some(0)),
+            _ => Ok(T::try_read_len(r, major).await?),
+        }
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -364,54 +412,72 @@ impl<T: ReadCbor> ReadCbor for Option<T> {
 }
 
 #[async_trait]
-impl<T: ReadCbor + Send> ReadCbor for Vec<T> {
+impl<T: 'static + ReadCbor + Send> ReadCbor for Vec<T> {
     #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(
-        r: &mut R,
-        major: u8,
-    ) -> Result<Option<Self>> {
-        let len = match major {
-            0x80..=0x97 => major as usize - 0x80,
-            0x98 => read_u8(r).await? as usize,
-            0x99 => read_u16(r).await? as usize,
-            0x9a => read_u32(r).await? as usize,
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0x80..=0x97 => Ok(Some((major - 0x80) as usize)),
+            0x98 => Ok(Some(read_u8(r).await? as usize)),
+            0x99 => Ok(Some(read_u16(r).await? as usize)),
+            0x9a => Ok(Some(read_u32(r).await? as usize)),
             0x9b => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
                     return Err(CborError::LengthOutOfRange);
                 }
-                len as usize
+                Ok(Some(len as usize))
             }
             _ => return Ok(None),
-        };
-        Ok(Some(read_list(r, len).await?))
+        }
+    }
+
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(len) = Self::try_read_len(r, major).await? {
+            Ok(Some(read_list(r, len).await?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
 #[async_trait]
-impl<T: ReadCbor + Send> ReadCbor for BTreeMap<String, T> {
+impl<T: 'static + ReadCbor + Send> ReadCbor for BTreeMap<String, T> {
     #[inline]
-    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0xa0..=0xb7 => major as usize - 0xa0,
-            0xb8 => read_u8(r).await? as usize,
-            0xb9 => read_u16(r).await? as usize,
-            0xba => read_u32(r).await? as usize,
+    async fn try_read_len<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<usize>> {
+        match major {
+            0xa0..=0xb7 => Ok(Some((major - 0xa0) as usize)),
+            0xb8 => Ok(Some(read_u8(r).await? as usize)),
+            0xb9 => Ok(Some(read_u16(r).await? as usize)),
+            0xba => Ok(Some(read_u32(r).await? as usize)),
             0xbb => {
                 let len = read_u64(r).await?;
                 if len > usize::max_value() as u64 {
                     return Err(CborError::LengthOutOfRange);
                 }
-                len as usize
+                Ok(Some(len as usize))
             }
             _ => return Ok(None),
-        };
-        Ok(Some(read_map(r, len).await?))
+        }
+    }
+
+    #[inline]
+    async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(len) = Self::try_read_len(r, major).await? {
+            Ok(Some(read_map(r, len).await?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
 #[async_trait]
 impl ReadCbor for Ipld {
+    #[inline]
+    async fn try_read_len<R: Read + Unpin + Send>(_r: &mut R, _major: u8) -> Result<Option<usize>> {
+        unimplemented!();
+    }
+
     #[inline]
     async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
@@ -563,4 +629,112 @@ impl ReadCbor for Ipld {
         };
         Ok(Some(ipld))
     }
+}
+
+#[inline]
+pub async fn read_u8<R: Read + Unpin + Send>(r: &mut R) -> Result<u8> {
+    let mut buf = [0; 1];
+    r.read_exact(&mut buf).await?;
+    Ok(buf[0])
+}
+
+#[inline]
+pub async fn read_u16<R: Read + Unpin + Send>(r: &mut R) -> Result<u16> {
+    let mut buf = [0; 2];
+    r.read_exact(&mut buf).await?;
+    Ok(BigEndian::read_u16(&buf))
+}
+
+#[inline]
+pub async fn read_u32<R: Read + Unpin + Send>(r: &mut R) -> Result<u32> {
+    let mut buf = [0; 4];
+    r.read_exact(&mut buf).await?;
+    Ok(BigEndian::read_u32(&buf))
+}
+
+#[inline]
+pub async fn read_u64<R: Read + Unpin + Send>(r: &mut R) -> Result<u64> {
+    let mut buf = [0; 8];
+    r.read_exact(&mut buf).await?;
+    Ok(BigEndian::read_u64(&buf))
+}
+
+#[inline]
+pub async fn read_f32<R: Read + Unpin + Send>(r: &mut R) -> Result<f32> {
+    let mut buf = [0; 4];
+    r.read_exact(&mut buf).await?;
+    Ok(BigEndian::read_f32(&buf))
+}
+
+#[inline]
+pub async fn read_f64<R: Read + Unpin + Send>(r: &mut R) -> Result<f64> {
+    let mut buf = [0; 8];
+    r.read_exact(&mut buf).await?;
+    Ok(BigEndian::read_f64(&buf))
+}
+
+#[inline]
+pub async fn read_bytes<R: Read + Unpin + Send>(r: &mut R, len: usize) -> Result<Vec<u8>> {
+    let mut buf = vec![0; len];
+    r.read_exact(&mut buf).await?;
+    Ok(buf)
+}
+
+#[inline]
+pub async fn read_str<R: Read + Unpin + Send>(r: &mut R, len: usize) -> Result<String> {
+    let bytes = read_bytes(r, len).await?;
+    let string = std::str::from_utf8(&bytes)?;
+    Ok(string.to_string())
+}
+
+#[inline]
+pub async fn read_key<R: Read + Unpin + Send>(r: &mut R, key: &str) -> Result<()> {
+    let key_bytes = key.as_bytes();
+    let bytes = read_bytes(r, key.len() + 1).await?;
+    if key_bytes == &bytes[1..] {
+        Ok(())
+    } else {
+        Err(CborError::UnexpectedKey)
+    }
+}
+
+#[inline]
+pub async fn read_list<R: Read + Unpin + Send, T: ReadCbor + Send>(
+    r: &mut R,
+    len: usize,
+) -> Result<Vec<T>> {
+    let mut list: Vec<T> = Vec::with_capacity(len);
+    for _ in 0..len {
+        list.push(T::read_cbor(r).await?);
+    }
+    Ok(list)
+}
+
+#[inline]
+pub async fn read_map<R: Read + Unpin + Send, T: ReadCbor + Send>(
+    r: &mut R,
+    len: usize,
+) -> Result<BTreeMap<String, T>> {
+    let mut map: BTreeMap<String, T> = BTreeMap::new();
+    for _ in 0..len {
+        let key = String::read_cbor(r).await?;
+        let value = T::read_cbor(r).await?;
+        map.insert(key, value);
+    }
+    Ok(map)
+}
+
+#[inline]
+pub async fn read_link<R: Read + Unpin + Send>(r: &mut R) -> Result<Cid> {
+    let tag = read_u8(r).await?;
+    if tag != 42 {
+        return Err(CborError::UnknownTag);
+    }
+    let ty = read_u8(r).await?;
+    if ty != 0x58 {
+        return Err(CborError::UnknownTag);
+    }
+    let len = read_u8(r).await?;
+    let bytes = read_bytes(r, len as usize).await?;
+    Ok(Cid::try_from(bytes)?)
 }
