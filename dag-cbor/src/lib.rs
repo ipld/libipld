@@ -1,7 +1,9 @@
 //! CBOR codec.
+use async_std::io::{Read, Seek, Write};
 use async_trait::async_trait;
 use failure::Fail;
-pub use libipld_base::codec::Codec;
+use libipld_base::cid;
+pub use libipld_base::codec::{Codec, CodecExt};
 use libipld_base::error::BlockError;
 pub use libipld_base::error::IpldError;
 use libipld_base::ipld::Ipld;
@@ -18,8 +20,8 @@ pub struct DagCborCodec;
 
 #[async_trait]
 impl Codec for DagCborCodec {
-    const VERSION: libipld_base::cid::Version = libipld_base::cid::Version::V1;
-    const CODEC: libipld_base::cid::Codec = libipld_base::cid::Codec::DagCBOR;
+    const VERSION: cid::Version = cid::Version::V1;
+    const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
     type Error = CborError;
 

@@ -5,6 +5,7 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 
 [dependencies]
+async-std = { version = "0.99", default-features = false, features = ["std"] }
 async-trait = "0.1"
 cid = { git = "https://github.com/datalove-app/rust-cid", branch = "cli" }
 multihash = "0.9"

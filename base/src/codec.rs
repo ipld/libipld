@@ -1,6 +1,7 @@
 //! `Ipld` codecs.
 use crate::error::BlockError;
 use crate::ipld::Ipld;
+use async_std::io::{Read, Seek, Write};
 use async_trait::async_trait;
 use core::fmt::Debug;
 use failure::Fail;
