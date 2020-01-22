@@ -1,38 +1,41 @@
 //! IPLD Schemas and Representations
-#![feature(specialization)]
 
 extern crate derive_more;
 
 mod error;
-mod link;
+//mod link;
 mod representation;
-
-#[macro_use]
-mod schema;
-#[macro_use]
-mod advanced;
 
 // public internal and dependency exports
 pub use crate::{
     error::Error,
-    link::Link,
+    //    link::Link,
     representation::{
-        context::{self, Context},
+        context::{
+            self,
+            commands::{self, Command, ResolveBlock, ResolveRange},
+            Context, Handler, IntoHandler,
+        },
         Representation,
     },
 };
-pub use bytes::Bytes;
-pub use libipld::{
-    cbor::{decode::Read, encode::Write},
-    cid::Cid,
-    ipld::{Ipld, IpldIndex},
-};
 
-// internal exports for convenience
-pub(crate) use async_trait::async_trait;
-pub(crate) use libipld::{
-    cbor::{encode, CborError, ReadCbor, WriteCbor},
-    cid::Error as CidError,
-    error::{BlockError, IpldError},
-};
-pub(crate) use std::collections::BTreeMap;
+/// External imports, re-exported for convenience and for `libipld-schema-derive`
+pub mod dev {
+    pub use async_std::io::{
+        prelude::{ReadExt, SeekExt, WriteExt},
+        Read, Seek, SeekFrom, Write,
+    };
+    pub use async_trait::async_trait;
+    pub use bytes::Bytes;
+    pub use cid::Cid;
+    pub use dag_cbor::{CborError, ReadCbor, WriteCbor};
+    pub use libipld_base::{
+        codec::{Codec, CodecExt},
+        ipld::IpldIndex,
+    };
+
+    #[cfg(feature = "derive")]
+    #[macro_use]
+    pub use libipld_schema_derive::schema;
+}

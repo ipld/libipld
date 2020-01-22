@@ -1,9 +1,8 @@
 //! CBOR codec.
-use async_std::io::{Read, Seek, Write};
 use async_trait::async_trait;
 use failure::Fail;
 use libipld_base::cid;
-pub use libipld_base::codec::{Codec, CodecExt};
+pub use libipld_base::codec::Codec;
 use libipld_base::error::BlockError;
 pub use libipld_base::error::IpldError;
 use libipld_base::ipld::Ipld;
