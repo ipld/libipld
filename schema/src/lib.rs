@@ -24,8 +24,7 @@ pub mod dev {
     pub use async_trait::async_trait;
     pub use cid::{self, Cid};
     pub use libipld_base::{
-        serde_to_codec,
-        codec::{Codec, CodecExt, Decode, DecodeVisitor, Encode},
+        codec::{Codec, CodecExt, IpldVisitor},
         ipld::{Ipld, IpldIndex},
     };
     pub use serde::{Deserialize, Deserializer, Serialize, Serializer};

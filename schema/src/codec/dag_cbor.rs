@@ -1,5 +1,7 @@
 use super::Error;
 use crate::dev::*;
+use crate::error::Error::Block;
+use libipld_base::error::BlockError;
 use serde::de::{Error as DError, Visitor};
 use serde_cbor::{
     from_slice,
@@ -7,8 +9,6 @@ use serde_cbor::{
     to_vec, Error as CborError,
 };
 use std::{convert::TryFrom, fmt};
-use libipld_base::error::BlockError;
-use crate::error::Error::Block;
 
 pub const CBOR_LINK_TAG: u64 = 42;
 pub struct DagCbor;
@@ -61,9 +61,10 @@ impl CodecExt for DagCbor {
     fn deserialize_unknown<'de, D, V>(deserializer: D, visitor: V) -> Result<V::Value, D::Error>
     where
         D: Deserializer<'de>,
-        V: DecodeVisitor<'de>,
+        V: IpldVisitor<'de>,
     {
-        deserializer.deserialize_any(DagCborLinkVisitor(visitor))
+        let visitor = DagCborLinkVisitor(visitor);
+        visitor.visit_newtype_struct(deserializer)
     }
 }
 
@@ -71,7 +72,7 @@ impl CodecExt for DagCbor {
 struct DagCborLinkVisitor<V>(V);
 impl<'de, V> Visitor<'de> for DagCborLinkVisitor<V>
 where
-    V: DecodeVisitor<'de>,
+    V: IpldVisitor<'de>,
 {
     type Value = V::Value;
 

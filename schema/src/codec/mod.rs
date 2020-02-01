@@ -18,6 +18,4 @@ pub trait Codec {
 
     /// Error type.
     type Error: Debug + Fail + Into<Error>;
-
-
 }
