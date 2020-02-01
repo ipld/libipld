@@ -1,39 +1,34 @@
 //! IPLD Schemas and Representations
 
 extern crate derive_more;
+#[macro_use]
+extern crate lazy_static;
 
+mod codec;
 mod error;
+mod ipld;
 //mod link;
 mod representation;
 
 // public internal and dependency exports
 pub use crate::{
+    codec::DagCbor,
     error::Error,
+    ipld::BorrowedIpld,
     //    link::Link,
-    representation::{
-        context::{
-            self,
-            commands::{self, Command, ResolveBlock, ResolveRange},
-            Context, Handler, IntoHandler,
-        },
-        Representation,
-    },
+    representation::{context::Context, Representation},
 };
 
 /// External imports, re-exported for convenience and for `libipld-schema-derive`
 pub mod dev {
-    pub use async_std::io::{
-        prelude::{ReadExt, SeekExt, WriteExt},
-        Read, Seek, SeekFrom, Write,
-    };
     pub use async_trait::async_trait;
-    pub use bytes::Bytes;
-    pub use cid::Cid;
-    pub use dag_cbor::{CborError, ReadCbor, WriteCbor};
+    pub use cid::{self, Cid};
     pub use libipld_base::{
-        codec::{Codec, CodecExt},
-        ipld::IpldIndex,
+        serde_to_codec,
+        codec::{Codec, CodecExt, Decode, DecodeVisitor, Encode},
+        ipld::{Ipld, IpldIndex},
     };
+    pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     #[cfg(feature = "derive")]
     #[macro_use]

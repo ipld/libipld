@@ -1,4 +1,4 @@
-use super::{Codec, Encode, Error};
+use super::Error;
 use crate::dev::*;
 use serde::de::{Error as DError, Visitor};
 use serde_cbor::{
@@ -7,16 +7,34 @@ use serde_cbor::{
     to_vec, Error as CborError,
 };
 use std::{convert::TryFrom, fmt};
+use libipld_base::error::BlockError;
+use crate::error::Error::Block;
 
 pub const CBOR_LINK_TAG: u64 = 42;
 pub struct DagCbor;
 
+#[async_trait]
 impl Codec for DagCbor {
     const VERSION: cid::Version = cid::Version::V1;
     const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    type Error = CborError;
+    type Error = Error;
 
+    /// Encode function.
+    ///
+    /// TODO: impl `Encode` and `Serialize` for `Ipld`
+    async fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
+        unimplemented!()
+    }
+    /// Decode function.
+    ///
+    /// TODO: impl `Decode` and `Deserialize` for `Ipld`
+    async fn decode(data: &[u8]) -> Result<Ipld, Self::Error> {
+        unimplemented!()
+    }
+}
+
+impl CodecExt for DagCbor {
     fn encode<S>(dag: &S) -> Result<Box<[u8]>, Self::Error>
     where
         S: Serialize,
@@ -24,11 +42,11 @@ impl Codec for DagCbor {
         Ok(to_vec(dag)?.into())
     }
 
-    fn decode<'de, D>(bytes: &'de [u8]) -> Result<D, <Self as Codec>::Error>
+    fn decode<'de, D>(bytes: &'de [u8]) -> Result<D, Self::Error>
     where
         D: Deserialize<'de>,
     {
-        from_slice(bytes)
+        Ok(from_slice(bytes)?)
     }
 
     fn serialize_link<S>(cid: &Cid, serializer: S) -> Result<S::Ok, S::Error>
@@ -80,6 +98,6 @@ where
 
 impl From<CborError> for Error {
     fn from(err: CborError) -> Self {
-        Error::Codec(format!("Cbor error: {}", err))
+        Error::Codec(err.into())
     }
 }
