@@ -22,6 +22,7 @@ pub trait Codec {
     async fn decode(data: &[u8]) -> Result<Ipld, Self::Error>;
 }
 
+/// Extension trait for `Codec`s that can delegate to `serde`.
 pub trait CodecExt: Codec {
     /// Given a dag, serialize it to bytes.
     fn encode<S>(dag: &S) -> Result<Box<[u8]>, Self::Error>
@@ -61,63 +62,15 @@ pub trait CodecExt: Codec {
     fn deserialize_unknown<'de, D, V>(deserializer: D, visitor: V) -> Result<V::Value, D::Error>
     where
         D: Deserializer<'de>,
-        V: DecodeVisitor<'de>,
+        V: IpldVisitor<'de>,
     {
         deserializer.deserialize_bytes(visitor)
     }
 }
 
-/// Allows any implementor to dictate how it maps itself (as one of the IPLD data model
-/// types) to `serde`'s data model.
-///
-/// NOTE: the implementor must also
-pub trait Encode: Serialize {
-    fn encode<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer;
-}
-
-/// Allows any implementor to
-pub trait Decode<'de>: Deserialize<'de> {
-    fn decode<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>;
-}
-
 /// A helper trait for visiting a link, used by types that need `Cid`s.
-pub trait DecodeVisitor<'de>: Visitor<'de> {
+pub trait IpldVisitor<'de>: Visitor<'de> {
     fn visit_link<E>(self, cid: Cid) -> Result<<Self as Visitor<'de>>::Value, E>
     where
         E: de::Error;
-}
-
-/// Derives `Serialize` and `Deserialize` for a type, delegating to the underlying
-/// `Encode` and `Decode` implementation.
-#[macro_export]
-macro_rules! serde_to_codec {
-    ($encode_type:ty, $decode_type:ty) => {
-        impl<'a, C> Serialize for $encode_type
-        where
-            C: CodecExt,
-        {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                self.encode(serializer)
-            }
-        }
-
-        impl<'de, C> Deserialize<'de> for $decode_type
-        where
-            C: CodecExt,
-        {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                Self::decode(deserializer)
-            }
-        }
-    }
 }
