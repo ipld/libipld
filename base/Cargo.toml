@@ -10,3 +10,4 @@ async-trait = "0.1"
 cid = { git = "https://github.com/datalove-app/rust-cid", branch = "cli" }
 multihash = "0.9"
 failure = "0.1"
+serde = "^1.0"

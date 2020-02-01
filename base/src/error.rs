@@ -8,6 +8,9 @@ pub type Result<T> = core::result::Result<T, BlockError>;
 /// Ipld type error.
 #[derive(Debug, Fail)]
 pub enum IpldError {
+    /// Expected a null.
+    #[fail(display = "Expected a null.")]
+    NotNull,
     /// Expected a boolean.
     #[fail(display = "Expected a boolean.")]
     NotBool,
