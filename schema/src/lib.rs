@@ -6,15 +6,13 @@ extern crate lazy_static;
 
 mod codec;
 mod error;
-mod ipld;
 //mod link;
 mod representation;
 
 // public internal and dependency exports
 pub use crate::{
-    codec::DagCbor,
+    codec::*,
     error::Error,
-    ipld::BorrowedIpld,
     //    link::Link,
     representation::{context::Context, Representation},
 };
@@ -27,7 +25,10 @@ pub mod dev {
         codec::{Codec, CodecExt, IpldVisitor},
         ipld::{Ipld, IpldIndex},
     };
-    pub use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    pub use serde::{
+        de::{DeserializeOwned, Visitor},
+        Deserialize, Deserializer, Serialize, Serializer,
+    };
 
     #[cfg(feature = "derive")]
     #[macro_use]

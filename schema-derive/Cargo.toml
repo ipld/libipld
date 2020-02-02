@@ -1,0 +1,20 @@
+[package]
+name = "libipld-schema-derive"
+version = "0.0.1"
+authors = ["sunny-g <sunny.gonna@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "libipld_schema_derive"
+#proc-macro = true
+
+[dependencies]
+impls = "1"
+juniper = { version = "0.14", optional = true }
+
+[dev-dependencies]
+libipld-schema = { path = "../schema", features = ["derive"] }
+
+[features]
+default = []
+graphql = ["juniper"]
