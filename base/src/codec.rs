@@ -5,7 +5,8 @@ use async_trait::async_trait;
 use cid::Cid;
 use core::fmt::Debug;
 use failure::Fail;
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::{self, Visitor}};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer, de::{self, Visitor}};
+use std::io::{Read, Write};
 
 /// Codec trait.
 #[async_trait]
@@ -33,6 +34,28 @@ pub trait CodecExt: Codec {
     fn decode<'de, D>(bytes: &'de [u8]) -> Result<D, Self::Error>
     where
         D: Deserialize<'de>;
+
+    /// Given a `Write`, serialize it to bytes.
+    ///
+    /// Panics by default.
+    fn write<S, W>(dag: &S, writer: W) -> Result<(), Self::Error>
+    where
+        S: Serialize,
+        W: Write
+    {
+        unimplemented!()
+    }
+
+    /// Given a `Read`, deserialize it to a dag.
+    ///
+    /// Panics by default.
+    fn read<D, R>(reader: R) -> Result<D, Self::Error>
+    where
+        D: DeserializeOwned,
+        R: Read
+    {
+        unimplemented!()
+    }
 
     ///
     /// Because some codecs are text-based rather than binary, `Codec`s may define
