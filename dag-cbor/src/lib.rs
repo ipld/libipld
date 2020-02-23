@@ -1,5 +1,4 @@
 //! CBOR codec.
-use async_trait::async_trait;
 use failure::Fail;
 pub use libipld_base::codec::Codec;
 use libipld_base::error::BlockError;
@@ -16,21 +15,20 @@ pub use encode::WriteCbor;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCborCodec;
 
-#[async_trait]
 impl Codec for DagCborCodec {
     const VERSION: libipld_base::cid::Version = libipld_base::cid::Version::V1;
     const CODEC: libipld_base::cid::Codec = libipld_base::cid::Codec::DagCBOR;
 
     type Error = CborError;
 
-    async fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
+    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
         let mut bytes = Vec::new();
-        ipld.write_cbor(&mut bytes).await?;
+        ipld.write_cbor(&mut bytes)?;
         Ok(bytes.into_boxed_slice())
     }
 
-    async fn decode(mut data: &[u8]) -> Result<Ipld, Self::Error> {
-        Ipld::read_cbor(&mut data).await
+    fn decode(mut data: &[u8]) -> Result<Ipld, Self::Error> {
+        Ipld::read_cbor(&mut data)
     }
 }
 
@@ -108,11 +106,11 @@ pub type CborResult<T> = Result<T, CborError>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use async_std::task;
     use libipld_base::cid::Cid;
     use libipld_macro::ipld;
 
-    async fn encode_decode_cbor() {
+    #[test]
+    fn test_encode_decode_cbor() {
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],
@@ -120,13 +118,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": Cid::random(),
         });
-        let bytes = DagCborCodec::encode(&ipld).await.unwrap();
-        let ipld2 = DagCborCodec::decode(&bytes).await.unwrap();
+        let bytes = DagCborCodec::encode(&ipld).unwrap();
+        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
-    }
-
-    #[test]
-    fn test_encode_decode_cbor() {
-        task::block_on(encode_decode_cbor());
     }
 }

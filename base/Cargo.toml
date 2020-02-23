@@ -6,7 +6,6 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-async-trait = "0.1"
 cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
 multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
-failure = "0.1"
+failure = "0.1.6"
