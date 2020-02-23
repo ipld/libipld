@@ -95,21 +95,21 @@ impl BindingRepr {
                 let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        #key.write_cbor(w).await?;
-                        #binding.write_cbor(w).await?;
+                        #key.write_cbor(w)?;
+                        #binding.write_cbor(w)?;
                     }
                 });
                 quote! {
-                    write_u64(w, 5, #len).await?;
+                    write_u64(w, 5, #len)?;
                     #(#fields)*
                 }
             }
             Self::List => {
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(#binding.write_cbor(w).await?;));
+                    .map(|binding| quote!(#binding.write_cbor(w)?;));
                 quote! {
-                    write_u64(w, 4, #len).await?;
+                    write_u64(w, 4, #len)?;
                     #(#fields)*
                 }
             }
@@ -123,8 +123,8 @@ impl BindingRepr {
                 let keys = field_keys(variant.bindings());
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        read_key(r, #key).await?;
-                        let #binding = ReadCbor::read_cbor(r).await?;
+                        read_key(r, #key)?;
+                        let #binding = ReadCbor::read_cbor(r)?;
                     }
                 });
                 let construct = variant.construct(|_field, i| {
@@ -134,7 +134,7 @@ impl BindingRepr {
                 quote! {
                     let len = match major {
                        0xa0..=0xb7 => major as usize - 0xa0,
-                       0xb8 => read_u8(r).await? as usize,
+                       0xb8 => read_u8(r)? as usize,
                        _ => return Ok(None),
                     };
                     if len != #len {
@@ -148,7 +148,7 @@ impl BindingRepr {
                 let fields = variant
                     .bindings()
                     .iter()
-                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r).await?;));
+                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r)?;));
                 let construct = variant.construct(|_field, i| {
                     let binding = &variant.bindings()[i];
                     quote!(#binding)
@@ -156,7 +156,7 @@ impl BindingRepr {
                 quote! {
                     let len = match major {
                        0x80..=0x97 => major as usize - 0x80,
-                       0x98 => read_u8(r).await? as usize,
+                       0x98 => read_u8(r)? as usize,
                        _ => return Ok(None),
                     };
                     if len != #len {
@@ -199,8 +199,8 @@ impl VariantRepr {
             Self::Keyed => {
                 let name = variant.ast().ident.to_string();
                 quote! {
-                    write_u64(w, 5, 1).await?;
-                    #name.write_cbor(w).await?;
+                    write_u64(w, 5, 1)?;
+                    #name.write_cbor(w)?;
                     #bindings
                 }
             }
@@ -216,7 +216,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     if key.as_str() == #name {
-                        let major = read_u8(r).await?;
+                        let major = read_u8(r)?;
                         #bindings
                     }
                 }
@@ -232,7 +232,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
 
     quote! {
         #[inline]
-        async fn write_cbor<W: Write + Unpin + Send>(&self, w: &mut W) -> Result<()> {
+        fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
             match *self {
                 #body
             }
@@ -250,7 +250,7 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
                 if major != 0xa1 {
                     return Ok(None);
                 }
-                let key = String::read_cbor(r).await?;
+                let key = String::read_cbor(r)?;
                 #(#variants)*
                 Err(IpldError::KeyNotFound.into())
             }
@@ -261,7 +261,7 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
                 .iter()
                 .map(|variant| {
                     quote! {
-                        if let Some(res) = (async || -> Result<Option<Self>> { #variant })().await? {
+                        if let Some(res) = (|| -> Result<Option<Self>> { #variant })()? {
                             return Ok(Some(res));
                         }
                     }
@@ -280,7 +280,7 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
     quote! {
         #[allow(unreachable_code)]
         #[inline]
-        async fn try_read_cbor<R: Read + Unpin + Send>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
             #body
         }
     }

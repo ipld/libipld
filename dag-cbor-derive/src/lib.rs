@@ -15,12 +15,10 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
         use libipld::cbor::encode::{write_u64, Write};
         use libipld::cbor::decode::{read_u8, read_key, Read};
 
-        #[async_trait::async_trait]
         gen impl WriteCbor for @Self {
             #write_cbor
         }
 
-        #[async_trait::async_trait]
         gen impl ReadCbor for @Self {
             #read_cbor
         }
