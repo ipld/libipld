@@ -36,5 +36,9 @@ members = [
 debug = true
 
 [[bench]]
+name = "codec"
+harness = false
+
+[[bench]]
 name = "store"
 harness = false
