@@ -215,9 +215,9 @@ fn bench_stores(c: &mut Criterion) {
 }
 
 criterion_group! {
-    name = benches;
+    name = store;
     config = Criterion::default();
     targets = bench_stores
 }
 
-criterion_main!(benches);
+criterion_main!(store);
