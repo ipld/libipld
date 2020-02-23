@@ -199,7 +199,7 @@ impl WriteCbor for i128 {
             write_u64(w, 1, -(*self + 1) as u64)?;
         } else {
             if *self > u64::max_value() as i128 {
-                return Err(CborError::NumberOutOfRange)?;
+                return Err(CborError::NumberOutOfRange);
             }
             write_u64(w, 0, *self as u64)?;
         }

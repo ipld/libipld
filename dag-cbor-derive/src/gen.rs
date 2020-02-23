@@ -27,8 +27,8 @@ impl Attr {
                     panic!("invalid attr");
                 };
             match key.as_str() {
-                "name" => return Some(Self::Name(value)),
-                "repr" => return Some(Self::Repr(value)),
+                "name" => Some(Self::Name(value)),
+                "repr" => Some(Self::Repr(value)),
                 attr => panic!("Unknown attr {}", attr),
             }
         } else {
