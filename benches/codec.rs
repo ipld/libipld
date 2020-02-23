@@ -14,9 +14,11 @@ fn bench_codec(c: &mut Criterion) {
           "link": Cid::random(),
         });
         b.iter(|| {
-            let bytes = DagCborCodec::encode(&ipld).unwrap();
-            let ipld2 = DagCborCodec::decode(&bytes).unwrap();
-            black_box(ipld2);
+            for _ in 0..1000 {
+                let bytes = DagCborCodec::encode(&ipld).unwrap();
+                let ipld2 = DagCborCodec::decode(&bytes).unwrap();
+                black_box(ipld2);
+            }
         });
     });
 }
