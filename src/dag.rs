@@ -4,7 +4,6 @@ use crate::error::{BlockError, IpldError};
 use crate::ipld::Ipld;
 use crate::path::Path;
 use crate::store::{Store, StoreIpldExt};
-use async_trait::async_trait;
 use failure::Fail;
 
 /// Dag error.
@@ -60,16 +59,14 @@ impl<'a> From<&'a Cid> for DagPath<'a> {
 }
 
 /// Extends a store with path querying.
-#[async_trait]
 pub trait StoreDagExt {
     /// Retrives ipld from the dag.
-    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError>;
+    fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError>;
 }
 
-#[async_trait]
 impl<TStore: Store> StoreDagExt for TStore {
-    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
-        let root = self.read_ipld(&path.0).await?;
+    fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
+        let root = self.read_ipld(&path.0)?;
         let mut root = if let Some(root) = root {
             root
         } else {
@@ -86,7 +83,7 @@ impl<TStore: Store> StoreDagExt for TStore {
                 _ => return Err(DagError::NotIndexable),
             } {
                 if let Ipld::Link(cid) = next {
-                    if let Some(cid) = self.read_ipld(cid).await? {
+                    if let Some(cid) = self.read_ipld(cid)? {
                         root = cid;
                         ipld = &root;
                     } else {
@@ -109,18 +106,15 @@ mod tests {
     use crate::ipld;
     use crate::store::{BufStore, MemStore, StoreCborExt};
     use crate::DefaultHash as H;
-    use async_std::task;
 
     #[test]
     fn test_dag() {
-        task::block_on(async {
-            let store = BufStore::new(MemStore::default(), 16, 16);
-            let ipld1 = ipld!({"a": 3});
-            let cid = store.write_cbor::<H, _>(&ipld1).await.unwrap();
-            let ipld2 = ipld!({"root": [{"child": &cid}]});
-            let root = store.write_cbor::<H, _>(&ipld2).await.unwrap();
-            let path = DagPath::new(&root, "root/0/child/a");
-            assert_eq!(store.get(&path).await.unwrap(), Some(Ipld::Integer(3)));
-        });
+        let store = BufStore::new(MemStore::default(), 16, 16);
+        let ipld1 = ipld!({"a": 3});
+        let cid = store.write_cbor::<H, _>(&ipld1).unwrap();
+        let ipld2 = ipld!({"root": [{"child": &cid}]});
+        let root = store.write_cbor::<H, _>(&ipld2).unwrap();
+        let path = DagPath::new(&root, "root/0/child/a");
+        assert_eq!(store.get(&path).unwrap(), Some(Ipld::Integer(3)));
     }
 }

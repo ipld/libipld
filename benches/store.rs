@@ -1,11 +1,10 @@
-use async_std::task::{block_on, sleep};
-use async_trait::async_trait;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use libipld::block::create_raw_block;
 use libipld::error::Result;
 use libipld::store::{BufStore, MemStore, Store};
 use libipld::{Cid, DefaultHash as H};
 use std::path::Path;
+use std::thread::sleep;
 use std::time::Duration;
 
 fn gen_block(n: usize) -> (Cid, Box<[u8]>) {
@@ -21,56 +20,55 @@ impl<TStore: Store> DelayStore<TStore> {
     }
 }
 
-#[async_trait]
 impl<TStore: Store> Store for DelayStore<TStore> {
-    async fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.read(cid).await
+    fn read(&self, cid: &Cid) -> Result<Option<Box<[u8]>>> {
+        sleep(Duration::from_millis(1));
+        self.0.read(cid)
     }
 
-    async fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.write(cid, data).await
+    fn write(&self, cid: &Cid, data: Box<[u8]>) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.write(cid, data)
     }
 
-    async fn flush(&self) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.flush().await
+    fn flush(&self) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.flush()
     }
 
-    async fn gc(&self) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.gc().await
+    fn gc(&self) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.gc()
     }
 
-    async fn pin(&self, cid: &Cid) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.pin(cid).await
+    fn pin(&self, cid: &Cid) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.pin(cid)
     }
 
-    async fn unpin(&self, cid: &Cid) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.unpin(cid).await
+    fn unpin(&self, cid: &Cid) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.unpin(cid)
     }
 
-    async fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.autopin(cid, auto_path).await
+    fn autopin(&self, cid: &Cid, auto_path: &Path) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.autopin(cid, auto_path)
     }
 
-    async fn write_link(&self, label: &str, cid: &Cid) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.write_link(label, cid).await
+    fn write_link(&self, label: &str, cid: &Cid) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.write_link(label, cid)
     }
 
-    async fn read_link(&self, label: &str) -> Result<Option<Cid>> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.read_link(label).await
+    fn read_link(&self, label: &str) -> Result<Option<Cid>> {
+        sleep(Duration::from_millis(1));
+        self.0.read_link(label)
     }
 
-    async fn remove_link(&self, label: &str) -> Result<()> {
-        sleep(Duration::from_millis(1)).await;
-        self.0.remove_link(label).await
+    fn remove_link(&self, label: &str) -> Result<()> {
+        sleep(Duration::from_millis(1));
+        self.0.remove_link(label)
     }
 }
 
@@ -84,7 +82,7 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
             let store = store_setup();
             let (cid, _) = &blocks[0];
             b.iter(|| {
-                black_box(block_on(store.read(black_box(cid)))).unwrap();
+                black_box(store.read(black_box(cid))).unwrap();
             });
         });
     }
@@ -93,11 +91,9 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} read:after-write", store_name), |b| {
             let store = store_setup();
             let (cid, data) = &blocks[0];
-            block_on(store.write(cid, data.clone())).unwrap();
+            store.write(cid, data.clone()).unwrap();
             b.iter(|| {
-                black_box(block_on(store.read(black_box(cid))))
-                    .unwrap()
-                    .unwrap();
+                black_box(store.read(black_box(cid))).unwrap().unwrap();
             });
         });
     }
@@ -106,12 +102,10 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} read:after-flush", store_name), |b| {
             let store = store_setup();
             let (cid, data) = &blocks[0];
-            block_on(store.write(cid, data.clone())).unwrap();
-            block_on(store.flush()).unwrap();
+            store.write(cid, data.clone()).unwrap();
+            store.flush().unwrap();
             b.iter(|| {
-                black_box(block_on(store.read(black_box(cid))))
-                    .unwrap()
-                    .unwrap();
+                black_box(store.read(black_box(cid))).unwrap().unwrap();
             });
         });
     }
@@ -120,12 +114,9 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} write:exists", store_name), |b| {
             let store = store_setup();
             let (cid, data) = &blocks[0];
-            block_on(store.write(cid, data.clone())).unwrap();
+            store.write(cid, data.clone()).unwrap();
             b.iter(|| {
-                black_box(block_on(
-                    store.write(black_box(cid), black_box(data.clone())),
-                ))
-                .unwrap();
+                black_box(store.write(black_box(cid), black_box(data.clone()))).unwrap();
             });
         });
     }
@@ -134,16 +125,15 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} write-flush:exists", store_name), |b| {
             let store = store_setup();
             let (cid, data) = &blocks[0];
-            block_on(store.write(cid, data.clone())).unwrap();
-            block_on(store.flush()).unwrap();
+            store.write(cid, data.clone()).unwrap();
+            store.flush().unwrap();
             b.iter(|| {
-                black_box(block_on(async {
+                black_box({
                     store
                         .write(black_box(cid), black_box(data.clone()))
-                        .await
                         .unwrap();
-                    store.flush().await.unwrap();
-                }));
+                    store.flush().unwrap();
+                });
             });
         });
     }
@@ -152,9 +142,9 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} pin:pinned", store_name), |b| {
             let store = store_setup();
             let (cid, _) = &blocks[0];
-            block_on(store.pin(cid)).unwrap();
+            store.pin(cid).unwrap();
             b.iter(|| {
-                black_box(block_on(store.pin(cid))).unwrap();
+                black_box(store.pin(cid)).unwrap();
             });
         });
     }
@@ -163,13 +153,13 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
         c.bench_function(&format!("{} pin-flush:pinned", store_name), |b| {
             let store = store_setup();
             let (cid, _) = &blocks[0];
-            block_on(store.pin(cid)).unwrap();
-            block_on(store.flush()).unwrap();
+            store.pin(cid).unwrap();
+            store.flush().unwrap();
             b.iter(|| {
-                black_box(block_on(async {
-                    store.pin(cid).await.unwrap();
-                    store.flush().await.unwrap();
-                }));
+                black_box({
+                    store.pin(cid).unwrap();
+                    store.flush().unwrap();
+                });
             });
         });
     }
@@ -179,7 +169,7 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
             let store = store_setup();
             let (cid, _) = &blocks[0];
             b.iter(|| {
-                black_box(block_on(store.unpin(cid))).unwrap();
+                black_box(store.unpin(cid)).unwrap();
             });
         });
     }
@@ -189,10 +179,10 @@ fn store_bench(c: &mut Criterion, stores: Vec<(&str, StoreSetup)>) {
             let store = store_setup();
             let (cid, _) = &blocks[0];
             b.iter(|| {
-                black_box(block_on(async {
-                    store.unpin(cid).await.unwrap();
-                    store.flush().await.unwrap();
-                }));
+                black_box({
+                    store.unpin(cid).unwrap();
+                    store.flush().unwrap();
+                });
             });
         });
     }

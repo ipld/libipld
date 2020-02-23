@@ -1,4 +1,3 @@
-use async_std::task;
 use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
 use dag_cbor_derive::DagCbor;
 use failure::Error;
@@ -41,15 +40,15 @@ macro_rules! test_case {
     ($data:expr, $ty:ty, $ipld:expr) => {
         let data = $data;
         let mut bytes = Vec::new();
-        data.write_cbor(&mut bytes).await?;
-        let ipld = DagCborCodec::decode(&bytes).await?;
+        data.write_cbor(&mut bytes)?;
+        let ipld = DagCborCodec::decode(&bytes)?;
         assert_eq!(ipld, $ipld);
-        let data = <$ty>::read_cbor(&mut bytes.as_slice()).await?;
+        let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
         assert_eq!(data, $data);
     };
 }
 
-async fn run() -> Result<(), Error> {
+fn run() -> Result<(), Error> {
     test_case! {
         NamedStruct::default(),
         NamedStruct,
@@ -98,5 +97,5 @@ async fn run() -> Result<(), Error> {
 }
 
 fn main() -> Result<(), Error> {
-    task::block_on(run())
+    run()
 }

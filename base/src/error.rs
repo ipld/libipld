@@ -1,6 +1,7 @@
 //! `Ipld` error definitions.
-use failure::Fail;
+use failure::{format_err, Fail};
 use multihash::Multihash;
+use std::sync::{PoisonError, RwLockReadGuard, RwLockWriteGuard};
 
 /// Result alias.
 pub type Result<T> = core::result::Result<T, BlockError>;
@@ -67,6 +68,13 @@ pub enum BlockError {
     /// Io error.
     #[fail(display = "{}", _0)]
     Io(std::io::Error),
+    // RwLock error
+    #[fail(display = "{}", _0)]
+    RwLockReadGuard(failure::Error),
+    #[fail(display = "{}", _0)]
+    PoisonError(failure::Error),
+    #[fail(display = "{}", _0)]
+    RwLockWriteGuard(failure::Error),
     /// Cid error.
     #[fail(display = "{}", _0)]
     Cid(cid::Error),
@@ -84,5 +92,23 @@ impl From<std::io::Error> for BlockError {
 impl From<cid::Error> for BlockError {
     fn from(err: cid::Error) -> Self {
         Self::Cid(err)
+    }
+}
+
+impl<T: std::fmt::Debug> From<RwLockReadGuard<'_, T>> for BlockError {
+    fn from(err: RwLockReadGuard<'_, T>) -> Self {
+        Self::RwLockReadGuard(format_err!("{:?}", err))
+    }
+}
+
+impl<T: std::fmt::Debug> From<PoisonError<T>> for BlockError {
+    fn from(err: PoisonError<T>) -> Self {
+        Self::PoisonError(format_err!("{:?}", err))
+    }
+}
+
+impl<T: std::fmt::Debug> From<RwLockWriteGuard<'_, T>> for BlockError {
+    fn from(err: RwLockWriteGuard<T>) -> Self {
+        Self::RwLockWriteGuard(format_err!("{:?}", err))
     }
 }
