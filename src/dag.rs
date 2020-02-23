@@ -63,12 +63,12 @@ impl<'a> From<&'a Cid> for DagPath<'a> {
 #[async_trait]
 pub trait StoreDagExt {
     /// Retrives ipld from the dag.
-    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError>;
+    async fn get(&self, path: &DagPath<'_>) -> Result<Option<Ipld>, DagError>;
 }
 
 #[async_trait]
 impl<TStore: Store> StoreDagExt for TStore {
-    async fn get<'a>(&self, path: &DagPath<'a>) -> Result<Option<Ipld>, DagError> {
+    async fn get(&self, path: &DagPath<'_>) -> Result<Option<Ipld>, DagError> {
         let root = self.read_ipld(&path.0).await?;
         let mut root = if let Some(root) = root {
             root
