@@ -7,3 +7,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 libipld-base = { path = "../base" }
+multihash = "0.10.1"
