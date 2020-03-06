@@ -111,12 +111,13 @@ mod tests {
 
     #[test]
     fn test_encode_decode_cbor() {
+        let cid = Cid::new_v0(multihash::Sha2_256::digest(b"cid")).unwrap();
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],
           "bytes": vec![0, 1, 2, 3],
           "map": { "float": 0.0, "string": "hello" },
-          "link": Cid::random(),
+          "link": cid,
         });
         let bytes = DagCborCodec::encode(&ipld).unwrap();
         let ipld2 = DagCborCodec::decode(&bytes).unwrap();

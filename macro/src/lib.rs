@@ -310,6 +310,6 @@ mod tests {
             "numbers": [1, 2, 3],
             "a": a,
         });
-        let _: Ipld = ipld!(Cid::random());
+        let _: Ipld = ipld!(Cid::new_v0(multihash::Sha2_256::digest(b"cid")).unwrap());
     }
 }
