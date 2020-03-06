@@ -15,7 +15,7 @@ pub use libipld_base::*;
 pub use libipld_macro::*;
 
 /// Default hash used.
-pub type DefaultHash = hash::Blake2b;
+pub type DefaultHash = hash::Blake2b256;
 
 /// The maximum block size is 1MiB.
 pub const MAX_BLOCK_SIZE: usize = 1_048_576;

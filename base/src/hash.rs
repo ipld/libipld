@@ -1,7 +1,8 @@
 //! Hash types.
 use crate::cid::Cid;
+use crate::error::BlockError;
 use core::hash::{BuildHasher, Hasher};
-use multihash::{Multihash, MultihashDigest};
+use multihash::Multihash;
 use std::collections::{HashMap, HashSet};
 
 /// Trait for hash type markers.
@@ -30,6 +31,7 @@ macro_rules! hash {
     };
 }
 
+hash!(Identity);
 hash!(Sha1);
 hash!(Sha2_256);
 hash!(Sha2_512);
@@ -41,14 +43,17 @@ hash!(Keccak224);
 hash!(Keccak256);
 hash!(Keccak384);
 hash!(Keccak512);
-hash!(Blake2b);
-hash!(Blake2s);
-hash!(Murmur3_32);
-hash!(Murmur3_128X64);
+hash!(Blake2b256);
+hash!(Blake2b512);
+hash!(Blake2s128);
+hash!(Blake2s256);
+//hash!(Murmur3_32);
+//hash!(Murmur3_128X64);
 
 /// Compute digest of bytes.
-pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
-    match code {
+pub fn digest(code: multihash::Code, bytes: &[u8]) -> Result<Multihash, BlockError> {
+    Ok(match code {
+        multihash::Code::Identity => multihash::Identity::digest(bytes),
         multihash::Code::Sha1 => multihash::Sha1::digest(bytes),
         multihash::Code::Sha2_256 => multihash::Sha2_256::digest(bytes),
         multihash::Code::Sha2_512 => multihash::Sha2_512::digest(bytes),
@@ -60,11 +65,14 @@ pub fn digest(code: multihash::Code, bytes: &[u8]) -> Multihash {
         multihash::Code::Keccak256 => multihash::Keccak256::digest(bytes),
         multihash::Code::Keccak384 => multihash::Keccak384::digest(bytes),
         multihash::Code::Keccak512 => multihash::Keccak512::digest(bytes),
-        multihash::Code::Blake2b => multihash::Blake2b::digest(bytes),
-        multihash::Code::Blake2s => multihash::Blake2s::digest(bytes),
-        multihash::Code::Murmur3_32 => multihash::Murmur3_32::digest(bytes),
-        multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
-    }
+        multihash::Code::Blake2b256 => multihash::Blake2b256::digest(bytes),
+        multihash::Code::Blake2b512 => multihash::Blake2b512::digest(bytes),
+        multihash::Code::Blake2s128 => multihash::Blake2s128::digest(bytes),
+        multihash::Code::Blake2s256 => multihash::Blake2s256::digest(bytes),
+        //multihash::Code::Murmur3_32 => multihash::Murmur3_32::digest(bytes),
+        //multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
+        code => return Err(BlockError::UnsupportedMultihash(code)),
+    })
 }
 
 /// A hasher builder for cid hasher.

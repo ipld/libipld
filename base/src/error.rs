@@ -61,6 +61,9 @@ pub enum BlockError {
     /// The codec is unsupported.
     #[fail(display = "Unsupported codec {:?}.", _0)]
     UnsupportedCodec(cid::Codec),
+    /// The multihash is unsupported.
+    #[fail(display = "Unsupported multihash {:?}.", _0)]
+    UnsupportedMultihash(multihash::Code),
     /// The codec returned an error.
     #[fail(display = "Codec error: {}", _0)]
     CodecError(failure::Error),
