@@ -60,9 +60,9 @@ mod tests {
 
     #[test]
     fn test_references() {
-        let cid1 = Cid::random();
-        let cid2 = Cid::random();
-        let cid3 = Cid::random();
+        let cid1 = Cid::new_v0(multihash::Sha2_256::digest(b"cid1")).unwrap();
+        let cid2 = Cid::new_v0(multihash::Sha2_256::digest(b"cid2")).unwrap();
+        let cid3 = Cid::new_v0(multihash::Sha2_256::digest(b"cid3")).unwrap();
         let ipld = ipld!({
             "cid1": &cid1,
             "cid2": { "other": true, "cid2": { "cid2": &cid2 }},

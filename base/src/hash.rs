@@ -96,8 +96,10 @@ impl Hasher for CidHasher {
         self.0.unwrap()
     }
 
-    fn write(&mut self, _bytes: &[u8]) {
-        unreachable!();
+    fn write(&mut self, bytes: &[u8]) {
+        let mut b = [0u8; 8];
+        b.clone_from_slice(&bytes[..8]);
+        self.0 = Some(u64::from_be_bytes(b));
     }
 
     fn write_u64(&mut self, i: u64) {
