@@ -6,6 +6,6 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "cli" }
-multihash = { git = "https://github.com/dvc94ch/rust-multihash", branch = "cli" }
-failure = "0.1.6"
+cid = { git = "https://github.com/multiformats/rust-cid" }
+multihash = "0.10.0"
+failure = "0.1.7"
