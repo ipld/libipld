@@ -54,7 +54,7 @@ impl From<core::convert::Infallible> for IpldError {
 pub enum BlockError {
     /// Block exceeds MAX_BLOCK_SIZE.
     #[error("Block size {0} exceeds MAX_BLOCK_SIZE.")]
-    BlockToLarge(usize),
+    BlockTooLarge(usize),
     /// Hash does not match the CID.
     #[error("Hash does not match the CID.")]
     InvalidHash(Multihash),
