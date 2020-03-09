@@ -1,6 +1,6 @@
 //! Block validation
 use crate::cid::Cid;
-use crate::error::BlockError;
+use crate::error::{BlockError, IpldError};
 use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
@@ -42,6 +42,24 @@ pub fn create_cbor_block<H: Hash, C: WriteCbor>(
     let hash = H::digest(&data);
     let cid = Cid::new_v1(DagCborCodec::CODEC, hash);
     Ok((cid, data.into_boxed_slice()))
+}
+
+/// Encode ipld to bytes.
+pub fn encode_ipld(ipld: &Ipld, codec: cid::Codec) -> Result<Box<[u8]>, BlockError> {
+    let bytes = match codec {
+        DagCborCodec::CODEC => DagCborCodec::encode(ipld)?,
+        #[cfg(feature = "dag-pb")]
+        DagPbCodec::CODEC => DagPbCodec::encode(ipld)?,
+        cid::Codec::Raw => {
+            if let Ipld::Bytes(bytes) = ipld {
+                bytes.to_vec().into_boxed_slice()
+            } else {
+                return Err(BlockError::CodecError(IpldError::NotBytes.into()));
+            }
+        }
+        _ => return Err(BlockError::UnsupportedCodec(codec)),
+    };
+    Ok(bytes)
 }
 
 /// Decode block to ipld.
