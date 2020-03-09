@@ -3,9 +3,12 @@ name = "dag-pb"
 version = "0.1.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+description = "ipld protobuf codec"
+repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-base = { path = "../base" }
+libipld-base = { version = "0.1.0", path = "../base" }
 prost = "0.6.1"
 thiserror = "1.0.11"
 

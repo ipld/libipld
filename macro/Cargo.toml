@@ -4,7 +4,9 @@ version = "0.1.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
+description = "ipld macro"
+repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-base = { path = "../base" }
+libipld-base = { version = "0.1.0", path = "../base" }
 multihash = "0.10.1"
