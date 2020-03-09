@@ -12,12 +12,12 @@ byteorder = "1.3.4"
 cid = "0.4.0"
 dag-cbor = { path = "dag-cbor" }
 dag-cbor-derive = { path = "dag-cbor-derive" }
-failure = "0.1.7"
 futures = "0.3.4"
 libipld-base = { path = "base" }
 libipld-macro = { path = "macro" }
 multibase = "0.8.0"
 multihash = "0.10.1"
+thiserror = "1.0.11"
 
 [dev-dependencies]
 criterion = "0.3.1"

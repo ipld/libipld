@@ -1,45 +1,45 @@
 //! `Ipld` error definitions.
-use failure::Fail;
 use multihash::Multihash;
+use thiserror::Error;
 
 /// Result alias.
 pub type Result<T> = core::result::Result<T, BlockError>;
 
 /// Ipld type error.
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum IpldError {
     /// Expected a boolean.
-    #[fail(display = "Expected a boolean.")]
+    #[error("Expected a boolean.")]
     NotBool,
     /// Expected an integer.
-    #[fail(display = "Expected an integer.")]
+    #[error("Expected an integer.")]
     NotInteger,
     /// Expected a float.
-    #[fail(display = "Expected a float.")]
+    #[error("Expected a float.")]
     NotFloat,
     /// Expected a string.
-    #[fail(display = "Expected a string.")]
+    #[error("Expected a string.")]
     NotString,
     /// Expected bytes.
-    #[fail(display = "Expected bytes.")]
+    #[error("Expected bytes.")]
     NotBytes,
     /// Expected a list.
-    #[fail(display = "Expected a list.")]
+    #[error("Expected a list.")]
     NotList,
     /// Expected a map.
-    #[fail(display = "Expected a map.")]
+    #[error("Expected a map.")]
     NotMap,
     /// Expected a cid.
-    #[fail(display = "Expected a cid.")]
+    #[error("Expected a cid.")]
     NotLink,
     /// Expected a key.
-    #[fail(display = "Expected a key.")]
+    #[error("Expected a key.")]
     NotKey,
     /// Index not found.
-    #[fail(display = "Index not found.")]
+    #[error("Index not found.")]
     IndexNotFound,
     /// Key not found.
-    #[fail(display = "Key not found.")]
+    #[error("Key not found.")]
     KeyNotFound,
 }
 
@@ -50,31 +50,31 @@ impl From<core::convert::Infallible> for IpldError {
 }
 
 /// Block error.
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum BlockError {
     /// Block exceeds MAX_BLOCK_SIZE.
-    #[fail(display = "Block size {} exceeds MAX_BLOCK_SIZE.", _0)]
+    #[error("Block size {0} exceeds MAX_BLOCK_SIZE.")]
     BlockToLarge(usize),
     /// Hash does not match the CID.
-    #[fail(display = "Hash does not match the CID.")]
+    #[error("Hash does not match the CID.")]
     InvalidHash(Multihash),
     /// The codec is unsupported.
-    #[fail(display = "Unsupported codec {:?}.", _0)]
+    #[error("Unsupported codec {0:?}.")]
     UnsupportedCodec(cid::Codec),
     /// The multihash is unsupported.
-    #[fail(display = "Unsupported multihash {:?}.", _0)]
+    #[error("Unsupported multihash {0:?}.")]
     UnsupportedMultihash(multihash::Code),
     /// The codec returned an error.
-    #[fail(display = "Codec error: {}", _0)]
-    CodecError(failure::Error),
+    #[error("Codec error: {0}")]
+    CodecError(Box<dyn std::error::Error + Send + Sync>),
     /// Io error.
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Io(std::io::Error),
     /// Cid error.
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Cid(cid::Error),
     /// Link error.
-    #[fail(display = "Invalid link.")]
+    #[error("Invalid link.")]
     InvalidLink,
 }
 

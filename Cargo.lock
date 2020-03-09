@@ -401,10 +401,10 @@ name = "dag-cbor"
 version = "0.1.0"
 dependencies = [
  "byteorder",
- "failure",
  "libipld-base",
  "libipld-macro",
  "multihash",
+ "thiserror",
 ]
 
 [[package]]
@@ -770,7 +770,6 @@ dependencies = [
  "criterion",
  "dag-cbor",
  "dag-cbor-derive",
- "failure",
  "futures",
  "libipld-base",
  "libipld-macro",
@@ -778,6 +777,7 @@ dependencies = [
  "multibase",
  "multihash",
  "proptest 0.9.5",
+ "thiserror",
 ]
 
 [[package]]
@@ -785,8 +785,8 @@ name = "libipld-base"
 version = "0.1.0"
 dependencies = [
  "cid",
- "failure",
  "multihash",
+ "thiserror",
 ]
 
 [[package]]

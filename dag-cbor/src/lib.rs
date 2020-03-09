@@ -1,9 +1,10 @@
 //! CBOR codec.
-use failure::Fail;
+use libipld_base::cid;
 pub use libipld_base::codec::Codec;
 use libipld_base::error::BlockError;
 pub use libipld_base::error::IpldError;
 use libipld_base::ipld::Ipld;
+use thiserror::Error;
 
 pub mod decode;
 pub mod encode;
@@ -16,8 +17,8 @@ pub use encode::WriteCbor;
 pub struct DagCborCodec;
 
 impl Codec for DagCborCodec {
-    const VERSION: libipld_base::cid::Version = libipld_base::cid::Version::V1;
-    const CODEC: libipld_base::cid::Codec = libipld_base::cid::Codec::DagCBOR;
+    const VERSION: cid::Version = cid::Version::V1;
+    const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
     type Error = CborError;
 
@@ -33,65 +34,38 @@ impl Codec for DagCborCodec {
 }
 
 /// CBOR error.
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum CborError {
     /// Number larger than u64.
-    #[fail(display = "Number larger than u64.")]
+    #[error("Number larger than u64.")]
     NumberOutOfRange,
     /// Length larger than usize.
-    #[fail(display = "Length out of range.")]
+    #[error("Length out of range.")]
     LengthOutOfRange,
     /// Unexpected cbor code.
-    #[fail(display = "Unexpected cbor code.")]
+    #[error("Unexpected cbor code.")]
     UnexpectedCode,
     /// Unknown cbor tag.
-    #[fail(display = "Unkown cbor tag.")]
+    #[error("Unkown cbor tag.")]
     UnknownTag,
     /// Unexpected key.
-    #[fail(display = "Wrong key.")]
+    #[error("Wrong key.")]
     UnexpectedKey,
     /// Unexpected eof.
-    #[fail(display = "Unexpected end of file.")]
+    #[error("Unexpected end of file.")]
     UnexpectedEof,
     /// Io error.
-    #[fail(display = "{}", _0)]
-    Io(std::io::Error),
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
     /// Utf8 error.
-    #[fail(display = "{}", _0)]
-    Utf8(std::str::Utf8Error),
+    #[error("{0}")]
+    Utf8(#[from] std::str::Utf8Error),
     /// Cid error.
-    #[fail(display = "{}", _0)]
-    Cid(libipld_base::cid::Error),
+    #[error("{0}")]
+    Cid(#[from] cid::Error),
     /// Ipld error.
-    #[fail(display = "{}", _0)]
-    Ipld(libipld_base::error::IpldError),
-}
-
-impl From<std::io::Error> for CborError {
-    fn from(err: std::io::Error) -> Self {
-        match err.kind() {
-            std::io::ErrorKind::UnexpectedEof => Self::UnexpectedEof,
-            _ => Self::Io(err),
-        }
-    }
-}
-
-impl From<std::str::Utf8Error> for CborError {
-    fn from(err: std::str::Utf8Error) -> Self {
-        Self::Utf8(err)
-    }
-}
-
-impl From<libipld_base::cid::Error> for CborError {
-    fn from(err: libipld_base::cid::Error) -> Self {
-        Self::Cid(err)
-    }
-}
-
-impl From<libipld_base::error::IpldError> for CborError {
-    fn from(err: libipld_base::error::IpldError) -> Self {
-        Self::Ipld(err)
-    }
+    #[error("{0}")]
+    Ipld(#[from] IpldError),
 }
 
 impl From<CborError> for BlockError {
