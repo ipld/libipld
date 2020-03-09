@@ -5,6 +5,8 @@ use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
 use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
+#[cfg(feature = "dag-pb")]
+use dag_pb::DagPbCodec;
 
 /// Validate block.
 pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
@@ -46,6 +48,8 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
 pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     let ipld = match cid.codec() {
         DagCborCodec::CODEC => DagCborCodec::decode(&data)?,
+        #[cfg(feature = "dag-pb")]
+        DagPbCodec::CODEC => DagPbCodec::decode(&data)?,
         cid::Codec::Raw => Ipld::Bytes(data.to_vec()),
         _ => return Err(BlockError::UnsupportedCodec(cid.codec())),
     };

@@ -11,6 +11,8 @@ pub mod store;
 
 pub use dag_cbor as cbor;
 pub use dag_cbor_derive::DagCbor;
+#[cfg(feature = "dag-pb")]
+pub use dag_pb as pb;
 pub use libipld_base::*;
 pub use libipld_macro::*;
 
