@@ -31,9 +31,7 @@ pub fn create_raw_block<H: Hash>(data: Box<[u8]>) -> Result<(Cid, Box<[u8]>), Bl
 }
 
 /// Create cbor block.
-pub fn create_cbor_block<H: Hash, C: WriteCbor>(
-    c: &C,
-) -> Result<(Cid, Box<[u8]>), BlockError> {
+pub fn create_cbor_block<H: Hash, C: WriteCbor>(c: &C) -> Result<(Cid, Box<[u8]>), BlockError> {
     let mut data = Vec::new();
     c.write_cbor(&mut data)?;
     if data.len() > MAX_BLOCK_SIZE {
