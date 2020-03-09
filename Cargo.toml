@@ -12,6 +12,7 @@ byteorder = "1.3.4"
 cid = "0.4.0"
 dag-cbor = { path = "dag-cbor" }
 dag-cbor-derive = { path = "dag-cbor-derive" }
+dag-pb = { path = "dag-pb", optional = true }
 futures = "0.3.4"
 libipld-base = { path = "base" }
 libipld-macro = { path = "macro" }
