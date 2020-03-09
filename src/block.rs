@@ -11,7 +11,7 @@ use dag_pb::DagPbCodec;
 /// Validate block.
 pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
     if data.len() > MAX_BLOCK_SIZE {
-        return Err(BlockError::BlockToLarge(data.len()));
+        return Err(BlockError::BlockTooLarge(data.len()));
     }
     let hash = digest(cid.hash().algorithm(), &data)?;
     if hash.as_ref() != cid.hash() {
@@ -23,7 +23,7 @@ pub fn validate(cid: &Cid, data: &[u8]) -> Result<(), BlockError> {
 /// Create raw block.
 pub fn create_raw_block<H: Hash>(data: Box<[u8]>) -> Result<(Cid, Box<[u8]>), BlockError> {
     if data.len() > MAX_BLOCK_SIZE {
-        return Err(BlockError::BlockToLarge(data.len()));
+        return Err(BlockError::BlockTooLarge(data.len()));
     }
     let hash = H::digest(&data);
     let cid = Cid::new_v1(cid::Codec::Raw, hash);
@@ -37,7 +37,7 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
     let mut data = Vec::new();
     c.write_cbor(&mut data)?;
     if data.len() > MAX_BLOCK_SIZE {
-        return Err(BlockError::BlockToLarge(data.len()));
+        return Err(BlockError::BlockTooLarge(data.len()));
     }
     let hash = H::digest(&data);
     let cid = Cid::new_v1(DagCborCodec::CODEC, hash);
