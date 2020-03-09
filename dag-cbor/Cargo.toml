@@ -7,8 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 byteorder = "1.3.4"
-failure = "0.1.7"
 libipld-base = { path = "../base" }
+thiserror = "1.0.11"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }

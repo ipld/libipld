@@ -1,8 +1,7 @@
 //! `Ipld` codecs.
 use crate::error::BlockError;
 use crate::ipld::Ipld;
-use core::fmt::Debug;
-use failure::Fail;
+use std::error::Error;
 
 /// Codec trait.
 pub trait Codec {
@@ -11,7 +10,7 @@ pub trait Codec {
     /// Codec code.
     const CODEC: cid::Codec;
     /// Error type.
-    type Error: Debug + Fail + Into<BlockError>;
+    type Error: Error + Into<BlockError>;
     /// Encode function.
     fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error>;
     /// Decode function.

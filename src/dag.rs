@@ -5,22 +5,22 @@ use crate::ipld::Ipld;
 use crate::path::Path;
 use crate::store::{Store, StoreIpldExt};
 use async_trait::async_trait;
-use failure::Fail;
+use thiserror::Error;
 
 /// Dag error.
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum DagError {
     /// Path segment is not a number.
-    #[fail(display = "Path segment is not a number.")]
+    #[error("Path segment is not a number.")]
     NotNumber(std::num::ParseIntError),
     /// Cannot index into ipld.
-    #[fail(display = "Cannot index into")]
+    #[error("Cannot index into")]
     NotIndexable,
     /// Ipld error.
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Ipld(IpldError),
     /// Block error.
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Block(BlockError),
 }
 

@@ -8,4 +8,4 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 cid = "0.4.0"
 multihash = "0.10.1"
-failure = "0.1.7"
+thiserror = "1.0.11"
