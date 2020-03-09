@@ -183,7 +183,7 @@ pub trait StoreIpldExt {
 impl<T: Store> StoreIpldExt for T {
     async fn read_ipld(&self, cid: &Cid) -> Result<Option<Ipld>> {
         if let Some(data) = self.read(cid).await? {
-            let ipld = decode_ipld(cid, &data).await?;
+            let ipld = decode_ipld(cid, &data)?;
             return Ok(Some(ipld));
         }
         Ok(None)
@@ -204,14 +204,14 @@ pub trait StoreCborExt {
 impl<T: Store> StoreCborExt for T {
     async fn read_cbor<C: ReadCbor + Send>(&self, cid: &Cid) -> Result<Option<C>> {
         if let Some(data) = self.read(cid).await? {
-            let cbor = decode_cbor::<C>(cid, &data).await?;
+            let cbor = decode_cbor::<C>(cid, &data)?;
             return Ok(Some(cbor));
         }
         Ok(None)
     }
 
     async fn write_cbor<H: Hash, C: WriteCbor + Send + Sync>(&self, c: &C) -> Result<Cid> {
-        let (cid, data) = create_cbor_block::<H, C>(c).await?;
+        let (cid, data) = create_cbor_block::<H, C>(c)?;
         self.write(&cid, data).await?;
         Ok(cid)
     }
@@ -416,8 +416,8 @@ mod tests {
         create_raw_block::<H>(data).unwrap()
     }
 
-    async fn create_block_ipld(ipld: &Ipld) -> (Cid, Box<[u8]>) {
-        create_cbor_block::<H, _>(ipld).await.unwrap()
+    fn create_block_ipld(ipld: &Ipld) -> (Cid, Box<[u8]>) {
+        create_cbor_block::<H, _>(ipld).unwrap()
     }
 
     #[test]
@@ -468,7 +468,7 @@ mod tests {
     async fn run_gc_pin_leaf(store: &dyn Store) {
         let (cid_0, data_0) = create_block_raw(0);
         let ipld = Ipld::Link(cid_0.clone());
-        let (cid_1, data_1) = create_block_ipld(&ipld).await;
+        let (cid_1, data_1) = create_block_ipld(&ipld);
         store.write(&cid_0, data_0.clone()).await.unwrap();
         store.write(&cid_1, data_1.clone()).await.unwrap();
         store.pin(&cid_1).await.unwrap();
