@@ -31,7 +31,7 @@ pub fn create_raw_block<H: Hash>(data: Box<[u8]>) -> Result<(Cid, Box<[u8]>), Bl
 }
 
 /// Create cbor block.
-pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
+pub fn create_cbor_block<H: Hash, C: WriteCbor>(
     c: &C,
 ) -> Result<(Cid, Box<[u8]>), BlockError> {
     let mut data = Vec::new();
@@ -45,7 +45,7 @@ pub async fn create_cbor_block<H: Hash, C: WriteCbor>(
 }
 
 /// Decode block to ipld.
-pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
+pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     let ipld = match cid.codec() {
         DagCborCodec::CODEC => DagCborCodec::decode(&data)?,
         #[cfg(feature = "dag-pb")]
@@ -57,7 +57,7 @@ pub async fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
 }
 
 /// Decode block from cbor.
-pub async fn decode_cbor<C: ReadCbor>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
+pub fn decode_cbor<C: ReadCbor>(cid: &Cid, mut data: &[u8]) -> Result<C, BlockError> {
     if cid.codec() != DagCborCodec::CODEC {
         return Err(BlockError::UnsupportedCodec(cid.codec()));
     }
