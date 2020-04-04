@@ -6,8 +6,15 @@ pub struct Path(Vec<String>);
 
 impl Path {
     /// Iterate over path segments.
-    pub fn iter(&self) -> impl Iterator<Item = &String> {
-        self.0.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().map(|s| &**s)
+    }
+
+    /// Join segment.
+    pub fn join<T: AsRef<str>>(&mut self, segment: T) {
+        for seg in segment.as_ref().split('/').filter(|s| !s.is_empty()) {
+            self.0.push(seg.to_owned())
+        }
     }
 }
 
@@ -25,12 +32,9 @@ impl From<Vec<&str>> for Path {
 
 impl From<&str> for Path {
     fn from(s: &str) -> Self {
-        Path(
-            s.split('/')
-                .filter(|s| s != &"")
-                .map(|s| s.to_owned())
-                .collect(),
-        )
+        let mut path = Path::default();
+        path.join(s);
+        path
     }
 }
 

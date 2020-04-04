@@ -82,7 +82,7 @@ impl<TStore: Store> StoreDagExt for TStore {
                     let index: usize = segment.parse()?;
                     ipld.get(index)
                 }
-                Ipld::Map(_) => ipld.get(segment.as_str()),
+                Ipld::Map(_) => ipld.get(segment),
                 _ => return Err(DagError::NotIndexable),
             } {
                 if let Ipld::Link(cid) = next {
