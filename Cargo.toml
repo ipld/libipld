@@ -9,7 +9,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 async-std = "1.5.0"
-async-trait = "0.1.24"
+async-trait = "0.1.29"
 byteorder = "1.3.4"
 cid = "0.4.0"
 dag-cbor = { version = "0.1.0", path = "dag-cbor" }
@@ -20,7 +20,7 @@ libipld-base = { version = "0.1.0", path = "base" }
 libipld-macro = { version = "0.1.0", path = "macro" }
 multibase = "0.8.0"
 multihash = "0.10.1"
-thiserror = "1.0.11"
+thiserror = "1.0.14"
 
 [dev-dependencies]
 criterion = "0.3.1"

@@ -10,4 +10,4 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 [dependencies]
 cid = "0.4.0"
 multihash = "0.10.1"
-thiserror = "1.0.11"
+thiserror = "1.0.14"
