@@ -189,6 +189,13 @@ impl WriteCbor for str {
     }
 }
 
+impl WriteCbor for String {
+    #[inline]
+    fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
+        self.as_str().write_cbor(w)
+    }
+}
+
 impl WriteCbor for i128 {
     #[inline]
     fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
