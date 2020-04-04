@@ -5,6 +5,8 @@ use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
 use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
+#[cfg(feature = "dag-json")]
+use dag_json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]
 use dag_pb::DagPbCodec;
 
@@ -48,6 +50,8 @@ pub fn encode_ipld(ipld: &Ipld, codec: cid::Codec) -> Result<Box<[u8]>, BlockErr
         DagCborCodec::CODEC => DagCborCodec::encode(ipld)?,
         #[cfg(feature = "dag-pb")]
         DagPbCodec::CODEC => DagPbCodec::encode(ipld)?,
+        #[cfg(feature = "dag-json")]
+        DagJsonCodec::CODEC => DagJsonCodec::encode(ipld)?,
         cid::Codec::Raw => {
             if let Ipld::Bytes(bytes) = ipld {
                 bytes.to_vec().into_boxed_slice()
@@ -63,9 +67,11 @@ pub fn encode_ipld(ipld: &Ipld, codec: cid::Codec) -> Result<Box<[u8]>, BlockErr
 /// Decode block to ipld.
 pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
     let ipld = match cid.codec() {
-        DagCborCodec::CODEC => DagCborCodec::decode(&data)?,
+        DagCborCodec::CODEC => DagCborCodec::decode(data)?,
         #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODEC => DagPbCodec::decode(&data)?,
+        DagPbCodec::CODEC => DagPbCodec::decode(data)?,
+        #[cfg(feature = "dag-json")]
+        DagJsonCodec::CODEC => DagJsonCodec::decode(data)?,
         cid::Codec::Raw => Ipld::Bytes(data.to_vec()),
         _ => return Err(BlockError::UnsupportedCodec(cid.codec())),
     };

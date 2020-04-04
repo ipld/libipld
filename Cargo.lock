@@ -779,6 +779,7 @@ dependencies = [
  "criterion",
  "dag-cbor",
  "dag-cbor-derive",
+ "dag-json",
  "dag-pb",
  "futures",
  "libipld-base",
