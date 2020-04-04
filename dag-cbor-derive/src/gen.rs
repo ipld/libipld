@@ -14,7 +14,7 @@ impl Attr {
             return None;
         }
         if let TokenTree::Group(group) = attr.tokens.clone().into_iter().next().unwrap() {
-            let key = if let TokenTree::Ident(key) = group.stream().into_iter().nth(0).unwrap() {
+            let key = if let TokenTree::Ident(key) = group.stream().into_iter().next().unwrap() {
                 key.to_string()
             } else {
                 panic!("invalid attr");
