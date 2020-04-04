@@ -30,9 +30,6 @@ jobs:
           host: ubuntu-latest
           cross: true
 
-        - target: armv7-apple-ios
-          host: macos-latest
-          cross: true
         - target: aarch64-apple-ios
           host: macos-latest
           cross: true

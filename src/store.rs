@@ -338,8 +338,8 @@ impl<TStore: Store> Store for BufStore<TStore> {
     async fn flush(&self) -> Result<()> {
         let (pins, buffer) = {
             let (mut pins, mut buffer) = join!(self.pins.write(), self.buffer.write());
-            let pins = mem::replace(&mut *pins, Default::default());
-            let buffer = mem::replace(&mut *buffer, Default::default());
+            let pins = mem::take(&mut *pins);
+            let buffer = mem::take(&mut *buffer);
             (pins, buffer)
         };
 
