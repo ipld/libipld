@@ -796,6 +796,7 @@ name = "libipld-base"
 version = "0.1.0"
 dependencies = [
  "cid",
+ "multibase",
  "multihash",
  "thiserror",
 ]

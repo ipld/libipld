@@ -5,3 +5,5 @@ pub mod hash;
 pub mod ipld;
 
 pub use cid;
+pub use multibase;
+pub use multihash;
