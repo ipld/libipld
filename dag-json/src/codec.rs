@@ -1,23 +1,24 @@
-use crate::JsonError;
 use core::convert::TryFrom;
 use libipld_base::cid::Cid;
 use libipld_base::ipld::Ipld;
+use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::ser::Serializer;
+use serde_json::Error;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::iter::FromIterator;
 
 const LINK_KEY: &str = "/";
 
-pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, JsonError> {
+pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Error> {
     let mut writer = Vec::with_capacity(128);
     let mut ser = Serializer::new(&mut writer);
     serialize(&ipld, &mut ser)?;
     Ok(writer.into_boxed_slice())
 }
 
-pub fn decode(data: &[u8]) -> Result<Ipld, JsonError> {
+pub fn decode(data: &[u8]) -> Result<Ipld, Error> {
     let mut de = serde_json::Deserializer::from_slice(&data);
     Ok(deserialize(&mut de)?)
 }
@@ -188,11 +189,8 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         // we valiadet if that is the case here.
         if let Some((key, WrapperOwned(Ipld::String(value)))) = values.first() {
             if key == LINK_KEY && values.len() == 1 {
-                // TODO: Find out what is the expected behavior in cases where
-                // value is not a valid CID (or base64 endode string here). For
-                // now treat it as some other JSON Object.
-                let link = base64::decode(value).unwrap();
-                let cid = Cid::try_from(link).unwrap();
+                let link = base64::decode(value).map_err(SerdeError::custom)?;
+                let cid = Cid::try_from(link).map_err(SerdeError::custom)?;
                 return Ok(Ipld::Link(cid));
             }
         }
