@@ -105,6 +105,9 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
         return Err(CborError::UnknownTag);
     }
     let len = read_u8(r)?;
+    if len == 0 {
+        return Err(CborError::LengthOutOfRange);
+    }
     let bytes = read_bytes(r, len as usize)?;
     if bytes[0] != 0 {
         return Err(CborError::InvalidCidPrefix(bytes[0]));

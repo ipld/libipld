@@ -34,3 +34,14 @@ fn invalid_cid_prefix() {
         x => panic!("unexpected error: {:?}", x),
     }
 }
+
+#[test]
+fn zero_length_cid() {
+    let input = "a163666f6fd82a5800";
+    let input = hex::decode(input).unwrap();
+
+    match DagCborCodec::decode(&input).unwrap_err() {
+        CborError::LengthOutOfRange => {}
+        x => panic!("unexpected error: {:?}", x),
+    }
+}

@@ -39,7 +39,7 @@ pub enum CborError {
     /// Number larger than u64.
     #[error("Number larger than u64.")]
     NumberOutOfRange,
-    /// Length larger than usize.
+    /// Length larger than usize or too small, for example zero length cid field.
     #[error("Length out of range.")]
     LengthOutOfRange,
     /// Unexpected cbor code.
