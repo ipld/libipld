@@ -1,5 +1,5 @@
-use libipld_base::codec::Codec;
 use dag_cbor::DagCborCodec;
+use libipld_base::codec::Codec;
 
 #[test]
 fn roundtrip_with_cid() {
@@ -13,7 +13,8 @@ fn roundtrip_with_cid() {
     // $ ipfs block get bafyreibvjvcv745gig4mvqs4hctx4zfkono4rjejm2ta6gtyzkqxfjeily \
     //   | xxd -ps | paste -s --delimiters=
 
-    let input = "a163666f6fd82a582300122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
+    let input =
+        "a163666f6fd82a582300122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
 
     let ipld = DagCborCodec::decode(&input).unwrap();
