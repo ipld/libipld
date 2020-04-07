@@ -106,7 +106,8 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
     }
     let len = read_u8(r)?;
     let bytes = read_bytes(r, len as usize)?;
-    Ok(Cid::try_from(bytes)?)
+    // skip the first byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
+    Ok(Cid::try_from(&bytes[1..])?)
 }
 
 pub trait ReadCbor: Sized {

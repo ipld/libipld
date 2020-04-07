@@ -218,8 +218,11 @@ impl WriteCbor for Cid {
     #[inline]
     fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
+        // insert zero byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
         let bytes = self.to_bytes();
-        bytes.as_slice().write_cbor(w)?;
+        write_u64(w, 2, (bytes.len() + 1) as u64)?;
+        w.write_all(&[0])?;
+        w.write_all(&bytes)?;
         Ok(())
     }
 }
