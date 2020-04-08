@@ -39,7 +39,7 @@ pub enum CborError {
     /// Number larger than u64.
     #[error("Number larger than u64.")]
     NumberOutOfRange,
-    /// Length larger than usize.
+    /// Length larger than usize or too small, for example zero length cid field.
     #[error("Length out of range.")]
     LengthOutOfRange,
     /// Unexpected cbor code.
@@ -60,6 +60,9 @@ pub enum CborError {
     /// Utf8 error.
     #[error("{0}")]
     Utf8(#[from] std::str::Utf8Error),
+    /// The byte before Cid was not multibase identity prefix.
+    #[error("Invalid Cid prefix: {0}")]
+    InvalidCidPrefix(u8),
     /// Cid error.
     #[error("{0}")]
     Cid(#[from] cid::Error),

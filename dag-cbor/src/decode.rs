@@ -105,8 +105,17 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
         return Err(CborError::UnknownTag);
     }
     let len = read_u8(r)?;
+    if len == 0 {
+        return Err(CborError::LengthOutOfRange);
+    }
     let bytes = read_bytes(r, len as usize)?;
-    Ok(Cid::try_from(bytes)?)
+    if bytes[0] != 0 {
+        return Err(CborError::InvalidCidPrefix(bytes[0]));
+    }
+
+    // skip the first byte per
+    // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
+    Ok(Cid::try_from(&bytes[1..])?)
 }
 
 pub trait ReadCbor: Sized {
