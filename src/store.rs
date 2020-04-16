@@ -495,7 +495,7 @@ mod tests {
     #[test]
     fn mem_buf_store_eqv() {
         const LEN: usize = 4;
-        let blocks: Vec<_> = (0..LEN).into_iter().map(create_block_raw).collect();
+        let blocks: Vec<_> = (0..LEN).map(create_block_raw).collect();
         model! {
             Model => let mem_store = MemStore::default(),
             Implementation => let buf_store = BufStore::new(MemStore::default(), 16, 16),
