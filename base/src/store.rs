@@ -11,9 +11,7 @@ pub type StoreResult<T> = Pin<Box<dyn Future<Output = Result<T, BlockError>> + S
 pub enum Visibility {
     /// Block is not announced on the network.
     Private,
-    /// Block is only announced on the local network.
-    Local,
-    /// Block is announced.
+    /// Block is announced on the network.
     Public,
 }
 
