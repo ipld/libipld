@@ -17,14 +17,17 @@ pub enum Visibility {
     Public,
 }
 
-/// Implementable by ipld storage backends.
-pub trait Store {
+/// Implementable by ipld storage providers.
+pub trait ReadonlyStore {
     /// Returns a block from the store. If the block is not in the
     /// store it fetches it from the network and pins the block. This
     /// future should be wrapped in a timeout. Dropping the future
     /// cancels the request.
     fn get(&self, cid: &Cid) -> StoreResult<Box<[u8]>>;
+}
 
+/// Implementable by ipld storage backends.
+pub trait Store: ReadonlyStore {
     /// Inserts and pins a block into the store and announces the block
     /// if it is visible.
     fn insert(&self, cid: &Cid, data: Box<[u8]>, visibility: Visibility) -> StoreResult<()>;
@@ -50,7 +53,7 @@ pub trait MultiUserStore: Store {
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
 /// byte strings.
-pub trait AliasableStore: Store {
+pub trait AliasStore {
     /// Creates an alias for a `Cid` with announces the alias on the public network.
     fn alias(&self, alias: &[u8], cid: &Cid, visibility: Visibility) -> StoreResult<()>;
 
