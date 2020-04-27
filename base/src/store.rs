@@ -1,8 +1,10 @@
 use crate::error::BlockError;
 use core::future::Future;
+use core::pin::Pin;
 use cid::Cid;
+use std::path::Path;
 
-pub type StoreResult<T> = Pin<Box<dyn Future<Output = Result<T, BlockError> + Send>>>;
+pub type StoreResult<T> = Pin<Box<dyn Future<Output = Result<T, BlockError>> + Send>>;
 
 /// Visibility of a block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -40,13 +42,10 @@ pub trait Store {
 /// Implemented by ipld storage backends that support multiple users.
 pub trait MultiUserStore: Store {
     /// Pin a block.
-    fn pin(&self, cid: &Cid) -> StoreResult<()>;
-}
-
-/// Implemented by ipld storage backends that have a file system representation.
-pub trait FsStore: Store {
-    /// Create an indirect user managed pin.
-    fn autopin(&self, cid: &Cid, auto_path: &Path) -> StoreResult<()>;
+    ///
+    /// This creates a symlink chain from root -> path -> block. The block is unpinned by
+    /// breaking the symlink chain.
+    fn pin(&self, cid: &Cid, path: &Path) -> StoreResult<()>;
 }
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
