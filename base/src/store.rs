@@ -1,0 +1,63 @@
+use crate::error::BlockError;
+use core::future::Future;
+use cid::Cid;
+
+pub type StoreResult<T> = Pin<Box<dyn Future<Output = Result<T, BlockError> + Send>>>;
+
+/// Visibility of a block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Visibility {
+    /// Block is not announced on the network.
+    Private,
+    /// Block is only announced on the local network.
+    Local,
+    /// Block is announced.
+    Public,
+}
+
+/// Implementable by ipld storage backends.
+pub trait Store {
+    /// Returns a block from the store. If the block is not in the
+    /// store it fetches it from the network and pins the block. This
+    /// future should be wrapped in a timeout. Dropping the future
+    /// cancels the request.
+    fn get(&self, cid: &Cid) -> StoreResult<Box<[u8]>>;
+
+    /// Inserts and pins a block into the store and announces the block
+    /// if it is visible.
+    fn insert(&self, cid: &Cid, data: Box<[u8]>, visibility: Visibility) -> StoreResult<()>;
+
+    /// Flushes the write buffer.
+    fn flush(&self) -> StoreResult<()>;
+
+    /// Marks a block ready for garbage collection.
+    fn unpin(&self, cid: &Cid) -> StoreResult<()>;
+
+    /// Garbage collects unused blocks in the background.
+    fn gc(&self) -> StoreResult<()>;
+}
+
+/// Implemented by ipld storage backends that support multiple users.
+pub trait MultiUserStore: Store {
+    /// Pin a block.
+    fn pin(&self, cid: &Cid) -> StoreResult<()>;
+}
+
+/// Implemented by ipld storage backends that have a file system representation.
+pub trait FsStore: Store {
+    /// Create an indirect user managed pin.
+    fn autopin(&self, cid: &Cid, auto_path: &Path) -> StoreResult<()>;
+}
+
+/// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
+/// byte strings.
+pub trait AliasableStore: Store {
+    /// Creates an alias for a `Cid` with announces the alias on the public network.
+    fn alias(&self, alias: &[u8], cid: &Cid, visibility: Visibility) -> StoreResult<()>;
+
+    /// Removes an alias for a `Cid`.
+    fn unalias(&self, alias: &[u8]) -> StoreResult<()>;
+
+    /// Resolves an alias for a `Cid`.
+    fn resolve(&self, alias: &[u8]) -> StoreResult<Option<Cid>>;
+}
