@@ -21,9 +21,7 @@ pub enum Ipld {
     List(Vec<Ipld>),
     /// Represents a map.
     Map(BTreeMap<String, Ipld>),
-    /// Represents a weak link to an Ipld node.
-    WeakLink(Cid),
-    /// Represents a strong link to an Ipld node.
+    /// Represents a link to an Ipld node.
     Link(Cid),
 }
 

@@ -35,9 +35,6 @@ pub trait Store: ReadonlyStore {
 
     /// Marks a block ready for garbage collection.
     fn unpin(&self, cid: &Cid) -> StoreResult<()>;
-
-    /// Garbage collects unused blocks in the background.
-    fn gc(&self) -> StoreResult<()>;
 }
 
 /// Implemented by ipld storage backends that support multiple users.
