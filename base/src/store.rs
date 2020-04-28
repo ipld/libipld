@@ -1,7 +1,7 @@
 use crate::error::BlockError;
+use cid::Cid;
 use core::future::Future;
 use core::pin::Pin;
-use cid::Cid;
 use std::path::Path;
 
 pub type StoreResult<T> = Pin<Box<dyn Future<Output = Result<T, BlockError>> + Send>>;
