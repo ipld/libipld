@@ -1,9 +1,9 @@
 //! CBOR codec.
-use libipld_base::cid;
-pub use libipld_base::codec::Codec;
-use libipld_base::error::BlockError;
-pub use libipld_base::error::IpldError;
-use libipld_base::ipld::Ipld;
+use libipld_core::cid;
+pub use libipld_core::codec::Codec;
+use libipld_core::error::BlockError;
+pub use libipld_core::error::IpldError;
+use libipld_core::ipld::Ipld;
 use thiserror::Error;
 
 pub mod decode;

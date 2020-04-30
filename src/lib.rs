@@ -15,7 +15,7 @@ pub use dag_cbor_derive::DagCbor;
 pub use dag_json as json;
 #[cfg(feature = "dag-pb")]
 pub use dag_pb as pb;
-pub use libipld_base::*;
+pub use libipld_core::*;
 pub use libipld_macro::*;
 
 /// Default hash used.

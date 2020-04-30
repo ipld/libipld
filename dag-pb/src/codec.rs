@@ -1,8 +1,8 @@
 use crate::ProtobufError as Error;
 use core::convert::{TryFrom, TryInto};
-use libipld_base::cid::Cid;
-use libipld_base::error::IpldError;
-use libipld_base::ipld::Ipld;
+use libipld_core::cid::Cid;
+use libipld_core::error::IpldError;
+use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
 mod dag_pb {

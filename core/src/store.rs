@@ -28,7 +28,12 @@ pub trait ReadonlyStore {
 pub trait Store: ReadonlyStore {
     /// Inserts and pins a block into the store and announces the block
     /// if it is visible.
-    fn insert<'a>(&'a self, cid: &'a Cid, data: Box<[u8]>, visibility: Visibility) -> StoreResult<'a, ()>;
+    fn insert<'a>(
+        &'a self,
+        cid: &'a Cid,
+        data: Box<[u8]>,
+        visibility: Visibility,
+    ) -> StoreResult<'a, ()>;
 
     /// Flushes the write buffer.
     fn flush<'a>(&'a self) -> StoreResult<'a, ()>;
@@ -50,7 +55,12 @@ pub trait MultiUserStore: Store {
 /// byte strings.
 pub trait AliasStore {
     /// Creates an alias for a `Cid` with announces the alias on the public network.
-    fn alias<'a>(&'a self, alias: &'a [u8], cid: &'a Cid, visibility: Visibility) -> StoreResult<'a, ()>;
+    fn alias<'a>(
+        &'a self,
+        alias: &'a [u8],
+        cid: &'a Cid,
+        visibility: Visibility,
+    ) -> StoreResult<'a, ()>;
 
     /// Removes an alias for a `Cid`.
     fn unalias<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, ()>;

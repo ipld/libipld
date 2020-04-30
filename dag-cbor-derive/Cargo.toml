@@ -17,8 +17,6 @@ syn = "1.0.17"
 synstructure = "0.12.3"
 
 [dev-dependencies]
-failure = "0.1.7"
 dag-cbor = { path = "../dag-cbor" }
-libipld = { path = ".." }
 libipld-macro = { path = "../macro" }
 trybuild = "1.0.24"
