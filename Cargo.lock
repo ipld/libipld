@@ -399,7 +399,7 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "hex",
- "libipld-base",
+ "libipld-core",
  "libipld-macro",
  "multihash",
  "thiserror",
@@ -411,7 +411,6 @@ version = "0.1.0"
 dependencies = [
  "dag-cbor",
  "failure",
- "libipld",
  "libipld-macro",
  "proc-macro2",
  "quote",
@@ -425,7 +424,7 @@ name = "dag-json"
 version = "0.1.0"
 dependencies = [
  "base64",
- "libipld-base",
+ "libipld-core",
  "multihash",
  "serde",
  "serde_json",
@@ -435,7 +434,7 @@ dependencies = [
 name = "dag-pb"
 version = "0.1.0"
 dependencies = [
- "libipld-base",
+ "libipld-core",
  "libipld-macro",
  "multihash",
  "prost",
@@ -788,7 +787,7 @@ dependencies = [
  "dag-json",
  "dag-pb",
  "futures",
- "libipld-base",
+ "libipld-core",
  "libipld-macro",
  "model",
  "multibase",
@@ -798,7 +797,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "libipld-base"
+name = "libipld-core"
 version = "0.1.0"
 dependencies = [
  "cid",
@@ -811,7 +810,7 @@ dependencies = [
 name = "libipld-macro"
 version = "0.1.0"
 dependencies = [
- "libipld-base",
+ "libipld-core",
  "multihash",
 ]
 

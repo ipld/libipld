@@ -2,8 +2,8 @@
 use crate::{CborError, CborResult as Result};
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_base::cid::Cid;
-use libipld_base::ipld::Ipld;
+use libipld_core::cid::Cid;
+use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 pub use std::io::Read;
 

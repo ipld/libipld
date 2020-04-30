@@ -1,5 +1,5 @@
 [package]
-name = "libipld-base"
+name = "libipld-core"
 version = "0.1.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"

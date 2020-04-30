@@ -6,9 +6,6 @@ edition = "2018"
 
 [dependencies]
 base64 = "0.12.0"
-libipld-base = { path = "../base" }
+libipld-core = { path = "../core" }
 serde_json = "1.0.50"
 serde = { version = "1.0.106", features = ["derive"] }
-
-[dev-dependencies]
-multihash = "0.10.1"

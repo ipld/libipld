@@ -50,8 +50,8 @@
 ///     "comma -->",
 /// ]);
 /// ```
-pub use libipld_base::cid::Cid;
-pub use libipld_base::ipld::Ipld;
+pub use libipld_core::cid::Cid;
+pub use libipld_core::ipld::Ipld;
 
 #[macro_export(local_inner_macros)]
 macro_rules! ipld {

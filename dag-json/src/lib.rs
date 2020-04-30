@@ -1,8 +1,8 @@
 //! Json codec.
-use libipld_base::cid;
-use libipld_base::codec::Codec;
-use libipld_base::error::BlockError;
-use libipld_base::ipld::Ipld;
+use libipld_core::cid;
+use libipld_core::codec::Codec;
+use libipld_core::error::BlockError;
+use libipld_core::ipld::Ipld;
 
 mod codec;
 

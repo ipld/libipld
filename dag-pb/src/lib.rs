@@ -1,10 +1,10 @@
 //! Protobuf codec.
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
-use libipld_base::cid;
-use libipld_base::codec::Codec;
-use libipld_base::error::{BlockError, IpldError};
-use libipld_base::ipld::Ipld;
+use libipld_core::cid;
+use libipld_core::codec::Codec;
+use libipld_core::error::{BlockError, IpldError};
+use libipld_core::ipld::Ipld;
 use thiserror::Error;
 
 mod codec;

@@ -8,5 +8,4 @@ description = "ipld macro"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-base = { version = "0.1.0", path = "../base" }
-multihash = "0.10.1"
+libipld-core = { version = "0.1.0", path = "../core" }

@@ -9,10 +9,9 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 byteorder = "1.3.4"
-libipld-base = { version = "0.1.0", path = "../base" }
+libipld-core = { version = "0.1.0", path = "../core" }
 thiserror = "1.0.14"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
-multihash = "0.10.1"
 hex = "0.4.2"

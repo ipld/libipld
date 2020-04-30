@@ -11,16 +11,13 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 async-std = "1.5.0"
 async-trait = "0.1.29"
 byteorder = "1.3.4"
-cid = "0.4.0"
 dag-cbor = { version = "0.1.0", path = "dag-cbor" }
 dag-cbor-derive = { version = "0.1.0", path = "dag-cbor-derive" }
 dag-json = { version = "0.1.0", path = "dag-json", optional = true }
 dag-pb = { version = "0.1.0", path = "dag-pb", optional = true }
 futures = "0.3.4"
-libipld-base = { version = "0.1.0", path = "base" }
+libipld-core = { version = "0.1.0", path = "core" }
 libipld-macro = { version = "0.1.0", path = "macro" }
-multibase = "0.8.0"
-multihash = "0.10.1"
 thiserror = "1.0.14"
 
 [dev-dependencies]
@@ -30,7 +27,7 @@ model = "0.1.2"
 
 [workspace]
 members = [
-  "base",
+  "core",
   "dag-cbor",
   "dag-cbor-derive",
   "dag-json",

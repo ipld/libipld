@@ -8,7 +8,7 @@ description = "ipld protobuf codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-base = { version = "0.1.0", path = "../base" }
+libipld-core = { version = "0.1.0", path = "../core" }
 prost = "0.6.1"
 thiserror = "1.0.14"
 
@@ -17,4 +17,3 @@ prost-build = "0.6.1"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
-multihash = "0.10.1"
