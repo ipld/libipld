@@ -1,5 +1,5 @@
 use dag_cbor::{CborError, DagCborCodec};
-use libipld_base::codec::Codec;
+use libipld_core::codec::Codec;
 
 #[test]
 fn roundtrip_with_cid() {

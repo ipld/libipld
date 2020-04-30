@@ -88,28 +88,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
-name = "backtrace"
-version = "0.3.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1e692897359247cc6bb902933361652380af0f1b7651ae5c5013407f30e109e"
-dependencies = [
- "backtrace-sys",
- "cfg-if",
- "libc",
- "rustc-demangle",
-]
-
-[[package]]
-name = "backtrace-sys"
-version = "0.1.35"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7de8aba10a69c8e8d7622c5710229485ec32e9d55fdad160ea559c086fdcd118"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "base-x"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -229,12 +207,6 @@ checksum = "4b9434b9a5aa1450faa3f9cb14ea0e8c53bb5d2b3c1bfd1ab4fc03e9f33fbfb0"
 dependencies = [
  "rustc_version",
 ]
-
-[[package]]
-name = "cc"
-version = "1.0.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95e28fa049fda1c330bcf9d723be7663a899c4679724b34c81e9f5a326aab8cd"
 
 [[package]]
 name = "cfg-if"
@@ -401,7 +373,6 @@ dependencies = [
  "hex",
  "libipld-core",
  "libipld-macro",
- "multihash",
  "thiserror",
 ]
 
@@ -410,7 +381,7 @@ name = "dag-cbor-derive"
 version = "0.1.0"
 dependencies = [
  "dag-cbor",
- "failure",
+ "libipld",
  "libipld-macro",
  "proc-macro2",
  "quote",
@@ -425,7 +396,6 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "libipld-core",
- "multihash",
  "serde",
  "serde_json",
 ]
@@ -436,7 +406,6 @@ version = "0.1.0"
 dependencies = [
  "libipld-core",
  "libipld-macro",
- "multihash",
  "prost",
  "prost-build",
  "thiserror",
@@ -484,28 +453,6 @@ name = "either"
 version = "1.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
-
-[[package]]
-name = "failure"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8529c2421efa3066a5cbd8063d2244603824daccb6936b079010bb2aa89464b"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "030a733c8287d6213886dd487564ff5c8f6aae10278b3588ed177f9d18f8d231"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
 
 [[package]]
 name = "fake-simd"
@@ -780,7 +727,6 @@ dependencies = [
  "async-std",
  "async-trait",
  "byteorder",
- "cid",
  "criterion",
  "dag-cbor",
  "dag-cbor-derive",
@@ -790,8 +736,6 @@ dependencies = [
  "libipld-core",
  "libipld-macro",
  "model",
- "multibase",
- "multihash",
  "proptest 0.9.5",
  "thiserror",
 ]
@@ -811,7 +755,6 @@ name = "libipld-macro"
 version = "0.1.0"
 dependencies = [
  "libipld-core",
- "multihash",
 ]
 
 [[package]]
@@ -1378,12 +1321,6 @@ checksum = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
 dependencies = [
  "winapi 0.3.8",
 ]
-
-[[package]]
-name = "rustc-demangle"
-version = "0.1.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 
 [[package]]
 name = "rustc_version"

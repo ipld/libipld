@@ -232,7 +232,7 @@ impl<'de> Deserialize<'de> for WrapperOwned {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use multihash::Sha2_256;
+    use libipld_core::multihash::Sha2_256;
 
     #[test]
     fn encode_struct() {
