@@ -54,15 +54,16 @@ pub async fn dead_paths<TStore: Store>(
 mod tests {
     use super::*;
     use crate::cid::Cid;
+    use crate::multihash::Sha2_256;
     use crate::store::{BufStore, MemStore, StoreCborExt};
     use crate::{ipld, DefaultHash as H};
     use async_std::task;
 
     #[test]
     fn test_references() {
-        let cid1 = Cid::new_v0(multihash::Sha2_256::digest(b"cid1")).unwrap();
-        let cid2 = Cid::new_v0(multihash::Sha2_256::digest(b"cid2")).unwrap();
-        let cid3 = Cid::new_v0(multihash::Sha2_256::digest(b"cid3")).unwrap();
+        let cid1 = Cid::new_v0(Sha2_256::digest(b"cid1")).unwrap();
+        let cid2 = Cid::new_v0(Sha2_256::digest(b"cid2")).unwrap();
+        let cid3 = Cid::new_v0(Sha2_256::digest(b"cid3")).unwrap();
         let ipld = ipld!({
             "cid1": &cid1,
             "cid2": { "other": true, "cid2": { "cid2": &cid2 }},

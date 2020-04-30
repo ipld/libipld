@@ -1,5 +1,5 @@
 //! Block validation
-use crate::cid::Cid;
+use crate::cid::{Cid, Codec as RawCodec};
 use crate::error::{BlockError, IpldError};
 use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
@@ -28,7 +28,7 @@ pub fn create_raw_block<H: Hash>(data: Box<[u8]>) -> Result<(Cid, Box<[u8]>), Bl
         return Err(BlockError::BlockTooLarge(data.len()));
     }
     let hash = H::digest(&data);
-    let cid = Cid::new_v1(cid::Codec::Raw, hash);
+    let cid = Cid::new_v1(RawCodec::Raw, hash);
     Ok((cid, data))
 }
 
@@ -45,14 +45,14 @@ pub fn create_cbor_block<H: Hash, C: WriteCbor>(c: &C) -> Result<(Cid, Box<[u8]>
 }
 
 /// Encode ipld to bytes.
-pub fn encode_ipld(ipld: &Ipld, codec: cid::Codec) -> Result<Box<[u8]>, BlockError> {
+pub fn encode_ipld(ipld: &Ipld, codec: RawCodec) -> Result<Box<[u8]>, BlockError> {
     let bytes = match codec {
         DagCborCodec::CODEC => DagCborCodec::encode(ipld)?,
         #[cfg(feature = "dag-pb")]
         DagPbCodec::CODEC => DagPbCodec::encode(ipld)?,
         #[cfg(feature = "dag-json")]
         DagJsonCodec::CODEC => DagJsonCodec::encode(ipld)?,
-        cid::Codec::Raw => {
+        RawCodec::Raw => {
             if let Ipld::Bytes(bytes) = ipld {
                 bytes.to_vec().into_boxed_slice()
             } else {
@@ -72,7 +72,7 @@ pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld, BlockError> {
         DagPbCodec::CODEC => DagPbCodec::decode(data)?,
         #[cfg(feature = "dag-json")]
         DagJsonCodec::CODEC => DagJsonCodec::decode(data)?,
-        cid::Codec::Raw => Ipld::Bytes(data.to_vec()),
+        RawCodec::Raw => Ipld::Bytes(data.to_vec()),
         _ => return Err(BlockError::UnsupportedCodec(cid.codec())),
     };
     Ok(ipld)

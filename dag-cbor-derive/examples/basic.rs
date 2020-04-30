@@ -1,6 +1,5 @@
 use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
 use dag_cbor_derive::DagCbor;
-use failure::Error;
 use libipld_macro::{ipld, Ipld};
 use std::collections::BTreeMap;
 
@@ -48,7 +47,7 @@ macro_rules! test_case {
     };
 }
 
-fn run() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     test_case! {
         NamedStruct::default(),
         NamedStruct,
@@ -94,8 +93,4 @@ fn run() -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn main() -> Result<(), Error> {
-    run()
 }

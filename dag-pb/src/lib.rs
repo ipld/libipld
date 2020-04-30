@@ -49,8 +49,8 @@ impl From<ProtobufError> for BlockError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_base::cid::Cid;
-    use multihash::Sha2_256;
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::Sha2_256;
     use std::collections::BTreeMap;
 
     #[test]

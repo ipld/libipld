@@ -18,5 +18,6 @@ synstructure = "0.12.3"
 
 [dev-dependencies]
 dag-cbor = { path = "../dag-cbor" }
+libipld = { path = ".." }
 libipld-macro = { path = "../macro" }
 trybuild = "1.0.24"
