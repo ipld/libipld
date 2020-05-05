@@ -4,7 +4,7 @@ use crate::error::{BlockError, IpldError};
 use crate::hash::{digest, Hash};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
-use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
+use dag_cbor::{DagCborCodec, ReadCbor, WriteCbor};
 #[cfg(feature = "dag-json")]
 use dag_json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]

@@ -217,8 +217,7 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 [[package]]
 name = "cid"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b08bd59ac7b32410f32cb71c027c454e61c7826d166e281866560106f4a55956"
+source = "git+https://github.com/multiformats/rust-cid?branch=string-of-base#af926d1219e88f613ad3e370446a84138dcfce0a"
 dependencies = [
  "multibase",
  "multihash",
@@ -853,8 +852,7 @@ dependencies = [
 [[package]]
 name = "multihash"
 version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47fbc227f7e2b1cb701f95404579ecb2668abbdd3c7ef7a6cbb3cc0d3b236869"
+source = "git+https://github.com/multiformats/rust-multihash#8250d072f092906120155f38db2c51805bce30bf"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",

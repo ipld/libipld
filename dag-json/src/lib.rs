@@ -10,17 +10,27 @@ mod codec;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct DagJsonCodec;
 
-impl Codec for DagJsonCodec {
-    const VERSION: cid::Version = cid::Version::V1;
-    const CODEC: cid::Codec = cid::Codec::DagJSON;
+impl DagJsonCodec {
+    pub const CODEC: cid::Codec = cid::Codec::DagJSON;
 
-    type Error = BlockError;
-
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
+    pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, BlockError> {
         codec::encode(ipld).map_err(|e| BlockError::CodecError(e.into()))
     }
 
-    fn decode(data: &[u8]) -> Result<Ipld, Self::Error> {
+    pub fn decode(data: &[u8]) -> Result<Ipld, BlockError> {
         codec::decode(data).map_err(|e| BlockError::CodecError(e.into()))
+    }
+}
+
+impl Codec for DagJsonCodec {
+    fn codec(&self) -> cid::Codec {
+        Self::CODEC
+    }
+    fn encode(&self, ipld: &Ipld) -> Result<Box<[u8]>, BlockError> {
+        Self::encode(ipld).map_err(|err| err.into())
+    }
+
+    fn decode(&self, data: &[u8]) -> Result<Ipld, BlockError> {
+        Self::decode(data).map_err(|err| err.into())
     }
 }

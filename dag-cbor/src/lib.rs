@@ -16,20 +16,30 @@ pub use encode::WriteCbor;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagCborCodec;
 
-impl Codec for DagCborCodec {
-    const VERSION: cid::Version = cid::Version::V1;
-    const CODEC: cid::Codec = cid::Codec::DagCBOR;
+impl DagCborCodec {
+    pub const CODEC: cid::Codec = cid::Codec::DagCBOR;
 
-    type Error = CborError;
-
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
+    pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, CborError> {
         let mut bytes = Vec::new();
         ipld.write_cbor(&mut bytes)?;
         Ok(bytes.into_boxed_slice())
     }
 
-    fn decode(mut data: &[u8]) -> Result<Ipld, Self::Error> {
+    pub fn decode(mut data: &[u8]) -> Result<Ipld, CborError> {
         Ipld::read_cbor(&mut data)
+    }
+}
+
+impl Codec for DagCborCodec {
+    fn codec(&self) -> cid::Codec {
+        Self::CODEC
+    }
+    fn encode(&self, ipld: &Ipld) -> Result<Box<[u8]>, BlockError> {
+        Self::encode(ipld).map_err(|err| err.into())
+    }
+
+    fn decode(&self, data: &[u8]) -> Result<Ipld, BlockError> {
+        Self::decode(data).map_err(|err| err.into())
     }
 }
 

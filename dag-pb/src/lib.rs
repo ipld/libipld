@@ -13,19 +13,29 @@ mod codec;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DagPbCodec;
 
-impl Codec for DagPbCodec {
-    const VERSION: cid::Version = cid::Version::V0;
-    const CODEC: cid::Codec = cid::Codec::DagProtobuf;
+impl DagPbCodec {
+    pub const CODEC: cid::Codec = cid::Codec::DagProtobuf;
 
-    type Error = ProtobufError;
-
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
+    pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, ProtobufError> {
         let pb_node: PbNode = ipld.try_into()?;
         Ok(pb_node.into_bytes())
     }
 
-    fn decode(data: &[u8]) -> Result<Ipld, Self::Error> {
+    pub fn decode(data: &[u8]) -> Result<Ipld, ProtobufError> {
         Ok(PbNode::from_bytes(data)?.into())
+    }
+}
+
+impl Codec for DagPbCodec {
+    fn codec(&self) -> cid::Codec {
+        Self::CODEC
+    }
+    fn encode(&self, ipld: &Ipld) -> Result<Box<[u8]>, BlockError> {
+        Self::encode(ipld).map_err(|err| err.into())
+    }
+
+    fn decode(&self, data: &[u8]) -> Result<Ipld, BlockError> {
+        Self::decode(data).map_err(|err| err.into())
     }
 }
 

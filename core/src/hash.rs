@@ -71,7 +71,6 @@ pub fn digest(code: multihash::Code, bytes: &[u8]) -> Result<Multihash, BlockErr
         multihash::Code::Blake2s256 => multihash::Blake2s256::digest(bytes),
         //multihash::Code::Murmur3_32 => multihash::Murmur3_32::digest(bytes),
         //multihash::Code::Murmur3_128X64 => multihash::Murmur3_128X64::digest(bytes),
-        code => return Err(BlockError::UnsupportedMultihash(code)),
     })
 }
 

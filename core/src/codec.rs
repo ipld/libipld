@@ -1,18 +1,15 @@
 //! `Ipld` codecs.
 use crate::error::BlockError;
 use crate::ipld::Ipld;
-use std::error::Error;
 
 /// Codec trait.
+///
+/// This trait is used for trait objects.
 pub trait Codec {
-    /// Codec version.
-    const VERSION: cid::Version;
     /// Codec code.
-    const CODEC: cid::Codec;
-    /// Error type.
-    type Error: Error + Into<BlockError>;
+    fn codec(&self) -> cid::Codec;
     /// Encode function.
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error>;
+    fn encode(&self, ipld: &Ipld) -> Result<Box<[u8]>, BlockError>;
     /// Decode function.
-    fn decode(data: &[u8]) -> Result<Ipld, Self::Error>;
+    fn decode(&self, data: &[u8]) -> Result<Ipld, BlockError>;
 }
