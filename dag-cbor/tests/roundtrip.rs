@@ -1,5 +1,6 @@
-use dag_cbor::{CborError, DagCborCodec};
+use dag_cbor::{DagCbor, Error};
 use libipld_core::codec::Codec;
+use libipld_core::ipld::Ipld;
 
 #[test]
 fn roundtrip_with_cid() {
@@ -17,8 +18,8 @@ fn roundtrip_with_cid() {
         "a163666f6fd82a582300122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
 
-    let ipld = DagCborCodec::decode(&input).unwrap();
-    let bytes = DagCborCodec::encode(&ipld).unwrap().to_vec();
+    let ipld: Ipld = DagCbor::decode(&input).unwrap();
+    let bytes = DagCbor::encode(&ipld).unwrap().to_vec();
 
     assert_eq!(input, bytes);
 }
@@ -28,9 +29,10 @@ fn invalid_cid_prefix() {
     let input =
         "a163666f6fd82a582301122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
+    let result: Result<Ipld, _> = DagCbor::decode(&input);
 
-    match DagCborCodec::decode(&input).unwrap_err() {
-        CborError::InvalidCidPrefix(1) => {}
+    match result.unwrap_err() {
+        Error::InvalidCidPrefix(1) => {}
         x => panic!("unexpected error: {:?}", x),
     }
 }
@@ -39,9 +41,10 @@ fn invalid_cid_prefix() {
 fn zero_length_cid() {
     let input = "a163666f6fd82a5800";
     let input = hex::decode(input).unwrap();
+    let result: Result<Ipld, _> = DagCbor::decode(&input);
 
-    match DagCborCodec::decode(&input).unwrap_err() {
-        CborError::LengthOutOfRange => {}
+    match result.unwrap_err() {
+        Error::LengthOutOfRange => {}
         x => panic!("unexpected error: {:?}", x),
     }
 }
