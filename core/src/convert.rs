@@ -14,10 +14,10 @@ macro_rules! derive_to_ipld_prim {
 }
 
 macro_rules! derive_to_ipld {
-    ($enum:ident, $ty:ty, $fn:ident) => {
+    ($enum:ident, $ty:ty, $($fn:ident),*) => {
         impl From<$ty> for Ipld {
             fn from(t: $ty) -> Self {
-                Ipld::$enum(t.$fn())
+                Ipld::$enum(t$(.$fn())*)
             }
         }
     };
@@ -39,6 +39,7 @@ derive_to_ipld_prim!(Float, f32, clone);
 derive_to_ipld_prim!(Float, f64, clone);
 derive_to_ipld!(String, String, into);
 derive_to_ipld!(String, &str, to_string);
+derive_to_ipld!(Bytes, Box<[u8]>, into_vec);
 derive_to_ipld!(Bytes, Vec<u8>, into);
 derive_to_ipld!(Bytes, &[u8], to_vec);
 derive_to_ipld!(List, Vec<Ipld>, into);

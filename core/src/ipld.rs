@@ -1,5 +1,6 @@
 //! Ipld representation.
 use crate::cid::Cid;
+use crate::error::TypeError;
 use std::collections::BTreeMap;
 
 /// Ipld
@@ -55,19 +56,30 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
 
 impl Ipld {
     /// Indexes into a ipld list or map.
-    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Option<&Ipld> {
-        match self {
-            Ipld::List(l) => match index.into() {
+    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Ipld, TypeError> {
+        let index = index.into();
+        let ipld = match self {
+            Ipld::List(l) => match index {
                 IpldIndex::List(i) => l.get(i),
-                _ => None,
+                IpldIndex::Map(ref key) => key
+                    .parse()
+                    .ok()
+                    .map(|i: usize| l.get(i))
+                    .unwrap_or_default(),
+                IpldIndex::MapRef(key) => key
+                    .parse()
+                    .ok()
+                    .map(|i: usize| l.get(i))
+                    .unwrap_or_default(),
             },
-            Ipld::Map(m) => match index.into() {
+            Ipld::Map(m) => match index {
                 IpldIndex::Map(ref key) => m.get(key),
                 IpldIndex::MapRef(key) => m.get(key),
-                _ => None,
+                IpldIndex::List(i) => m.get(&i.to_string()),
             },
             _ => None,
-        }
+        };
+        ipld.ok_or_else(|| TypeError::new(index, self))
     }
 
     /// Returns an iterator.
@@ -113,7 +125,7 @@ impl<'a> Iterator for IpldIter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hash::{Hash, Sha2_256};
+    use crate::multihash::Sha2_256;
 
     #[test]
     fn ipld_bool_from() {
