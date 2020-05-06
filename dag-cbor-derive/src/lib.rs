@@ -7,20 +7,28 @@ decl_derive!([DagCbor, attributes(ipld)] => dag_cbor_derive);
 mod gen;
 
 fn dag_cbor_derive(s: Structure) -> TokenStream {
-    let write_cbor = gen::write_cbor(&s);
-    let read_cbor = gen::read_cbor(&s);
+    let encode = gen::encode(&s);
+    let try_read_cbor = gen::decode(&s);
     s.gen_impl(quote! {
-        use libipld::cbor::IpldError;
-        use libipld::cbor::{ReadCbor, WriteCbor, CborResult as Result};
-        use libipld::cbor::encode::{write_u64, Write};
-        use libipld::cbor::decode::{read_u8, read_key, Read};
+        use libipld::cbor::{DagCbor, Error, Result};
+        use libipld::cbor::encode::write_u64;
+        use libipld::cbor::decode::{read, read_u8, read_key, TryReadCbor};
+        use libipld::codec::{Encode, Decode};
+        use libipld::error::{TypeError, TypeErrorType};
+        use std::io::{Read, Write};
 
-        gen impl WriteCbor for @Self {
-            #write_cbor
+        gen impl Encode<DagCbor> for @Self {
+            #encode
         }
 
-        gen impl ReadCbor for @Self {
-            #read_cbor
+        gen impl TryReadCbor for @Self {
+            #try_read_cbor
+        }
+
+        gen impl Decode<DagCbor> for @Self {
+            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+                read(r)
+            }
         }
     })
 }

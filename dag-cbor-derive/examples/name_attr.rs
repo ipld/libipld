@@ -1,6 +1,7 @@
-use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
-use dag_cbor_derive::DagCbor;
-use libipld_macro::ipld;
+use libipld::cbor::DagCbor;
+use libipld::codec::{Decode, Encode};
+use libipld::ipld::Ipld;
+use libipld::{ipld, DagCbor};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 struct RenameFields {
@@ -13,13 +14,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         hash_alg: "murmur3".to_string(),
     };
     let mut bytes = Vec::new();
-    data.write_cbor(&mut bytes)?;
-    let ipld = DagCborCodec::decode(&bytes)?;
+    data.encode(&mut bytes)?;
+    let ipld: Ipld = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
     let expect = ipld!({
         "hashAlg": "murmur3",
     });
     assert_eq!(ipld, expect);
-    let data2 = RenameFields::read_cbor(&mut bytes.as_slice())?;
+    let data2 = RenameFields::decode(&mut bytes.as_slice())?;
     assert_eq!(data, data2);
     Ok(())
 }
