@@ -8,22 +8,23 @@ description = "library for dealing with ipld"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-async-std = "1.5.0"
-async-trait = "0.1.29"
-byteorder = "1.3.4"
-dag-cbor = { version = "0.1.0", path = "dag-cbor" }
-dag-cbor-derive = { version = "0.1.0", path = "dag-cbor-derive" }
+async-std = { version = "1.5.0", features = ["attributes"] }
+dag-cbor = { version = "0.1.0", path = "dag-cbor", optional = true }
+dag-cbor-derive = { version = "0.1.0", path = "dag-cbor-derive", optional = true }
 dag-json = { version = "0.1.0", path = "dag-json", optional = true }
 dag-pb = { version = "0.1.0", path = "dag-pb", optional = true }
-futures = "0.3.4"
 libipld-core = { version = "0.1.0", path = "core" }
 libipld-macro = { version = "0.1.0", path = "macro" }
-thiserror = "1.0.14"
+thiserror = "1.0.16"
 
 [dev-dependencies]
-criterion = "0.3.1"
-proptest = "0.9.5"
+criterion = "0.3.2"
+proptest = "0.9.6"
 model = "0.1.2"
+
+[features]
+default = ["dag-cbor", "derive"]
+derive = ["dag-cbor-derive"]
 
 [workspace]
 members = [
