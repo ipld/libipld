@@ -7,19 +7,19 @@ use serde_json::ser::Serializer;
 use serde_json::Error;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::io::{Read, Write};
 use std::iter::FromIterator;
 
 const LINK_KEY: &str = "/";
 
-pub fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Error> {
-    let mut writer = Vec::with_capacity(128);
-    let mut ser = Serializer::new(&mut writer);
+pub fn encode<W: Write>(ipld: &Ipld, writer: &mut W) -> Result<(), Error> {
+    let mut ser = Serializer::new(writer);
     serialize(&ipld, &mut ser)?;
-    Ok(writer.into_boxed_slice())
+    Ok(())
 }
 
-pub fn decode(data: &[u8]) -> Result<Ipld, Error> {
-    let mut de = serde_json::Deserializer::from_slice(&data);
+pub fn decode<R: Read>(r: &mut R) -> Result<Ipld, Error> {
+    let mut de = serde_json::Deserializer::from_reader(r);
     Ok(deserialize(&mut de)?)
 }
 
@@ -80,7 +80,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         fmt.write_str("any valid JSON value")
     }
 
-    #[inline]
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -88,14 +87,12 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         self.visit_string(String::from(value))
     }
 
-    #[inline]
     fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
         Ok(Ipld::String(value))
     }
-    #[inline]
     fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -103,7 +100,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         self.visit_byte_buf(v.to_owned())
     }
 
-    #[inline]
     fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -111,7 +107,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Bytes(v))
     }
 
-    #[inline]
     fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -119,7 +114,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Integer(v.into()))
     }
 
-    #[inline]
     fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -127,7 +121,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Integer(v.into()))
     }
 
-    #[inline]
     fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -135,7 +128,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Integer(v))
     }
 
-    #[inline]
     fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -143,7 +135,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Bool(v))
     }
 
-    #[inline]
     fn visit_none<E>(self) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -151,7 +142,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         self.visit_unit()
     }
 
-    #[inline]
     fn visit_unit<E>(self) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -159,7 +149,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Null)
     }
 
-    #[inline]
     fn visit_seq<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
     where
         V: de::SeqAccess<'de>,
@@ -174,7 +163,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::List(unwrapped))
     }
 
-    #[inline]
     fn visit_map<V>(self, mut visitor: V) -> Result<Self::Value, V::Error>
     where
         V: de::MapAccess<'de>,
@@ -201,7 +189,6 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
         Ok(Ipld::Map(BTreeMap::from_iter(unwrapped)))
     }
 
-    #[inline]
     fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -226,42 +213,5 @@ impl<'de> Deserialize<'de> for WrapperOwned {
         let deserialized = deserialize(deserializer);
         // Better version of Ok(Wrapper(deserialized.unwrap()))
         deserialized.map(Self)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use libipld_core::multihash::Sha2_256;
-
-    #[test]
-    fn encode_struct() {
-        let digest = Sha2_256::digest(b"block");
-        let cid = Cid::new_v0(digest).unwrap();
-
-        // Create a contact object that looks like:
-        // Contact { name: "Hello World", details: CID }
-        let mut map = BTreeMap::new();
-        map.insert("name".to_string(), Ipld::String("Hello World!".to_string()));
-        map.insert("details".to_string(), Ipld::Link(cid.clone()));
-        let contact = Ipld::Map(map);
-
-        let contact_encoded = encode(&contact).unwrap();
-        println!("encoded: {:02x?}", contact_encoded);
-        println!(
-            "encoded string {}",
-            std::str::from_utf8(&contact_encoded).unwrap()
-        );
-
-        assert_eq!(
-            std::str::from_utf8(&contact_encoded).unwrap(),
-            format!(
-                r#"{{"details":{{"/":"{}"}},"name":"Hello World!"}}"#,
-                base64::encode(cid.to_bytes()),
-            )
-        );
-
-        let contact_decoded: Ipld = decode(&contact_encoded).unwrap();
-        assert_eq!(contact_decoded, contact);
     }
 }
