@@ -1,48 +1,50 @@
 //! Protobuf codec.
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
-use libipld_core::cid;
-use libipld_core::codec::Codec;
-use libipld_core::error::{BlockError, IpldError};
+use libipld_core::codec::{Code, Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
+use std::io::{Read, Write};
 use thiserror::Error;
 
 mod codec;
 
 /// Protobuf codec.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct DagPbCodec;
+#[derive(Clone, Copy, Debug)]
+pub struct DagPb;
 
-impl Codec for DagPbCodec {
-    const VERSION: cid::Version = cid::Version::V0;
-    const CODEC: cid::Codec = cid::Codec::DagProtobuf;
+impl Codec for DagPb {
+    const CODE: Code = Code::DagProtobuf;
 
-    type Error = ProtobufError;
-
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
-        let pb_node: PbNode = ipld.try_into()?;
-        Ok(pb_node.into_bytes())
-    }
-
-    fn decode(data: &[u8]) -> Result<Ipld, Self::Error> {
-        Ok(PbNode::from_bytes(data)?.into())
-    }
+    type Error = Error;
 }
 
 /// Protobuf error.
 #[derive(Debug, Error)]
-pub enum ProtobufError {
+pub enum Error {
     #[error("{0}")]
     Prost(#[from] prost::DecodeError),
     #[error("{0}")]
-    Cid(#[from] cid::Error),
+    Cid(#[from] libipld_core::cid::Error),
     #[error("{0}")]
-    Ipld(#[from] IpldError),
+    TypeError(#[from] libipld_core::error::TypeError),
+    #[error("{0}")]
+    Io(#[from] std::io::Error),
 }
 
-impl From<ProtobufError> for BlockError {
-    fn from(error: ProtobufError) -> Self {
-        Self::CodecError(error.into())
+impl Encode<DagPb> for Ipld {
+    fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+        let pb_node: PbNode = self.try_into()?;
+        let bytes = pb_node.into_bytes();
+        w.write_all(&bytes)?;
+        Ok(())
+    }
+}
+
+impl Decode<DagPb> for Ipld {
+    fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
+        let mut bytes = Vec::new();
+        r.read_to_end(&mut bytes)?;
+        Ok(PbNode::from_bytes(&bytes)?.into())
     }
 }
 
@@ -67,8 +69,8 @@ mod tests {
         pb_node.insert("Links".to_string(), links.into());
         let data: Ipld = pb_node.into();
 
-        let bytes = DagPbCodec::encode(&data).unwrap();
-        let data2 = DagPbCodec::decode(&bytes).unwrap();
+        let bytes = DagPb::encode(&data).unwrap();
+        let data2 = DagPb::decode(&bytes).unwrap();
         assert_eq!(data, data2);
     }
 }
