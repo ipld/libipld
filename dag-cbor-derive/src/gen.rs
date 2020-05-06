@@ -95,8 +95,8 @@ impl BindingRepr {
                 let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        #key.write_cbor(w)?;
-                        #binding.write_cbor(w)?;
+                        Encode::<DagCbor>::encode(#key, w)?;
+                        Encode::<DagCbor>::encode(#binding, w)?;
                     }
                 });
                 quote! {
@@ -107,7 +107,7 @@ impl BindingRepr {
             Self::List => {
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(#binding.write_cbor(w)?;));
+                    .map(|binding| quote!(Encode::<DagCbor>::encode(#binding, w)?;));
                 quote! {
                     write_u64(w, 4, #len)?;
                     #(#fields)*
@@ -124,7 +124,7 @@ impl BindingRepr {
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
                         read_key(r, #key)?;
-                        let #binding = ReadCbor::read_cbor(r)?;
+                        let #binding = Decode::<DagCbor>::decode(r)?;
                     }
                 });
                 let construct = variant.construct(|_field, i| {
@@ -138,7 +138,7 @@ impl BindingRepr {
                        _ => return Ok(None),
                     };
                     if len != #len {
-                        return Err(IpldError::KeyNotFound.into());
+                        return Err(Error::LengthOutOfRange);
                     }
                     #(#fields)*
                     return Ok(Some(#construct));
@@ -148,7 +148,7 @@ impl BindingRepr {
                 let fields = variant
                     .bindings()
                     .iter()
-                    .map(|binding| quote!(let #binding = ReadCbor::read_cbor(r)?;));
+                    .map(|binding| quote!(let #binding = Decode::<DagCbor>::decode(r)?;));
                 let construct = variant.construct(|_field, i| {
                     let binding = &variant.bindings()[i];
                     quote!(#binding)
@@ -160,7 +160,7 @@ impl BindingRepr {
                        _ => return Ok(None),
                     };
                     if len != #len {
-                        return Err(IpldError::IndexNotFound.into());
+                        return Err(Error::LengthOutOfRange);
                     }
                     #(#fields)*
                     return Ok(Some(#construct));
@@ -200,7 +200,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     write_u64(w, 5, 1)?;
-                    #name.write_cbor(w)?;
+                    Encode::<DagCbor>::encode(#name, w)?;
                     #bindings
                 }
             }
@@ -226,13 +226,12 @@ impl VariantRepr {
     }
 }
 
-pub fn write_cbor(s: &Structure) -> TokenStream {
+pub fn encode(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
     let body = s.each_variant(|var| var_repr.repr(var));
 
     quote! {
-        #[inline]
-        fn write_cbor<W: Write>(&self, w: &mut W) -> Result<()> {
+        fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
             match *self {
                 #body
             }
@@ -241,7 +240,7 @@ pub fn write_cbor(s: &Structure) -> TokenStream {
     }
 }
 
-pub fn read_cbor(s: &Structure) -> TokenStream {
+pub fn decode(s: &Structure) -> TokenStream {
     let var_repr = VariantRepr::from_structure(s);
     let variants: Vec<TokenStream> = s.variants().iter().map(|var| var_repr.parse(var)).collect();
     let body = match var_repr {
@@ -250,9 +249,9 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
                 if major != 0xa1 {
                     return Ok(None);
                 }
-                let key = String::read_cbor(r)?;
+                let key: String = Decode::<DagCbor>::decode(r)?;
                 #(#variants)*
-                Err(IpldError::KeyNotFound.into())
+                Err(TypeError::new(TypeErrorType::Key(key), TypeErrorType::Null).into())
             }
         }
         VariantRepr::Kinded => {
@@ -269,7 +268,7 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
                 .collect();*/
                 quote! {
                     #(#variants)*
-                    Err(IpldError::KeyNotFound.into())
+                    Err(TypeError::new(TypeErrorType::Null, TypeErrorType::Null).into())
                 }
             } else {
                 quote!(#(#variants)*)
@@ -279,7 +278,6 @@ pub fn read_cbor(s: &Structure) -> TokenStream {
 
     quote! {
         #[allow(unreachable_code)]
-        #[inline]
         fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
             #body
         }

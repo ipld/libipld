@@ -1,6 +1,7 @@
-use dag_cbor::{Codec, DagCborCodec, ReadCbor, WriteCbor};
-use dag_cbor_derive::DagCbor;
-use libipld_macro::{ipld, Ipld};
+use libipld::cbor::DagCbor;
+use libipld::codec::{Decode, Encode};
+use libipld::ipld::Ipld;
+use libipld::{ipld, DagCbor};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
@@ -39,10 +40,10 @@ macro_rules! test_case {
     ($data:expr, $ty:ty, $ipld:expr) => {
         let data = $data;
         let mut bytes = Vec::new();
-        data.write_cbor(&mut bytes)?;
-        let ipld = DagCborCodec::decode(&bytes)?;
+        data.encode(&mut bytes)?;
+        let ipld: Ipld = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
         assert_eq!(ipld, $ipld);
-        let data = <$ty>::read_cbor(&mut bytes.as_slice())?;
+        let data: $ty = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
         assert_eq!(data, $data);
     };
 }
