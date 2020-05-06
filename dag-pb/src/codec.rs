@@ -1,7 +1,7 @@
-use crate::ProtobufError as Error;
+use crate::Error;
 use core::convert::{TryFrom, TryInto};
 use libipld_core::cid::Cid;
-use libipld_core::error::IpldError;
+use libipld_core::error::{TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
@@ -17,7 +17,7 @@ pub struct PbLink {
 
 pub struct PbNode {
     pub links: Vec<PbLink>,
-    pub data: Vec<u8>,
+    pub data: Box<[u8]>,
 }
 
 use prost::Message;
@@ -25,7 +25,7 @@ use prost::Message;
 impl PbNode {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let proto: dag_pb::PbNode = dag_pb::PbNode::decode(bytes)?;
-        let data = proto.data;
+        let data = proto.data.into_boxed_slice();
         let mut links = Vec::new();
         for link in proto.links {
             let cid = Cid::try_from(link.hash)?;
@@ -47,7 +47,7 @@ impl PbNode {
             })
             .collect::<Vec<_>>();
         let proto = dag_pb::PbNode {
-            data: self.data,
+            data: self.data.into_vec(),
             links,
         };
 
@@ -84,44 +84,44 @@ impl Into<Ipld> for PbLink {
 }
 
 impl TryFrom<&Ipld> for PbNode {
-    type Error = IpldError;
+    type Error = TypeError;
 
     fn try_from(ipld: &Ipld) -> Result<PbNode, Self::Error> {
-        let links = if let Ipld::List(links) = ipld.get("Links").ok_or(IpldError::KeyNotFound)? {
+        let links = if let Ipld::List(links) = ipld.get("Links")? {
             links
                 .iter()
                 .map(|link| link.try_into())
                 .collect::<Result<_, _>>()?
         } else {
-            return Err(IpldError::NotList);
+            return Err(TypeError::new(TypeErrorType::List, ipld));
         };
-        let data = if let Ipld::Bytes(data) = ipld.get("Data").ok_or(IpldError::KeyNotFound)? {
-            data.clone()
+        let data = if let Ipld::Bytes(data) = ipld.get("Data")? {
+            data.clone().into_boxed_slice()
         } else {
-            return Err(IpldError::NotBytes);
+            return Err(TypeError::new(TypeErrorType::Bytes, ipld));
         };
         Ok(PbNode { links, data })
     }
 }
 
 impl TryFrom<&Ipld> for PbLink {
-    type Error = IpldError;
+    type Error = TypeError;
 
     fn try_from(ipld: &Ipld) -> Result<PbLink, Self::Error> {
-        let cid = if let Ipld::Link(cid) = ipld.get("Hash").ok_or(IpldError::KeyNotFound)? {
+        let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
             cid.clone()
         } else {
-            return Err(IpldError::NotLink);
+            return Err(TypeError::new(TypeErrorType::Link, ipld));
         };
-        let name = if let Ipld::String(name) = ipld.get("Name").ok_or(IpldError::KeyNotFound)? {
+        let name = if let Ipld::String(name) = ipld.get("Name")? {
             name.clone()
         } else {
-            return Err(IpldError::NotString);
+            return Err(TypeError::new(TypeErrorType::String, ipld));
         };
-        let size = if let Ipld::Integer(size) = ipld.get("Tsize").ok_or(IpldError::KeyNotFound)? {
+        let size = if let Ipld::Integer(size) = ipld.get("Tsize")? {
             *size as u64
         } else {
-            return Err(IpldError::NotInteger);
+            return Err(TypeError::new(TypeErrorType::Integer, ipld));
         };
         Ok(PbLink { cid, name, size })
     }
