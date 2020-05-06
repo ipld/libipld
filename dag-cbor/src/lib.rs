@@ -1,41 +1,23 @@
 //! CBOR codec.
-use libipld_core::cid;
-pub use libipld_core::codec::Codec;
-use libipld_core::error::BlockError;
-pub use libipld_core::error::IpldError;
-use libipld_core::ipld::Ipld;
+use libipld_core::codec::{Code, Codec};
 use thiserror::Error;
 
 pub mod decode;
 pub mod encode;
 
-pub use decode::ReadCbor;
-pub use encode::WriteCbor;
-
 /// CBOR codec.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct DagCborCodec;
+#[derive(Clone, Copy, Debug)]
+pub struct DagCbor;
 
-impl Codec for DagCborCodec {
-    const VERSION: cid::Version = cid::Version::V1;
-    const CODEC: cid::Codec = cid::Codec::DagCBOR;
+impl Codec for DagCbor {
+    const CODE: Code = Code::DagCBOR;
 
-    type Error = CborError;
-
-    fn encode(ipld: &Ipld) -> Result<Box<[u8]>, Self::Error> {
-        let mut bytes = Vec::new();
-        ipld.write_cbor(&mut bytes)?;
-        Ok(bytes.into_boxed_slice())
-    }
-
-    fn decode(mut data: &[u8]) -> Result<Ipld, Self::Error> {
-        Ipld::read_cbor(&mut data)
-    }
+    type Error = Error;
 }
 
 /// CBOR error.
 #[derive(Debug, Error)]
-pub enum CborError {
+pub enum Error {
     /// Number larger than u64.
     #[error("Number larger than u64.")]
     NumberOutOfRange,
@@ -65,20 +47,14 @@ pub enum CborError {
     InvalidCidPrefix(u8),
     /// Cid error.
     #[error("{0}")]
-    Cid(#[from] cid::Error),
-    /// Ipld error.
+    Cid(#[from] libipld_core::cid::Error),
+    /// Ipld type error.
     #[error("{0}")]
-    Ipld(#[from] IpldError),
-}
-
-impl From<CborError> for BlockError {
-    fn from(err: CborError) -> Self {
-        Self::CodecError(err.into())
-    }
+    TypeError(#[from] libipld_core::error::TypeError),
 }
 
 /// CBOR result.
-pub type CborResult<T> = Result<T, CborError>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[cfg(test)]
 mod tests {
@@ -97,8 +73,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = DagCborCodec::encode(&ipld).unwrap();
-        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
+        let bytes = DagCbor::encode(&ipld).unwrap();
+        let ipld2 = DagCbor::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }
