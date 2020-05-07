@@ -11,9 +11,9 @@ pub mod store;
 
 #[cfg(feature = "dag-cbor")]
 pub use libipld_cbor as cbor;
-pub use libipld_core::*;
 #[cfg(all(feature = "dag-cbor", feature = "derive"))]
 pub use libipld_cbor_derive::DagCbor;
+pub use libipld_core::*;
 #[cfg(feature = "dag-json")]
 pub use libipld_json as json;
 pub use libipld_macro::*;
