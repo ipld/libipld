@@ -1,6 +1,6 @@
 [package]
-name = "dag-pb"
-version = "0.1.0"
+name = "libipld-pb"
+version = "0.2.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ description = "ipld protobuf codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-core = { version = "0.1.0", path = "../core" }
+libipld-core = { version = "0.2.0", path = "../core" }
 prost = "0.6.1"
 thiserror = "1.0.16"
 

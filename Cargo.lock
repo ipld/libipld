@@ -366,50 +366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dag-cbor"
-version = "0.1.0"
-dependencies = [
- "byteorder",
- "hex",
- "libipld-core",
- "libipld-macro",
- "thiserror",
-]
-
-[[package]]
-name = "dag-cbor-derive"
-version = "0.1.0"
-dependencies = [
- "libipld",
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
- "trybuild",
-]
-
-[[package]]
-name = "dag-json"
-version = "0.1.0"
-dependencies = [
- "base64",
- "libipld-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "dag-pb"
-version = "0.1.0"
-dependencies = [
- "libipld-core",
- "libipld-macro",
- "prost",
- "prost-build",
- "thiserror",
-]
-
-[[package]]
 name = "data-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -650,24 +606,47 @@ checksum = "99e85c08494b21a9054e7fe1374a732aeadaff3980b6990b94bfd3a70f690005"
 
 [[package]]
 name = "libipld"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-std",
  "criterion",
- "dag-cbor",
- "dag-cbor-derive",
- "dag-json",
- "dag-pb",
+ "libipld-cbor",
+ "libipld-cbor-derive",
  "libipld-core",
+ "libipld-json",
  "libipld-macro",
+ "libipld-pb",
  "model",
  "proptest 0.9.6",
  "thiserror",
 ]
 
 [[package]]
+name = "libipld-cbor"
+version = "0.2.0"
+dependencies = [
+ "byteorder",
+ "hex",
+ "libipld-core",
+ "libipld-macro",
+ "thiserror",
+]
+
+[[package]]
+name = "libipld-cbor-derive"
+version = "0.2.0"
+dependencies = [
+ "libipld",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "synstructure",
+ "trybuild",
+]
+
+[[package]]
 name = "libipld-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cid",
  "multibase",
@@ -676,10 +655,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "libipld-json"
+version = "0.2.0"
+dependencies = [
+ "base64",
+ "libipld-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "libipld-macro"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "libipld-core",
+]
+
+[[package]]
+name = "libipld-pb"
+version = "0.2.0"
+dependencies = [
+ "libipld-core",
+ "libipld-macro",
+ "prost",
+ "prost-build",
+ "thiserror",
 ]
 
 [[package]]

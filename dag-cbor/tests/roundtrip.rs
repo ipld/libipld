@@ -1,4 +1,4 @@
-use dag_cbor::{DagCbor, Error};
+use libipld_cbor::{DagCbor, Error};
 use libipld_core::codec::Codec;
 use libipld_core::ipld::Ipld;
 

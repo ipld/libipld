@@ -7,11 +7,11 @@ use crate::multihash::{Code, Multihasher};
 use crate::raw::Raw;
 use crate::MAX_BLOCK_SIZE;
 #[cfg(feature = "dag-cbor")]
-use dag_cbor::DagCbor;
+use libipld_cbor::DagCbor;
 #[cfg(feature = "dag-json")]
-use dag_json::DagJson;
+use libipld_json::DagJson;
 #[cfg(feature = "dag-pb")]
-use dag_pb::DagPb;
+use libipld_pb::DagPb;
 
 /// Block
 pub struct Block {
