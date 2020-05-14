@@ -107,13 +107,22 @@ impl Gc {
         let inner = self.inner.upgradeable_read().await;
 
         let roots: HashSet<Cid> = inner.roots.iter().map(|(k, _)| k.clone()).collect();
+        // TODO: avoid decoding blocks by storing the references on insert
         let live = crate::gc::closure(&*inner, roots).await?;
         let cids: HashSet<Cid> = inner.blocks.iter().map(|(k, _)| k.clone()).collect();
+
+        // TODO: allow temporary inserts, useful with a large block store.
 
         // atomically upgrade lock
         let mut inner = self.inner.upgrade(inner).await;
 
+        // TODO: add closure of temporary inserts to live
+
         // remove dead blocks
+        //
+        // in a file backed implementation these need to be sorted topologically to prevent
+        // corruption if the process crashes or is terminated. pinning acquires a file lock
+        // on the block, preventing the garbage collector from removing the block.
         for cid in cids.difference(&live) {
             inner.blocks.remove(cid);
         }
@@ -150,12 +159,10 @@ impl Store for MemStore {
         })
     }
 
-    /// Flushes the write buffer.
     fn flush(&self) -> StoreResult<'_, ()> {
         Box::pin(async move { Ok(()) })
     }
 
-    /// Marks a block ready for garbage collection.
     fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
         Box::pin(async move {
             let mut inner = self.inner.write().await;
