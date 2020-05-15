@@ -19,7 +19,7 @@ pub fn references(ipld: &Ipld) -> HashSet<Cid> {
 }
 
 /// Returns the recursive references of an ipld block.
-pub async fn closure<TStore: ReadonlyStore>(
+pub async fn recursive_references<TStore: ReadonlyStore>(
     store: &TStore,
     roots: HashSet<Cid>,
 ) -> Result<HashSet<Cid>, Error> {
@@ -81,7 +81,7 @@ mod tests {
         let cid3 = insert(&store, &ipld!([&cid2])).await?;
         let mut roots: HashSet<Cid> = Default::default();
         roots.insert(cid3.clone());
-        let refs = closure(&store, roots).await?;
+        let refs = recursive_references(&store, roots).await?;
         assert_eq!(refs.len(), 3);
         assert!(refs.contains(&cid1));
         assert!(refs.contains(&cid2));

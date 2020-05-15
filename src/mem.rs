@@ -108,7 +108,7 @@ impl Gc {
 
         let roots: HashSet<Cid> = inner.roots.iter().map(|(k, _)| k.clone()).collect();
         // TODO: avoid decoding blocks by storing the references on insert
-        let live = crate::gc::closure(&*inner, roots).await?;
+        let live = crate::gc::recursive_references(&*inner, roots).await?;
         let cids: HashSet<Cid> = inner.blocks.iter().map(|(k, _)| k.clone()).collect();
 
         // TODO: allow temporary inserts, useful with a large block store.
@@ -169,9 +169,10 @@ impl Store for MemStore {
             if let Some((cid, count)) = inner.roots.remove_entry(cid) {
                 if count > 1 {
                     inner.roots.insert(cid, count - 1);
+                } else {
+                    task::spawn(Gc::new(self).gc());
                 }
             }
-            task::spawn(Gc::new(self).gc());
             Ok(())
         })
     }
