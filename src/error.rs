@@ -42,4 +42,7 @@ pub enum StoreError {
     /// Io operation failed.
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    /// Other failure.
+    #[error("{0}")]
+    Other(#[from] Box<dyn std::error::Error + Send>),
 }

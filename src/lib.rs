@@ -5,7 +5,6 @@
 
 pub mod block;
 pub mod error;
-pub mod gc;
 pub mod mem;
 pub mod path;
 pub mod store;
