@@ -12,6 +12,7 @@ use libipld_cbor::DagCbor;
 use libipld_json::DagJson;
 #[cfg(feature = "dag-pb")]
 use libipld_pb::DagPb;
+use std::collections::HashSet;
 
 /// Block
 pub struct Block {
@@ -86,5 +87,40 @@ pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
         #[cfg(feature = "dag-json")]
         DagJson::CODE => decode::<DagJson, _>(cid, data),
         _ => Err(Error::UnsupportedCodec(cid.codec())),
+    }
+}
+
+/// Returns the references in an ipld block.
+pub fn references(ipld: &Ipld) -> HashSet<Cid> {
+    let mut set: HashSet<Cid> = Default::default();
+    for ipld in ipld.iter() {
+        if let Ipld::Link(cid) = ipld {
+            set.insert(cid.to_owned());
+        }
+    }
+    set
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipld;
+    use crate::multihash::Sha2_256;
+
+    #[test]
+    fn test_references() {
+        let cid1 = Cid::new_v0(Sha2_256::digest(b"cid1")).unwrap();
+        let cid2 = Cid::new_v0(Sha2_256::digest(b"cid2")).unwrap();
+        let cid3 = Cid::new_v0(Sha2_256::digest(b"cid3")).unwrap();
+        let ipld = ipld!({
+            "cid1": &cid1,
+            "cid2": { "other": true, "cid2": { "cid2": &cid2 }},
+            "cid3": [[ &cid3, &cid1 ]],
+        });
+        let refs = references(&ipld);
+        assert_eq!(refs.len(), 3);
+        assert!(refs.contains(&cid1));
+        assert!(refs.contains(&cid2));
+        assert!(refs.contains(&cid3));
     }
 }
