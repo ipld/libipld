@@ -1,11 +1,17 @@
 //! Ipld representation.
-use crate::cid::Cid;
+use crate::cid::{CidGeneric, Codec};
 use crate::error::TypeError;
+use crate::multihash::Code as MultihashCode;
 use std::collections::BTreeMap;
+use std::convert::TryFrom;
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ipld {
+pub enum Ipld<C = Codec, H = MultihashCode>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     /// Represents the absence of a value or the value undefined.
     Null,
     /// Represents a boolean value.
@@ -19,11 +25,11 @@ pub enum Ipld {
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
     /// Represents a list.
-    List(Vec<Ipld>),
+    List(Vec<Ipld<C, H>>),
     /// Represents a map.
-    Map(BTreeMap<String, Ipld>),
+    Map(BTreeMap<String, Ipld<C, H>>),
     /// Represents a link to an Ipld node.
-    Link(Cid),
+    Link(CidGeneric<C, H>),
 }
 
 /// An index into ipld
@@ -56,7 +62,7 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
 
 impl Ipld {
     /// Indexes into a ipld list or map.
-    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Ipld, TypeError> {
+    pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
         let index = index.into();
         let ipld = match self {
             Ipld::List(l) => match index {
@@ -125,6 +131,7 @@ impl<'a> Iterator for IpldIter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cid::Cid;
     use crate::multihash::Sha2_256;
 
     #[test]
@@ -195,5 +202,81 @@ mod tests {
         map.insert("c".to_string(), Ipld::Integer(2));
         let ipld = Ipld::Map(map);
         assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
+    }
+
+    #[test]
+    fn custom_code_tables() {
+        use multihash::{wrap, MultihashGeneric};
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub enum IpldCodec {
+            Raw = 0x55,
+            DagCbor = 0x71,
+            DagJson = 0x0129,
+        }
+
+        impl From<IpldCodec> for u64 {
+            /// Return the codec as integer value.
+            fn from(codec: IpldCodec) -> Self {
+                codec as _
+            }
+        }
+
+        impl TryFrom<u64> for IpldCodec {
+            type Error = String;
+
+            /// Return the `IpldCodec` based on the integer value. Error if no matching code exists.
+            fn try_from(raw: u64) -> Result<Self, Self::Error> {
+                match raw {
+                    0x55 => Ok(Self::Raw),
+                    0x71 => Ok(Self::DagCbor),
+                    0x0129 => Ok(Self::DagJson),
+                    _ => Err("Cannot convert code to codec.".to_string()),
+                }
+            }
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq)]
+        pub enum HashCodeTable {
+            Foo = 0x01,
+            Bar = 0x02,
+        }
+
+        impl TryFrom<u64> for HashCodeTable {
+            type Error = String;
+
+            fn try_from(raw: u64) -> Result<Self, Self::Error> {
+                match raw {
+                    0x01 => Ok(Self::Foo),
+                    0x02 => Ok(Self::Bar),
+                    _ => Err("invalid code".to_string()),
+                }
+            }
+        }
+
+        impl From<HashCodeTable> for u64 {
+            fn from(code: HashCodeTable) -> Self {
+                code as u64
+            }
+        }
+
+        #[derive(Clone, Debug)]
+        struct SameHash;
+        impl SameHash {
+            pub const CODE: HashCodeTable = HashCodeTable::Foo;
+            /// Hash some input and return the sha1 digest.
+            pub fn digest(_data: &[u8]) -> MultihashGeneric<HashCodeTable> {
+                let digest = b"alwaysthesame";
+                wrap(Self::CODE, digest)
+            }
+        }
+
+        type CustomCid = CidGeneric<IpldCodec, HashCodeTable>;
+        type CustomIpld = Ipld<IpldCodec, HashCodeTable>;
+
+        let data = vec![0, 1, 2, 3];
+        let hash = SameHash::digest(&data);
+        let cid = CustomCid::new_v1(IpldCodec::Raw, hash);
+        assert_eq!(CustomIpld::Link(cid.clone()), CustomIpld::from(cid));
     }
 }
