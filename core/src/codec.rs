@@ -1,36 +1,48 @@
 //! `Ipld` codecs.
 pub use crate::cid::Codec as Code;
+use std::convert::TryFrom;
 use std::io::{Read, Write};
 
 /// Codec trait.
-pub trait Codec: Sized {
+pub trait Codec<D = Code>: Sized
+where
+    D: Copy + TryFrom<u64> + Into<u64>,
+{
     /// Codec code.
-    const CODE: Code;
+    const CODE: D;
 
     /// Error type.
     type Error: std::error::Error + Send + 'static;
 
     /// Encodes an encodable type.
-    fn encode<T: Encode<Self> + ?Sized>(obj: &T) -> Result<Box<[u8]>, Self::Error> {
+    fn encode<T: Encode<Self, D> + ?Sized>(obj: &T) -> Result<Box<[u8]>, Self::Error> {
         let mut buf = Vec::new();
         obj.encode(&mut buf)?;
         Ok(buf.into_boxed_slice())
     }
 
     /// Decodes a decodable type.
-    fn decode<T: Decode<Self>>(mut bytes: &[u8]) -> Result<T, Self::Error> {
+    fn decode<T: Decode<Self, D>>(mut bytes: &[u8]) -> Result<T, Self::Error> {
         T::decode(&mut bytes)
     }
 }
 
 /// Encode trait.
-pub trait Encode<C: Codec> {
+pub trait Encode<C, D = Code>
+where
+    C: Codec<D>,
+    D: Copy + TryFrom<u64> + Into<u64>,
+{
     /// Encodes into a `impl Write`.
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), C::Error>;
 }
 
 /// Decode trait.
-pub trait Decode<C: Codec>: Sized {
+pub trait Decode<C, D = Code>: Sized
+where
+    C: Codec<D>,
+    D: Copy + TryFrom<u64> + Into<u64>,
+{
     /// Decode from an `impl Read`.
     fn decode<R: Read>(r: &mut R) -> Result<Self, C::Error>;
 }
@@ -51,7 +63,7 @@ mod tests {
         Io(#[from] std::io::Error),
     }
 
-    impl Codec for CodecImpl {
+    impl Codec<Code> for CodecImpl {
         const CODE: Code = Code::Raw;
         type Error = CodecImplError;
     }
