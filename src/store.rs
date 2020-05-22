@@ -1,4 +1,5 @@
 //! Store traits.
+use crate::block::Block;
 use crate::cid::Cid;
 use crate::error::StoreError;
 use core::future::Future;
@@ -28,8 +29,7 @@ pub trait ReadonlyStore: Clone {
 
 /// Implementable by ipld storage backends.
 pub trait Store: ReadonlyStore {
-    /// Inserts and pins a block into the store and announces the block
-    /// if it is visible.
+    /// Inserts and pins block into the store and announces it if it is visible.
     fn insert<'a>(
         &'a self,
         cid: &'a Cid,
@@ -37,10 +37,18 @@ pub trait Store: ReadonlyStore {
         visibility: Visibility,
     ) -> StoreResult<'a, ()>;
 
+    /// Inserts a batch of blocks atomically into the store and announces them block
+    /// if it is visible. The last block is pinned.
+    fn insert_batch<'a>(
+        &'a self,
+        batch: Vec<Block>,
+        visibility: Visibility,
+    ) -> StoreResult<'a, Cid>;
+
     /// Flushes the write buffer.
     fn flush(&self) -> StoreResult<'_, ()>;
 
-    /// Marks a block ready for garbage collection.
+    /// Decreases the ref count on a cid.
     fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
 }
 

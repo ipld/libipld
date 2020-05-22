@@ -1,4 +1,5 @@
 //! Reference implementation of the store traits.
+use crate::block::Block;
 use crate::cid::Cid;
 use crate::error::StoreError;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
@@ -31,17 +32,15 @@ impl InnerStore {
     }
 
     fn insert(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<(), StoreError> {
-        {
-            let (cid, pins) = self
-                .pins
-                .remove_entry(cid)
-                .unwrap_or_else(|| (cid.clone(), 0));
-            self.pins.insert(cid, pins + 1);
-            if pins > 0 {
-                return Ok(());
-            }
-        }
+        self.insert_block(cid, data)?;
+        self.pin(cid);
+        Ok(())
+    }
 
+    fn insert_block(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<(), StoreError> {
+        if self.blocks.contains_key(cid) {
+            return Ok(());
+        }
         let ipld =
             crate::block::decode_ipld(cid, &data).map_err(|e| StoreError::Other(Box::new(e)))?;
         let refs = crate::block::references(&ipld);
@@ -53,18 +52,35 @@ impl InnerStore {
         Ok(())
     }
 
+    fn insert_batch(&mut self, batch: Vec<Block>) -> Result<Cid, StoreError> {
+        let mut last_cid = None;
+        for Block { cid, data } in batch.into_iter() {
+            self.insert_block(&cid, data)?;
+            last_cid = Some(cid);
+        }
+        Ok(last_cid.ok_or(StoreError::EmptyBatch)?)
+    }
+
+    fn pin(&mut self, cid: &Cid) {
+        let (cid, pins) = self
+            .pins
+            .remove_entry(cid)
+            .unwrap_or_else(|| (cid.clone(), 0));
+        self.pins.insert(cid, pins + 1);
+    }
+
     fn unpin(&mut self, cid: &Cid) -> Result<(), StoreError> {
         if let Some((cid, pins)) = self.pins.remove_entry(cid) {
             if pins > 1 {
                 self.pins.insert(cid, pins - 1);
             } else {
-                self.remove(&cid)?;
+                self.remove(&cid);
             }
         }
         Ok(())
     }
 
-    fn remove(&mut self, cid: &Cid) -> Result<(), StoreError> {
+    fn remove(&mut self, cid: &Cid) {
         let pins = self.pins.get(&cid).cloned().unwrap_or_default();
         let referers = self.referers.get(&cid).cloned().unwrap_or_default();
         if referers < 1 && pins < 1 {
@@ -72,10 +88,9 @@ impl InnerStore {
             let refs = self.refs.remove(&cid).unwrap();
             for cid in &refs {
                 self.add_referer(cid, -1);
-                self.remove(cid)?;
+                self.remove(cid);
             }
         }
-        Ok(())
     }
 }
 
@@ -100,6 +115,14 @@ impl Store for MemStore {
         _visibility: Visibility,
     ) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.insert(cid, data) })
+    }
+
+    fn insert_batch<'a>(
+        &'a self,
+        batch: Vec<Block>,
+        _visibility: Visibility,
+    ) -> StoreResult<'a, Cid> {
+        Box::pin(async move { self.inner.write().await.insert_batch(batch) })
     }
 
     fn flush(&self) -> StoreResult<'_, ()> {
