@@ -18,7 +18,7 @@ pub enum Visibility {
 }
 
 /// Implementable by ipld storage providers.
-pub trait ReadonlyStore {
+pub trait ReadonlyStore: Clone {
     /// Returns a block from the store. If the block is not in the
     /// store it fetches it from the network and pins the block. This
     /// future should be wrapped in a timeout. Dropping the future
