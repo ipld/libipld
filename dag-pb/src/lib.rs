@@ -10,9 +10,9 @@ mod codec;
 
 /// Protobuf codec.
 #[derive(Clone, Copy, Debug)]
-pub struct DagPb;
+pub struct DagPbCodec;
 
-impl Codec for DagPb {
+impl Codec for DagPbCodec {
     const CODE: Code = Code::DagProtobuf;
 
     type Error = Error;
@@ -31,7 +31,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-impl Encode<DagPb> for Ipld {
+impl Encode<DagPbCodec> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
         let pb_node: PbNode = self.try_into()?;
         let bytes = pb_node.into_bytes();
@@ -40,7 +40,7 @@ impl Encode<DagPb> for Ipld {
     }
 }
 
-impl Decode<DagPb> for Ipld {
+impl Decode<DagPbCodec> for Ipld {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
@@ -69,8 +69,8 @@ mod tests {
         pb_node.insert("Links".to_string(), links.into());
         let data: Ipld = pb_node.into();
 
-        let bytes = DagPb::encode(&data).unwrap();
-        let data2 = DagPb::decode(&bytes).unwrap();
+        let bytes = DagPbCodec::encode(&data).unwrap();
+        let data2 = DagPbCodec::decode(&bytes).unwrap();
         assert_eq!(data, data2);
     }
 }

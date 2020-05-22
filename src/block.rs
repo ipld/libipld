@@ -4,14 +4,14 @@ use crate::codec::{Code as CCode, Codec, Decode, Encode};
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
 use crate::multihash::{Code as HCode, Multihasher};
-use crate::raw::Raw;
+use crate::raw::RawCodec;
 use crate::MAX_BLOCK_SIZE;
 #[cfg(feature = "dag-cbor")]
 use libipld_cbor::DagCborCodec;
 #[cfg(feature = "dag-json")]
-use libipld_json::DagJson;
+use libipld_json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]
-use libipld_pb::DagPb;
+use libipld_pb::DagPbCodec;
 use std::collections::HashSet;
 
 /// Block
@@ -65,13 +65,13 @@ pub fn decode<C: Codec, D: Decode<C>>(cid: &Cid, data: &[u8]) -> Result<D> {
 /// Useful for nested encodings when for example the data is encrypted.
 pub fn raw_decode_ipld(codec: CCode, data: &[u8]) -> Result<Ipld> {
     match codec {
-        Raw::CODE => raw_decode::<Raw, _>(codec, data),
+        RawCodec::CODE => raw_decode::<RawCodec, _>(codec, data),
         #[cfg(feature = "dag-cbor")]
         DagCborCodec::CODE => raw_decode::<DagCborCodec, _>(codec, data),
         #[cfg(feature = "dag-pb")]
-        DagPb::CODE => raw_decode::<DagPb, _>(codec, data),
+        DagPbCodec::CODE => raw_decode::<DagPbCodec, _>(codec, data),
         #[cfg(feature = "dag-json")]
-        DagJson::CODE => raw_decode::<DagJson, _>(codec, data),
+        DagJsonCodec::CODE => raw_decode::<DagJsonCodec, _>(codec, data),
         _ => Err(Error::UnsupportedCodec(codec)),
     }
 }
@@ -79,13 +79,13 @@ pub fn raw_decode_ipld(codec: CCode, data: &[u8]) -> Result<Ipld> {
 /// Decode block to ipld.
 pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
     match cid.codec() {
-        Raw::CODE => decode::<Raw, _>(cid, data),
+        RawCodec::CODE => decode::<RawCodec, _>(cid, data),
         #[cfg(feature = "dag-cbor")]
         DagCborCodec::CODE => decode::<DagCborCodec, _>(cid, data),
         #[cfg(feature = "dag-pb")]
-        DagPb::CODE => decode::<DagPb, _>(cid, data),
+        DagPbCodec::CODE => decode::<DagPbCodec, _>(cid, data),
         #[cfg(feature = "dag-json")]
-        DagJson::CODE => decode::<DagJson, _>(cid, data),
+        DagJsonCodec::CODE => decode::<DagJsonCodec, _>(cid, data),
         _ => Err(Error::UnsupportedCodec(cid.codec())),
     }
 }
