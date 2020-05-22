@@ -2,7 +2,7 @@
 use crate::cid::Cid;
 use crate::error::StoreError;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
-use async_std::sync::RwLock;
+use async_std::sync::{Arc, RwLock};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
@@ -80,10 +80,10 @@ impl InnerStore {
 }
 
 /// A memory backed store
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct MemStore {
-    inner: RwLock<InnerStore>,
-    aliases: RwLock<HashMap<Box<[u8]>, Cid>>,
+    inner: Arc<RwLock<InnerStore>>,
+    aliases: Arc<RwLock<HashMap<Box<[u8]>, Cid>>>,
 }
 
 impl ReadonlyStore for MemStore {
