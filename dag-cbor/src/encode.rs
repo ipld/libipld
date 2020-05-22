@@ -7,11 +7,13 @@ use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use std::io::Write;
 
+/// Writes a null byte to a cbor encoded byte stream.
 pub fn write_null<W: Write>(w: &mut W) -> Result<()> {
     w.write_all(&[0xf6])?;
     Ok(())
 }
 
+/// Writes a u8 to a cbor encoded byte stream.
 pub fn write_u8<W: Write>(w: &mut W, major: u8, value: u8) -> Result<()> {
     if value <= 0x17 {
         let buf = [major << 5 | value];
@@ -23,6 +25,7 @@ pub fn write_u8<W: Write>(w: &mut W, major: u8, value: u8) -> Result<()> {
     Ok(())
 }
 
+/// Writes a u16 to a cbor encoded byte stream.
 pub fn write_u16<W: Write>(w: &mut W, major: u8, value: u16) -> Result<()> {
     if value <= u16::from(u8::max_value()) {
         write_u8(w, major, value as u8)?;
@@ -34,6 +37,7 @@ pub fn write_u16<W: Write>(w: &mut W, major: u8, value: u16) -> Result<()> {
     Ok(())
 }
 
+/// Writes a u32 to a cbor encoded byte stream.
 pub fn write_u32<W: Write>(w: &mut W, major: u8, value: u32) -> Result<()> {
     if value <= u32::from(u16::max_value()) {
         write_u16(w, major, value as u16)?;
@@ -45,6 +49,7 @@ pub fn write_u32<W: Write>(w: &mut W, major: u8, value: u32) -> Result<()> {
     Ok(())
 }
 
+/// Writes a u64 to a cbor encoded byte stream.
 pub fn write_u64<W: Write>(w: &mut W, major: u8, value: u64) -> Result<()> {
     if value <= u64::from(u32::max_value()) {
         write_u32(w, major, value as u32)?;
@@ -56,6 +61,7 @@ pub fn write_u64<W: Write>(w: &mut W, major: u8, value: u64) -> Result<()> {
     Ok(())
 }
 
+/// Writes a tag to a cbor encoded byte stream.
 pub fn write_tag<W: Write>(w: &mut W, tag: u64) -> Result<()> {
     write_u64(w, 6, tag)
 }

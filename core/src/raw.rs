@@ -1,9 +1,11 @@
+//! Implements the raw codec.
 use crate::codec::{Code, Codec, Decode, Encode};
 use crate::error::{TypeError, TypeErrorType};
 use crate::ipld::Ipld;
 use std::io::{Read, Write};
 use thiserror::Error;
 
+/// Raw codec.
 pub struct RawCodec;
 
 impl Codec for RawCodec {
@@ -12,10 +14,13 @@ impl Codec for RawCodec {
     type Error = RawError;
 }
 
+/// Error returned by the `RawCodec`.
 #[derive(Debug, Error)]
 pub enum RawError {
+    /// Io error.
     #[error("{0}")]
     Io(#[from] std::io::Error),
+    /// Type error.
     #[error("{0}")]
     Type(#[from] TypeError),
 }

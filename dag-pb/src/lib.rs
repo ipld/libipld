@@ -1,4 +1,7 @@
 //! Protobuf codec.
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
 use libipld_core::codec::{Code, Codec, Decode, Encode};
@@ -21,13 +24,17 @@ impl Codec for DagPbCodec {
 /// Protobuf error.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("{0}")]
+    /// Prost error.
+    #[error(transparent)]
     Prost(#[from] prost::DecodeError),
-    #[error("{0}")]
+    /// CID error.
+    #[error(transparent)]
     Cid(#[from] libipld_core::cid::Error),
-    #[error("{0}")]
+    /// Type error.
+    #[error(transparent)]
     TypeError(#[from] libipld_core::error::TypeError),
-    #[error("{0}")]
+    /// Io error.
+    #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 

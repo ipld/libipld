@@ -1,5 +1,4 @@
 //! The `Ipld` crate.
-
 #![deny(missing_docs)]
 #![deny(warnings)]
 

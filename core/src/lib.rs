@@ -1,3 +1,7 @@
+//! Core ipld types used by ipld codecs.
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 pub mod codec;
 pub mod convert;
 pub mod error;

@@ -10,22 +10,26 @@ pub trait Codec: Sized {
     /// Error type.
     type Error: std::error::Error + Send + 'static;
 
+    /// Encodes an encodable type.
     fn encode<T: Encode<Self> + ?Sized>(obj: &T) -> Result<Box<[u8]>, Self::Error> {
         let mut buf = Vec::new();
         obj.encode(&mut buf)?;
         Ok(buf.into_boxed_slice())
     }
 
+    /// Decodes a decodable type.
     fn decode<T: Decode<Self>>(mut bytes: &[u8]) -> Result<T, Self::Error> {
         T::decode(&mut bytes)
     }
 }
 
+/// Encode trait.
 pub trait Encode<C: Codec> {
     /// Encodes into a `impl Write`.
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), C::Error>;
 }
 
+/// Decode trait.
 pub trait Decode<C: Codec>: Sized {
     /// Decode from an `impl Read`.
     fn decode<R: Read>(r: &mut R) -> Result<Self, C::Error>;
