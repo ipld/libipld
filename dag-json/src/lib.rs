@@ -8,21 +8,21 @@ mod codec;
 
 /// Json codec.
 #[derive(Clone, Copy, Debug)]
-pub struct DagJson;
+pub struct DagJsonCodec;
 
-impl Codec for DagJson {
+impl Codec for DagJsonCodec {
     const CODE: Code = Code::DagJSON;
 
     type Error = Error;
 }
 
-impl Encode<DagJson> for Ipld {
+impl Encode<DagJsonCodec> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
         codec::encode(self, w)
     }
 }
 
-impl Decode<DagJson> for Ipld {
+impl Decode<DagJsonCodec> for Ipld {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         codec::decode(r)
     }
@@ -47,7 +47,7 @@ mod tests {
         map.insert("details".to_string(), Ipld::Link(cid.clone()));
         let contact = Ipld::Map(map);
 
-        let contact_encoded = DagJson::encode(&contact).unwrap();
+        let contact_encoded = DagJsonCodec::encode(&contact).unwrap();
         println!("encoded: {:02x?}", contact_encoded);
         println!(
             "encoded string {}",
@@ -62,7 +62,7 @@ mod tests {
             )
         );
 
-        let contact_decoded: Ipld = DagJson::decode(&contact_encoded).unwrap();
+        let contact_decoded: Ipld = DagJsonCodec::decode(&contact_encoded).unwrap();
         assert_eq!(contact_decoded, contact);
     }
 }

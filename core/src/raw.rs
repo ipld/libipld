@@ -4,9 +4,9 @@ use crate::ipld::Ipld;
 use std::io::{Read, Write};
 use thiserror::Error;
 
-pub struct Raw;
+pub struct RawCodec;
 
-impl Codec for Raw {
+impl Codec for RawCodec {
     const CODE: Code = Code::Raw;
 
     type Error = RawError;
@@ -20,25 +20,25 @@ pub enum RawError {
     Type(#[from] TypeError),
 }
 
-impl Encode<Raw> for [u8] {
+impl Encode<RawCodec> for [u8] {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(self)?)
     }
 }
 
-impl Encode<Raw> for Box<[u8]> {
+impl Encode<RawCodec> for Box<[u8]> {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(&self[..])?)
     }
 }
 
-impl Encode<Raw> for Vec<u8> {
+impl Encode<RawCodec> for Vec<u8> {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(&self[..])?)
     }
 }
 
-impl Encode<Raw> for Ipld {
+impl Encode<RawCodec> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
         if let Ipld::Bytes(bytes) = self {
             bytes.encode(w)
@@ -48,14 +48,14 @@ impl Encode<Raw> for Ipld {
     }
 }
 
-impl Decode<Raw> for Box<[u8]> {
+impl Decode<RawCodec> for Box<[u8]> {
     fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
-        let buf: Vec<u8> = Decode::<Raw>::decode(r)?;
+        let buf: Vec<u8> = Decode::<RawCodec>::decode(r)?;
         Ok(buf.into_boxed_slice())
     }
 }
 
-impl Decode<Raw> for Vec<u8> {
+impl Decode<RawCodec> for Vec<u8> {
     fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
         let mut buf = vec![];
         r.read_to_end(&mut buf)?;
@@ -63,9 +63,9 @@ impl Decode<Raw> for Vec<u8> {
     }
 }
 
-impl Decode<Raw> for Ipld {
+impl Decode<RawCodec> for Ipld {
     fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
-        let bytes: Vec<u8> = Decode::decode(r)?;
+        let bytes: Vec<u8> = Decode::<RawCodec>::decode(r)?;
         Ok(Ipld::Bytes(bytes))
     }
 }
@@ -77,15 +77,15 @@ mod tests {
     #[test]
     fn test_raw_codec() {
         let data: &[u8] = &[0, 1, 2, 3];
-        let bytes = Raw::encode(data).unwrap();
+        let bytes = RawCodec::encode(data).unwrap();
         assert_eq!(data, &*bytes);
-        let data2: Vec<u8> = Raw::decode(&bytes).unwrap();
+        let data2: Vec<u8> = RawCodec::decode(&bytes).unwrap();
         assert_eq!(data, &*data2);
 
         let ipld = Ipld::Bytes(data2);
-        let bytes = Raw::encode(&ipld).unwrap();
+        let bytes = RawCodec::encode(&ipld).unwrap();
         assert_eq!(data, &*bytes);
-        let ipld2: Ipld = Raw::decode(&bytes).unwrap();
+        let ipld2: Ipld = RawCodec::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }
