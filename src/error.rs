@@ -39,6 +39,9 @@ pub enum StoreError {
     /// The block wasn't found.
     #[error("failed to retrive block {0}")]
     BlockNotFound(Cid),
+    /// The batch was empty.
+    #[error("empty batch")]
+    EmptyBatch,
     /// Other failure.
     #[error("{0}")]
     Other(#[from] Box<dyn std::error::Error + Send>),
