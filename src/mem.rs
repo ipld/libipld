@@ -143,7 +143,7 @@ impl AliasStore for MemStore {
 mod tests {
     use super::*;
     use crate::block::{decode, encode, Block};
-    use crate::cbor::DagCbor;
+    use crate::cbor::DagCborCodec;
     use crate::cid::Cid;
     use crate::ipld;
     use crate::ipld::Ipld;
@@ -156,11 +156,11 @@ mod tests {
             Err(StoreError::BlockNotFound { .. }) => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<DagCbor, Ipld>(cid, &bytes).unwrap())
+        Some(decode::<DagCborCodec, Ipld>(cid, &bytes).unwrap())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let Block { cid, data } = encode::<DagCbor, Sha2_256, Ipld>(ipld).unwrap();
+        let Block { cid, data } = encode::<DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
         store.insert(&cid, data, Visibility::Public).await.unwrap();
         cid
     }

@@ -1,4 +1,4 @@
-use libipld::cbor::DagCbor;
+use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;
 use libipld::{ipld, DagCbor};
@@ -22,9 +22,9 @@ macro_rules! test_case {
         let data = $data;
         let mut bytes = Vec::new();
         data.encode(&mut bytes)?;
-        let ipld: Ipld = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
+        let ipld: Ipld = Decode::<DagCborCodec>::decode(&mut bytes.as_slice())?;
         assert_eq!(ipld, $ipld);
-        let data: $ty = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
+        let data: $ty = Decode::<DagCborCodec>::decode(&mut bytes.as_slice())?;
         assert_eq!(data, $data);
     };
 }
