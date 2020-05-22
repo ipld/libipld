@@ -1,4 +1,7 @@
 //! CBOR codec.
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 use libipld_core::codec::{Code, Codec, Decode, Encode};
 use thiserror::Error;
 
@@ -15,6 +18,7 @@ impl Codec for DagCborCodec {
     type Error = Error;
 }
 
+/// Marker trait for types supporting the `DagCborCodec`.
 pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor {}
 
 impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCbor for T {}

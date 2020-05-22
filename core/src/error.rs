@@ -2,14 +2,18 @@
 use crate::ipld::{Ipld, IpldIndex};
 use thiserror::Error;
 
+/// Type error.
 #[derive(Debug, Error)]
 #[error("Expected {expected:?} but found {found:?}")]
 pub struct TypeError {
+    /// The expected type.
     pub expected: TypeErrorType,
+    /// The actual type.
     pub found: TypeErrorType,
 }
 
 impl TypeError {
+    /// Creates a new type error.
     pub fn new<A: Into<TypeErrorType>, B: Into<TypeErrorType>>(expected: A, found: B) -> Self {
         Self {
             expected: expected.into(),

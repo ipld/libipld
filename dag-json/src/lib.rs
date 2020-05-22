@@ -1,4 +1,7 @@
 //! Json codec.
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 use libipld_core::codec::{Code, Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
 use serde_json::Error;

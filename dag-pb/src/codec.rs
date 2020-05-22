@@ -9,20 +9,28 @@ mod dag_pb {
     include!(concat!(env!("OUT_DIR"), "/dag_pb.rs"));
 }
 
+/// A protobuf ipld link.
 pub struct PbLink {
+    /// Content identifier.
     pub cid: Cid,
+    /// Name of the link.
     pub name: String,
+    /// Size of the data.
     pub size: u64,
 }
 
+/// A protobuf ipld node.
 pub struct PbNode {
+    /// List of protobuf ipld links.
     pub links: Vec<PbLink>,
+    /// Binary data blob.
     pub data: Box<[u8]>,
 }
 
 use prost::Message;
 
 impl PbNode {
+    /// Deserializes a `PbNode` from bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
         let proto: dag_pb::PbNode = dag_pb::PbNode::decode(bytes)?;
         let data = proto.data.into_boxed_slice();
@@ -36,6 +44,7 @@ impl PbNode {
         Ok(PbNode { links, data })
     }
 
+    /// Serializes a `PbNode` to bytes.
     pub fn into_bytes(self) -> Box<[u8]> {
         let links = self
             .links

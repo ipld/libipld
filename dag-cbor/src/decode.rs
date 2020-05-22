@@ -8,54 +8,64 @@ use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use std::io::Read;
 
+/// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
     let mut buf = [0; 1];
     r.read_exact(&mut buf)?;
     Ok(buf[0])
 }
 
+/// Reads a u16 from a byte stream.
 pub fn read_u16<R: Read>(r: &mut R) -> Result<u16> {
     let mut buf = [0; 2];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u16(&buf))
 }
 
+/// Reads a u32 from a byte stream.
 pub fn read_u32<R: Read>(r: &mut R) -> Result<u32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u32(&buf))
 }
 
+/// Reads a u64 from a byte stream.
 pub fn read_u64<R: Read>(r: &mut R) -> Result<u64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u64(&buf))
 }
 
+/// Reads a f32 from a byte stream.
 pub fn read_f32<R: Read>(r: &mut R) -> Result<f32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f32(&buf))
 }
 
+/// Reads a f64 from a byte stream.
 pub fn read_f64<R: Read>(r: &mut R) -> Result<f64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f64(&buf))
 }
 
+/// Reads `len` number of bytes from a byte stream.
 pub fn read_bytes<R: Read>(r: &mut R, len: usize) -> Result<Vec<u8>> {
     let mut buf = vec![0; len];
     r.read_exact(&mut buf)?;
     Ok(buf)
 }
 
+/// Reads `len` number of bytes from a byte stream and converts them to a string.
 pub fn read_str<R: Read>(r: &mut R, len: usize) -> Result<String> {
     let bytes = read_bytes(r, len)?;
     let string = std::str::from_utf8(&bytes)?;
     Ok(string.to_string())
 }
 
+/// Reads bytes from a byte stream and matches them with the key. If the key
+/// doesn't match the read bytes it returns an `UnexpectedKey` error.
 pub fn read_key<R: Read>(r: &mut R, key: &str) -> Result<()> {
     let key_bytes = key.as_bytes();
     let bytes = read_bytes(r, key.len() + 1)?;
@@ -66,6 +76,7 @@ pub fn read_key<R: Read>(r: &mut R, key: &str) -> Result<()> {
     }
 }
 
+/// Reads any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read<R: Read, T: TryReadCbor>(r: &mut R) -> Result<T> {
     let major = crate::decode::read_u8(r)?;
     if let Some(res) = T::try_read_cbor(r, major)? {
@@ -75,6 +86,7 @@ pub fn read<R: Read, T: TryReadCbor>(r: &mut R) -> Result<T> {
     }
 }
 
+/// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::with_capacity(len);
     for _ in 0..len {
@@ -83,6 +95,7 @@ pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T
     Ok(list)
 }
 
+/// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeMap<String, T>> {
     let mut map: BTreeMap<String, T> = BTreeMap::new();
     for _ in 0..len {
@@ -93,6 +106,7 @@ pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeM
     Ok(map)
 }
 
+/// Reads a cid from a stream of cbor encoded bytes.
 pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
     let tag = read_u8(r)?;
     if tag != 42 {
@@ -116,7 +130,10 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
     Ok(Cid::try_from(&bytes[1..])?)
 }
 
+/// `TryReadCbor` trait.
 pub trait TryReadCbor: Sized {
+    /// Takes the read major code and tries to parse from a byte stream. If parsing fails the
+    /// byte stream must not be advanced.
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>>;
 }
 
