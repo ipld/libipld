@@ -1,5 +1,5 @@
 //! CBOR codec.
-use libipld_core::codec::{Code, Codec};
+use libipld_core::codec::{Code, Codec, Decode, Encode};
 use thiserror::Error;
 
 pub mod decode;
@@ -7,13 +7,17 @@ pub mod encode;
 
 /// CBOR codec.
 #[derive(Clone, Copy, Debug)]
-pub struct DagCbor;
+pub struct DagCborCodec;
 
-impl Codec for DagCbor {
+impl Codec for DagCborCodec {
     const CODE: Code = Code::DagCBOR;
 
     type Error = Error;
 }
+
+pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor {}
+
+impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCbor for T {}
 
 /// CBOR error.
 #[derive(Debug, Error)]
@@ -73,8 +77,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = DagCbor::encode(&ipld).unwrap();
-        let ipld2 = DagCbor::decode(&bytes).unwrap();
+        let bytes = DagCborCodec::encode(&ipld).unwrap();
+        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

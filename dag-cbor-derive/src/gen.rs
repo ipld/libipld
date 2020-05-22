@@ -95,8 +95,8 @@ impl BindingRepr {
                 let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        Encode::<DagCbor>::encode(#key, w)?;
-                        Encode::<DagCbor>::encode(#binding, w)?;
+                        Encode::<DagCborCodec>::encode(#key, w)?;
+                        Encode::<DagCborCodec>::encode(#binding, w)?;
                     }
                 });
                 quote! {
@@ -107,7 +107,7 @@ impl BindingRepr {
             Self::List => {
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(Encode::<DagCbor>::encode(#binding, w)?;));
+                    .map(|binding| quote!(Encode::<DagCborCodec>::encode(#binding, w)?;));
                 quote! {
                     write_u64(w, 4, #len)?;
                     #(#fields)*
@@ -124,7 +124,7 @@ impl BindingRepr {
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
                         read_key(r, #key)?;
-                        let #binding = Decode::<DagCbor>::decode(r)?;
+                        let #binding = Decode::<DagCborCodec>::decode(r)?;
                     }
                 });
                 let construct = variant.construct(|_field, i| {
@@ -148,7 +148,7 @@ impl BindingRepr {
                 let fields = variant
                     .bindings()
                     .iter()
-                    .map(|binding| quote!(let #binding = Decode::<DagCbor>::decode(r)?;));
+                    .map(|binding| quote!(let #binding = Decode::<DagCborCodec>::decode(r)?;));
                 let construct = variant.construct(|_field, i| {
                     let binding = &variant.bindings()[i];
                     quote!(#binding)
@@ -200,7 +200,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     write_u64(w, 5, 1)?;
-                    Encode::<DagCbor>::encode(#name, w)?;
+                    Encode::<DagCborCodec>::encode(#name, w)?;
                     #bindings
                 }
             }
@@ -249,7 +249,7 @@ pub fn decode(s: &Structure) -> TokenStream {
                 if major != 0xa1 {
                     return Ok(None);
                 }
-                let key: String = Decode::<DagCbor>::decode(r)?;
+                let key: String = Decode::<DagCborCodec>::decode(r)?;
                 #(#variants)*
                 Err(TypeError::new(TypeErrorType::Key(key), TypeErrorType::Null).into())
             }

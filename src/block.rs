@@ -7,7 +7,7 @@ use crate::multihash::{Code as HCode, Multihasher};
 use crate::raw::Raw;
 use crate::MAX_BLOCK_SIZE;
 #[cfg(feature = "dag-cbor")]
-use libipld_cbor::DagCbor;
+use libipld_cbor::DagCborCodec;
 #[cfg(feature = "dag-json")]
 use libipld_json::DagJson;
 #[cfg(feature = "dag-pb")]
@@ -67,7 +67,7 @@ pub fn raw_decode_ipld(codec: CCode, data: &[u8]) -> Result<Ipld> {
     match codec {
         Raw::CODE => raw_decode::<Raw, _>(codec, data),
         #[cfg(feature = "dag-cbor")]
-        DagCbor::CODE => raw_decode::<DagCbor, _>(codec, data),
+        DagCborCodec::CODE => raw_decode::<DagCborCodec, _>(codec, data),
         #[cfg(feature = "dag-pb")]
         DagPb::CODE => raw_decode::<DagPb, _>(codec, data),
         #[cfg(feature = "dag-json")]
@@ -81,7 +81,7 @@ pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
     match cid.codec() {
         Raw::CODE => decode::<Raw, _>(cid, data),
         #[cfg(feature = "dag-cbor")]
-        DagCbor::CODE => decode::<DagCbor, _>(cid, data),
+        DagCborCodec::CODE => decode::<DagCborCodec, _>(cid, data),
         #[cfg(feature = "dag-pb")]
         DagPb::CODE => decode::<DagPb, _>(cid, data),
         #[cfg(feature = "dag-json")]

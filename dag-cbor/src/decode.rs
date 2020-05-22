@@ -1,5 +1,5 @@
 //! CBOR decoder
-use crate::{DagCbor, Error, Result};
+use crate::{DagCborCodec as DagCbor, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
 use libipld_core::cid::Cid;

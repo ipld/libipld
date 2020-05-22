@@ -1,4 +1,4 @@
-use libipld::cbor::DagCbor;
+use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;
 use libipld::{ipld, DagCbor};
@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut bytes = Vec::new();
     data.encode(&mut bytes)?;
-    let ipld: Ipld = Decode::<DagCbor>::decode(&mut bytes.as_slice())?;
+    let ipld: Ipld = Decode::<DagCborCodec>::decode(&mut bytes.as_slice())?;
     let expect = ipld!({
         "hashAlg": "murmur3",
     });
