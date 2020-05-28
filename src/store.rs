@@ -26,10 +26,8 @@ where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    /// Returns a block from the store. If the block is not in the
-    /// store it fetches it from the network and pins the block. This
-    /// future should be wrapped in a timeout. Dropping the future
-    /// cancels the request.
+    /// Returns a block from the store. If the block is not in the store it fetches it from the
+    /// network and pins the block. Dropping the future cancels the request.
     fn get<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, Box<[u8]>>;
 }
 
