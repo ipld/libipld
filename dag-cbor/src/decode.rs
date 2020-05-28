@@ -439,39 +439,39 @@ where
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
             // Major type 0: an unsigned integer
-            0x00..=0x17 => Ipld::<C, H>::Integer(major as i128),
-            0x18 => Ipld::<C, H>::Integer(read_u8(r)? as i128),
-            0x19 => Ipld::<C, H>::Integer(read_u16(r)? as i128),
-            0x1a => Ipld::<C, H>::Integer(read_u32(r)? as i128),
-            0x1b => Ipld::<C, H>::Integer(read_u64(r)? as i128),
+            0x00..=0x17 => Self::Integer(major as i128),
+            0x18 => Self::Integer(read_u8(r)? as i128),
+            0x19 => Self::Integer(read_u16(r)? as i128),
+            0x1a => Self::Integer(read_u32(r)? as i128),
+            0x1b => Self::Integer(read_u64(r)? as i128),
 
             // Major type 1: a negative integer
-            0x20..=0x37 => Ipld::<C, H>::Integer(-1 - (major - 0x20) as i128),
-            0x38 => Ipld::<C, H>::Integer(-1 - read_u8(r)? as i128),
-            0x39 => Ipld::<C, H>::Integer(-1 - read_u16(r)? as i128),
-            0x3a => Ipld::<C, H>::Integer(-1 - read_u32(r)? as i128),
-            0x3b => Ipld::<C, H>::Integer(-1 - read_u64(r)? as i128),
+            0x20..=0x37 => Self::Integer(-1 - (major - 0x20) as i128),
+            0x38 => Self::Integer(-1 - read_u8(r)? as i128),
+            0x39 => Self::Integer(-1 - read_u16(r)? as i128),
+            0x3a => Self::Integer(-1 - read_u32(r)? as i128),
+            0x3b => Self::Integer(-1 - read_u64(r)? as i128),
 
             // Major type 2: a byte string
             0x40..=0x57 => {
                 let len = major - 0x40;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::<C, H>::Bytes(bytes)
+                Self::Bytes(bytes)
             }
             0x58 => {
                 let len = read_u8(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::<C, H>::Bytes(bytes)
+                Self::Bytes(bytes)
             }
             0x59 => {
                 let len = read_u16(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::<C, H>::Bytes(bytes)
+                Self::Bytes(bytes)
             }
             0x5a => {
                 let len = read_u32(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::<C, H>::Bytes(bytes)
+                Self::Bytes(bytes)
             }
             0x5b => {
                 let len = read_u64(r)?;
@@ -479,29 +479,29 @@ where
                     return Err(Error::LengthOutOfRange);
                 }
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::<C, H>::Bytes(bytes)
+                Self::Bytes(bytes)
             }
 
             // Major type 3: a text string
             0x60..=0x77 => {
                 let len = major - 0x60;
                 let string = read_str(r, len as usize)?;
-                Ipld::<C, H>::String(string)
+                Self::String(string)
             }
             0x78 => {
                 let len = read_u8(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::<C, H>::String(string)
+                Self::String(string)
             }
             0x79 => {
                 let len = read_u16(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::<C, H>::String(string)
+                Self::String(string)
             }
             0x7a => {
                 let len = read_u32(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::<C, H>::String(string)
+                Self::String(string)
             }
             0x7b => {
                 let len = read_u64(r)?;
@@ -509,29 +509,29 @@ where
                     return Err(Error::LengthOutOfRange);
                 }
                 let string = read_str(r, len as usize)?;
-                Ipld::<C, H>::String(string)
+                Self::String(string)
             }
 
             // Major type 4: an array of data items
             0x80..=0x97 => {
                 let len = major - 0x80;
                 let list = read_list(r, len as usize)?;
-                Ipld::<C, H>::List(list)
+                Self::List(list)
             }
             0x98 => {
                 let len = read_u8(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::<C, H>::List(list)
+                Self::List(list)
             }
             0x99 => {
                 let len = read_u16(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::<C, H>::List(list)
+                Self::List(list)
             }
             0x9a => {
                 let len = read_u32(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::<C, H>::List(list)
+                Self::List(list)
             }
             0x9b => {
                 let len = read_u64(r)?;
@@ -539,29 +539,29 @@ where
                     return Err(Error::LengthOutOfRange);
                 }
                 let list = read_list(r, len as usize)?;
-                Ipld::<C, H>::List(list)
+                Self::List(list)
             }
 
             // Major type 5: a map of pairs of data items
             0xa0..=0xb7 => {
                 let len = major - 0xa0;
                 let map = read_map(r, len as usize)?;
-                Ipld::<C, H>::Map(map)
+                Self::Map(map)
             }
             0xb8 => {
                 let len = read_u8(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::<C, H>::Map(map)
+                Self::Map(map)
             }
             0xb9 => {
                 let len = read_u16(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::<C, H>::Map(map)
+                Self::Map(map)
             }
             0xba => {
                 let len = read_u32(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::<C, H>::Map(map)
+                Self::Map(map)
             }
             0xbb => {
                 let len = read_u64(r)?;
@@ -569,19 +569,19 @@ where
                     return Err(Error::LengthOutOfRange);
                 }
                 let map = read_map(r, len as usize)?;
-                Ipld::<C, H>::Map(map)
+                Self::Map(map)
             }
 
             // Major type 6: optional semantic tagging of other major types
-            0xd8 => Ipld::<C, H>::Link(read_link(r)?),
+            0xd8 => Self::Link(read_link(r)?),
 
             // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4 => Ipld::<C, H>::Bool(false),
-            0xf5 => Ipld::<C, H>::Bool(true),
-            0xf6 => Ipld::<C, H>::Null,
-            0xf7 => Ipld::<C, H>::Null,
-            0xfa => Ipld::<C, H>::Float(read_f32(r)? as f64),
-            0xfb => Ipld::<C, H>::Float(read_f64(r)?),
+            0xf4 => Self::Bool(false),
+            0xf5 => Self::Bool(true),
+            0xf6 => Self::Null,
+            0xf7 => Self::Null,
+            0xfa => Self::Float(read_f32(r)? as f64),
+            0xfb => Self::Float(read_f64(r)?),
             _ => return Ok(None),
         };
         Ok(Some(ipld))
