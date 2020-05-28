@@ -260,15 +260,15 @@ where
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         match self {
-            Ipld::<C, H>::Null => write_null(w),
-            Ipld::<C, H>::Bool(b) => Encode::<DagCbor>::encode(b, w),
-            Ipld::<C, H>::Integer(i) => Encode::<DagCbor>::encode(i, w),
-            Ipld::<C, H>::Float(f) => Encode::<DagCbor>::encode(f, w),
-            Ipld::<C, H>::Bytes(b) => Encode::<DagCbor>::encode(b.as_slice(), w),
-            Ipld::<C, H>::String(s) => Encode::<DagCbor>::encode(s, w),
-            Ipld::<C, H>::List(l) => Encode::<DagCbor>::encode(l, w),
-            Ipld::<C, H>::Map(m) => Encode::<DagCbor>::encode(m, w),
-            Ipld::<C, H>::Link(c) => Encode::<DagCbor>::encode(c, w),
+            Self::Null => write_null(w),
+            Self::Bool(b) => Encode::<DagCbor>::encode(b, w),
+            Self::Integer(i) => Encode::<DagCbor>::encode(i, w),
+            Self::Float(f) => Encode::<DagCbor>::encode(f, w),
+            Self::Bytes(b) => Encode::<DagCbor>::encode(b.as_slice(), w),
+            Self::String(s) => Encode::<DagCbor>::encode(s, w),
+            Self::List(l) => Encode::<DagCbor>::encode(l, w),
+            Self::Map(m) => Encode::<DagCbor>::encode(m, w),
+            Self::Link(c) => Encode::<DagCbor>::encode(c, w),
         }
     }
 }
