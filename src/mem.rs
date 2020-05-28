@@ -1,4 +1,6 @@
 //! Reference implementation of the store traits.
+//!
+//! Note that currently it doesn't work with custom code tables.
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::error::StoreError;
@@ -167,10 +169,10 @@ mod tests {
     use super::*;
     use crate::block::{decode, encode, Block};
     use crate::cbor::DagCborCodec;
-    use crate::cid::Cid;
+    use crate::cid::{Cid, Codec as CCode};
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::Sha2_256;
+    use crate::multihash::{Code as HCode, Sha2_256};
     use crate::store::{Store, Visibility};
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
@@ -179,11 +181,12 @@ mod tests {
             Err(StoreError::BlockNotFound { .. }) => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<DagCborCodec, Ipld>(cid, &bytes).unwrap())
+        Some(decode::<CCode, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let Block { cid, data } = encode::<DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
+        let Block { cid, data } =
+            encode::<CCode, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
         store.insert(&cid, data, Visibility::Public).await.unwrap();
         cid
     }

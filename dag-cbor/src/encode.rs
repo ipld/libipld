@@ -1,10 +1,11 @@
 //! CBOR encoder.
 use crate::{DagCborCodec as DagCbor, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
-use libipld_core::cid::Cid;
+use libipld_core::cid::CidGeneric;
 use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
+use std::convert::TryFrom;
 use std::io::Write;
 
 /// Writes a null byte to a cbor encoded byte stream.
@@ -202,7 +203,11 @@ impl Encode<DagCbor> for i128 {
     }
 }
 
-impl Encode<DagCbor> for Cid {
+impl<C, H> Encode<DagCbor> for CidGeneric<C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
         // insert zero byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
@@ -248,18 +253,22 @@ impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
     }
 }
 
-impl Encode<DagCbor> for Ipld {
+impl<C, H> Encode<DagCbor> for Ipld<C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy + 'static,
+    H: Into<u64> + TryFrom<u64> + Copy + 'static,
+{
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         match self {
-            Ipld::Null => write_null(w),
-            Ipld::Bool(b) => Encode::<DagCbor>::encode(b, w),
-            Ipld::Integer(i) => Encode::<DagCbor>::encode(i, w),
-            Ipld::Float(f) => Encode::<DagCbor>::encode(f, w),
-            Ipld::Bytes(b) => Encode::<DagCbor>::encode(b.as_slice(), w),
-            Ipld::String(s) => Encode::<DagCbor>::encode(s, w),
-            Ipld::List(l) => Encode::<DagCbor>::encode(l, w),
-            Ipld::Map(m) => Encode::<DagCbor>::encode(m, w),
-            Ipld::Link(c) => Encode::<DagCbor>::encode(c, w),
+            Ipld::<C, H>::Null => write_null(w),
+            Ipld::<C, H>::Bool(b) => Encode::<DagCbor>::encode(b, w),
+            Ipld::<C, H>::Integer(i) => Encode::<DagCbor>::encode(i, w),
+            Ipld::<C, H>::Float(f) => Encode::<DagCbor>::encode(f, w),
+            Ipld::<C, H>::Bytes(b) => Encode::<DagCbor>::encode(b.as_slice(), w),
+            Ipld::<C, H>::String(s) => Encode::<DagCbor>::encode(s, w),
+            Ipld::<C, H>::List(l) => Encode::<DagCbor>::encode(l, w),
+            Ipld::<C, H>::Map(m) => Encode::<DagCbor>::encode(m, w),
+            Ipld::<C, H>::Link(c) => Encode::<DagCbor>::encode(c, w),
         }
     }
 }

@@ -216,9 +216,9 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "cid"
-version = "0.5.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50720fbd95ce5d9e51b6b81b7e4f5f93efdefb4b83aa46200dfc9fdfcd84b379"
+checksum = "8709d481fb78b9808f34a1b4b4fadd08a15a0971052c18bc2b751faefaed595e"
 dependencies = [
  "multibase",
  "multihash",

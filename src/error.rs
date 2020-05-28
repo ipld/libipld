@@ -1,6 +1,5 @@
 //! `Ipld` error definitions.
 use crate::cid::Cid;
-use crate::multihash::Multihash;
 pub use libipld_core::error::*;
 use thiserror::Error;
 
@@ -15,10 +14,12 @@ pub enum Error {
     BlockTooLarge(usize),
     /// Hash does not match the CID.
     #[error("Hash does not match the CID.")]
-    InvalidHash(Multihash),
+    // It is a Multihash, but it's already converted into bytes when reported, so that we
+    // don't need to bubble up all the generics into `Error`
+    InvalidHash(Vec<u8>),
     /// The codec is unsupported.
     #[error("Unsupported codec {0:?}.")]
-    UnsupportedCodec(crate::codec::Code),
+    UnsupportedCodec(u64),
     /// The multihash is unsupported.
     #[error("Unsupported multihash {0:?}.")]
     UnsupportedMultihash(crate::multihash::Code),

@@ -1,9 +1,9 @@
 //! Block validation
-use crate::cid::Cid;
+use crate::cid::{Cid, CidGeneric};
 use crate::codec::{Code as CCode, Codec, Decode, Encode};
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, Multihasher};
+use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
 use crate::raw::RawCodec;
 use crate::MAX_BLOCK_SIZE;
 #[cfg(feature = "dag-cbor")]
@@ -13,25 +13,37 @@ use libipld_json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]
 use libipld_pb::DagPbCodec;
 use std::collections::HashSet;
+use std::convert::TryFrom;
 
 /// Block
-pub struct Block {
+pub struct Block<C = CCode, H = HCode>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     /// Content identifier.
-    pub cid: Cid,
+    pub cid: CidGeneric<C, H>,
     /// Binary data.
     pub data: Box<[u8]>,
 }
 
-/// Encode a block.
-pub fn encode<C: Codec, H: Multihasher<HCode>, E: Encode<C>>(e: &E) -> Result<Block> {
+/// Encode a block.`
+pub fn encode<C, H, O, M, E>(e: &E) -> Result<Block<C, H>>
+where
+    O: Codec<C>,
+    M: Multihasher<H>,
+    E: Encode<O, C>,
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     let mut data = Vec::new();
     e.encode(&mut data)
         .map_err(|e| Error::CodecError(Box::new(e)))?;
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = H::digest(&data);
-    let cid = Cid::new_v1(C::CODE, hash);
+    let hash = M::digest(&data);
+    let cid = CidGeneric::<C, H>::new_v1(O::CODE, hash);
     Ok(Block {
         cid,
         data: data.into_boxed_slice(),
@@ -41,23 +53,36 @@ pub fn encode<C: Codec, H: Multihasher<HCode>, E: Encode<C>>(e: &E) -> Result<Bl
 /// Raw decode.
 ///
 /// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode<C: Codec, D: Decode<C>>(codec: CCode, mut data: &[u8]) -> Result<D> {
-    if codec != C::CODE {
-        return Err(Error::UnsupportedCodec(codec));
+pub fn raw_decode<C, H, O, D>(codec: C, mut data: &[u8]) -> Result<D>
+where
+    O: Codec<C>,
+    D: Decode<O, C>,
+    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    if u64::try_from(codec).unwrap() != O::CODE.into() {
+        return Err(Error::UnsupportedCodec(codec.into()));
     }
     D::decode(&mut data).map_err(|e| Error::CodecError(Box::new(e)))
 }
 
 /// Decodes a block.
-pub fn decode<C: Codec, D: Decode<C>>(cid: &Cid, data: &[u8]) -> Result<D> {
+pub fn decode<C, H, O, D>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<D>
+where
+    O: Codec<C>,
+    D: Decode<O, C>,
+    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+    Box<dyn MultihashDigest<H>>: From<H>,
+{
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = cid.hash().algorithm().digest(data);
+    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
     if hash.as_ref() != cid.hash() {
-        return Err(Error::InvalidHash(hash));
+        return Err(Error::InvalidHash(hash.to_vec()));
     }
-    raw_decode(cid.codec(), data)
+    raw_decode::<C, H, O, D>(cid.codec(), data)
 }
 
 /// Decode raw ipld.
@@ -65,34 +90,38 @@ pub fn decode<C: Codec, D: Decode<C>>(cid: &Cid, data: &[u8]) -> Result<D> {
 /// Useful for nested encodings when for example the data is encrypted.
 pub fn raw_decode_ipld(codec: CCode, data: &[u8]) -> Result<Ipld> {
     match codec {
-        RawCodec::CODE => raw_decode::<RawCodec, _>(codec, data),
+        RawCodec::CODE => raw_decode::<CCode, HCode, RawCodec, _>(codec, data),
         #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => raw_decode::<DagCborCodec, _>(codec, data),
+        DagCborCodec::CODE => raw_decode::<CCode, HCode, DagCborCodec, _>(codec, data),
         #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => raw_decode::<DagPbCodec, _>(codec, data),
+        DagPbCodec::CODE => raw_decode::<CCode, HCode, DagPbCodec, _>(codec, data),
         #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => raw_decode::<DagJsonCodec, _>(codec, data),
-        _ => Err(Error::UnsupportedCodec(codec)),
+        DagJsonCodec::CODE => raw_decode::<CCode, HCode, DagJsonCodec, _>(codec, data),
+        _ => Err(Error::UnsupportedCodec(codec.into())),
     }
 }
 
 /// Decode block to ipld.
 pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
     match cid.codec() {
-        RawCodec::CODE => decode::<RawCodec, _>(cid, data),
+        RawCodec::CODE => decode::<CCode, HCode, RawCodec, _>(cid, data),
         #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => decode::<DagCborCodec, _>(cid, data),
+        DagCborCodec::CODE => decode::<CCode, HCode, DagCborCodec, _>(cid, data),
         #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => decode::<DagPbCodec, _>(cid, data),
+        DagPbCodec::CODE => decode::<CCode, HCode, DagPbCodec, _>(cid, data),
         #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => decode::<DagJsonCodec, _>(cid, data),
-        _ => Err(Error::UnsupportedCodec(cid.codec())),
+        DagJsonCodec::CODE => decode::<CCode, HCode, DagJsonCodec, _>(cid, data),
+        _ => Err(Error::UnsupportedCodec(cid.codec().into())),
     }
 }
 
 /// Returns the references in an ipld block.
-pub fn references(ipld: &Ipld) -> HashSet<Cid> {
-    let mut set: HashSet<Cid> = Default::default();
+pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<CidGeneric<C, H>>
+where
+    C: Into<u64> + TryFrom<u64> + Copy + Eq,
+    H: Into<u64> + TryFrom<u64> + Copy + Eq,
+{
+    let mut set: HashSet<CidGeneric<C, H>> = Default::default();
     for ipld in ipld.iter() {
         if let Ipld::Link(cid) = ipld {
             set.insert(cid.to_owned());
@@ -104,6 +133,7 @@ pub fn references(ipld: &Ipld) -> HashSet<Cid> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cid::Cid;
     use crate::ipld;
     use crate::multihash::Sha2_256;
 
