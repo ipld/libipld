@@ -1,5 +1,6 @@
 //! `Ipld` error definitions.
 use crate::ipld::{Ipld, IpldIndex};
+use std::convert::TryFrom;
 use thiserror::Error;
 
 /// Type error.
@@ -49,8 +50,12 @@ pub enum TypeErrorType {
     Index(usize),
 }
 
-impl From<&Ipld> for TypeErrorType {
-    fn from(ipld: &Ipld) -> Self {
+impl<C, H> From<&Ipld<C, H>> for TypeErrorType
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    fn from(ipld: &Ipld<C, H>) -> Self {
         match ipld {
             Ipld::Null => Self::Null,
             Ipld::Bool(_) => Self::Bool,

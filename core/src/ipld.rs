@@ -60,7 +60,11 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
     }
 }
 
-impl Ipld {
+impl<C, H> Ipld<C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     /// Indexes into a ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
         let index = index.into();
@@ -89,7 +93,7 @@ impl Ipld {
     }
 
     /// Returns an iterator.
-    pub fn iter(&self) -> IpldIter<'_> {
+    pub fn iter(&self) -> IpldIter<'_, C, H> {
         IpldIter {
             stack: vec![Box::new(vec![self].into_iter())],
         }
@@ -97,12 +101,20 @@ impl Ipld {
 }
 
 /// Ipld iterator.
-pub struct IpldIter<'a> {
-    stack: Vec<Box<dyn Iterator<Item = &'a Ipld> + 'a>>,
+pub struct IpldIter<'a, C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    stack: Vec<Box<dyn Iterator<Item = &'a Ipld<C, H>> + 'a>>,
 }
 
-impl<'a> Iterator for IpldIter<'a> {
-    type Item = &'a Ipld;
+impl<'a, C, H> Iterator for IpldIter<'a, C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    type Item = &'a Ipld<C, H>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -131,40 +143,43 @@ impl<'a> Iterator for IpldIter<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cid::Cid;
-    use crate::multihash::Sha2_256;
+    use crate::cid::{Cid, Codec as CCode};
+    use crate::multihash::{Code as HCode, Sha2_256};
 
     #[test]
     fn ipld_bool_from() {
-        assert_eq!(Ipld::Bool(true), Ipld::from(true));
-        assert_eq!(Ipld::Bool(false), Ipld::from(false));
+        assert_eq!(Ipld::<CCode, HCode>::Bool(true), Ipld::from(true));
+        assert_eq!(Ipld::<CCode, HCode>::Bool(false), Ipld::from(false));
     }
 
     #[test]
     fn ipld_integer_from() {
-        assert_eq!(Ipld::Integer(1), Ipld::from(1i8));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1i16));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1i32));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1i64));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1i128));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i8));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i16));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i32));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i64));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i128));
 
         //assert_eq!(Ipld::Integer(1), 1u8.to_ipld().to_owned());
-        assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
-        assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u16));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u32));
+        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u64));
     }
 
     #[test]
     fn ipld_float_from() {
-        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
-        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
+        assert_eq!(Ipld::<CCode, HCode>::Float(1.0), Ipld::from(1.0f32));
+        assert_eq!(Ipld::<CCode, HCode>::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]
     fn ipld_string_from() {
-        assert_eq!(Ipld::String("a string".into()), Ipld::from("a string"));
         assert_eq!(
-            Ipld::String("a string".into()),
+            Ipld::<CCode, HCode>::String("a string".into()),
+            Ipld::from("a string")
+        );
+        assert_eq!(
+            Ipld::<CCode, HCode>::String("a string".into()),
             Ipld::from("a string".to_string())
         );
     }
@@ -172,11 +187,11 @@ mod tests {
     #[test]
     fn ipld_bytes_from() {
         assert_eq!(
-            Ipld::Bytes(vec![0, 1, 2, 3]),
+            Ipld::<CCode, HCode>::Bytes(vec![0, 1, 2, 3]),
             Ipld::from(&[0u8, 1u8, 2u8, 3u8][..])
         );
         assert_eq!(
-            Ipld::Bytes(vec![0, 1, 2, 3]),
+            Ipld::<CCode, HCode>::Bytes(vec![0, 1, 2, 3]),
             Ipld::from(vec![0u8, 1u8, 2u8, 3u8])
         );
     }
@@ -186,20 +201,21 @@ mod tests {
         let data = vec![0, 1, 2, 3];
         let hash = Sha2_256::digest(&data);
         let cid = Cid::new_v0(hash).unwrap();
-        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
+        assert_eq!(Ipld::<CCode, HCode>::Link(cid.clone()), Ipld::from(cid));
     }
 
     #[test]
     fn index() {
-        let ipld = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
+        let ipld =
+            Ipld::<CCode, HCode>::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
         assert_eq!(ipld.get(0).unwrap(), &Ipld::Integer(0));
         assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
         assert_eq!(ipld.get(2).unwrap(), &Ipld::Integer(2));
 
         let mut map = BTreeMap::new();
-        map.insert("a".to_string(), Ipld::Integer(0));
-        map.insert("b".to_string(), Ipld::Integer(1));
-        map.insert("c".to_string(), Ipld::Integer(2));
+        map.insert("a".to_string(), Ipld::<CCode, HCode>::Integer(0));
+        map.insert("b".to_string(), Ipld::<CCode, HCode>::Integer(1));
+        map.insert("c".to_string(), Ipld::<CCode, HCode>::Integer(2));
         let ipld = Ipld::Map(map);
         assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
     }

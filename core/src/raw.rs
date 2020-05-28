@@ -2,6 +2,7 @@
 use crate::codec::{Code, Codec, Decode, Encode};
 use crate::error::{TypeError, TypeErrorType};
 use crate::ipld::Ipld;
+use std::convert::TryFrom;
 use std::io::{Read, Write};
 use thiserror::Error;
 
@@ -43,7 +44,11 @@ impl Encode<RawCodec> for Vec<u8> {
     }
 }
 
-impl Encode<RawCodec> for Ipld {
+impl<C, H> Encode<RawCodec> for Ipld<C, H>
+where
+    C: Copy + TryFrom<u64> + Into<u64>,
+    H: Copy + TryFrom<u64> + Into<u64>,
+{
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
         if let Ipld::Bytes(bytes) = self {
             bytes.encode(w)
@@ -68,7 +73,11 @@ impl Decode<RawCodec> for Vec<u8> {
     }
 }
 
-impl Decode<RawCodec> for Ipld {
+impl<C, H> Decode<RawCodec> for Ipld<C, H>
+where
+    C: Copy + TryFrom<u64> + Into<u64>,
+    H: Copy + TryFrom<u64> + Into<u64>,
+{
     fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
         let bytes: Vec<u8> = Decode::<RawCodec>::decode(r)?;
         Ok(Ipld::Bytes(bytes))

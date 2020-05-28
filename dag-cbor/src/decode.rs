@@ -2,7 +2,7 @@
 use crate::{DagCborCodec as DagCbor, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
+use libipld_core::cid::CidGeneric;
 use libipld_core::codec::Decode;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
@@ -107,7 +107,12 @@ pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeM
 }
 
 /// Reads a cid from a stream of cbor encoded bytes.
-pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
+pub fn read_link<C, H, R>(r: &mut R) -> Result<CidGeneric<C, H>>
+where
+    R: Read,
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     let tag = read_u8(r)?;
     if tag != 42 {
         return Err(Error::UnknownTag);
@@ -127,7 +132,7 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
 
     // skip the first byte per
     // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
-    Ok(Cid::try_from(&bytes[1..])?)
+    Ok(CidGeneric::<C, H>::try_from(&bytes[1..])?)
 }
 
 /// `TryReadCbor` trait.
@@ -154,6 +159,17 @@ macro_rules! impl_decode {
     };
     ($ty:ident<$param:ident, T>) => {
         impl<T: TryReadCbor> Decode<DagCbor> for $ty<$param, T> {
+            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+                read(r)
+            }
+        }
+    };
+    ($ty:ident<C, H>) => {
+        impl<C, H> Decode<DagCbor> for $ty<C, H>
+        where
+            C: Into<u64> + TryFrom<u64> + Copy,
+            H: Into<u64> + TryFrom<u64> + Copy,
+        {
             fn decode<R: Read>(r: &mut R) -> Result<Self> {
                 read(r)
             }
@@ -321,7 +337,11 @@ impl TryReadCbor for String {
 }
 impl_decode!(String);
 
-impl TryReadCbor for Cid {
+impl<C, H> TryReadCbor for CidGeneric<C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xd8 => Ok(Some(read_link(r)?)),
@@ -329,7 +349,7 @@ impl TryReadCbor for Cid {
         }
     }
 }
-impl_decode!(Cid);
+impl_decode!(CidGeneric<C, H>);
 
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -411,43 +431,47 @@ impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
 }
 impl_decode!(BTreeMap<String, T>);
 
-impl TryReadCbor for Ipld {
+impl<C, H> TryReadCbor for Ipld<C, H>
+where
+    C: Into<u64> + TryFrom<u64> + Copy,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
             // Major type 0: an unsigned integer
-            0x00..=0x17 => Ipld::Integer(major as i128),
-            0x18 => Ipld::Integer(read_u8(r)? as i128),
-            0x19 => Ipld::Integer(read_u16(r)? as i128),
-            0x1a => Ipld::Integer(read_u32(r)? as i128),
-            0x1b => Ipld::Integer(read_u64(r)? as i128),
+            0x00..=0x17 => Ipld::<C, H>::Integer(major as i128),
+            0x18 => Ipld::<C, H>::Integer(read_u8(r)? as i128),
+            0x19 => Ipld::<C, H>::Integer(read_u16(r)? as i128),
+            0x1a => Ipld::<C, H>::Integer(read_u32(r)? as i128),
+            0x1b => Ipld::<C, H>::Integer(read_u64(r)? as i128),
 
             // Major type 1: a negative integer
-            0x20..=0x37 => Ipld::Integer(-1 - (major - 0x20) as i128),
-            0x38 => Ipld::Integer(-1 - read_u8(r)? as i128),
-            0x39 => Ipld::Integer(-1 - read_u16(r)? as i128),
-            0x3a => Ipld::Integer(-1 - read_u32(r)? as i128),
-            0x3b => Ipld::Integer(-1 - read_u64(r)? as i128),
+            0x20..=0x37 => Ipld::<C, H>::Integer(-1 - (major - 0x20) as i128),
+            0x38 => Ipld::<C, H>::Integer(-1 - read_u8(r)? as i128),
+            0x39 => Ipld::<C, H>::Integer(-1 - read_u16(r)? as i128),
+            0x3a => Ipld::<C, H>::Integer(-1 - read_u32(r)? as i128),
+            0x3b => Ipld::<C, H>::Integer(-1 - read_u64(r)? as i128),
 
             // Major type 2: a byte string
             0x40..=0x57 => {
                 let len = major - 0x40;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::Bytes(bytes)
+                Ipld::<C, H>::Bytes(bytes)
             }
             0x58 => {
                 let len = read_u8(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::Bytes(bytes)
+                Ipld::<C, H>::Bytes(bytes)
             }
             0x59 => {
                 let len = read_u16(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::Bytes(bytes)
+                Ipld::<C, H>::Bytes(bytes)
             }
             0x5a => {
                 let len = read_u32(r)?;
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::Bytes(bytes)
+                Ipld::<C, H>::Bytes(bytes)
             }
             0x5b => {
                 let len = read_u64(r)?;
@@ -455,29 +479,29 @@ impl TryReadCbor for Ipld {
                     return Err(Error::LengthOutOfRange);
                 }
                 let bytes = read_bytes(r, len as usize)?;
-                Ipld::Bytes(bytes)
+                Ipld::<C, H>::Bytes(bytes)
             }
 
             // Major type 3: a text string
             0x60..=0x77 => {
                 let len = major - 0x60;
                 let string = read_str(r, len as usize)?;
-                Ipld::String(string)
+                Ipld::<C, H>::String(string)
             }
             0x78 => {
                 let len = read_u8(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::String(string)
+                Ipld::<C, H>::String(string)
             }
             0x79 => {
                 let len = read_u16(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::String(string)
+                Ipld::<C, H>::String(string)
             }
             0x7a => {
                 let len = read_u32(r)?;
                 let string = read_str(r, len as usize)?;
-                Ipld::String(string)
+                Ipld::<C, H>::String(string)
             }
             0x7b => {
                 let len = read_u64(r)?;
@@ -485,29 +509,29 @@ impl TryReadCbor for Ipld {
                     return Err(Error::LengthOutOfRange);
                 }
                 let string = read_str(r, len as usize)?;
-                Ipld::String(string)
+                Ipld::<C, H>::String(string)
             }
 
             // Major type 4: an array of data items
             0x80..=0x97 => {
                 let len = major - 0x80;
                 let list = read_list(r, len as usize)?;
-                Ipld::List(list)
+                Ipld::<C, H>::List(list)
             }
             0x98 => {
                 let len = read_u8(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::List(list)
+                Ipld::<C, H>::List(list)
             }
             0x99 => {
                 let len = read_u16(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::List(list)
+                Ipld::<C, H>::List(list)
             }
             0x9a => {
                 let len = read_u32(r)?;
                 let list = read_list(r, len as usize)?;
-                Ipld::List(list)
+                Ipld::<C, H>::List(list)
             }
             0x9b => {
                 let len = read_u64(r)?;
@@ -515,29 +539,29 @@ impl TryReadCbor for Ipld {
                     return Err(Error::LengthOutOfRange);
                 }
                 let list = read_list(r, len as usize)?;
-                Ipld::List(list)
+                Ipld::<C, H>::List(list)
             }
 
             // Major type 5: a map of pairs of data items
             0xa0..=0xb7 => {
                 let len = major - 0xa0;
                 let map = read_map(r, len as usize)?;
-                Ipld::Map(map)
+                Ipld::<C, H>::Map(map)
             }
             0xb8 => {
                 let len = read_u8(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::Map(map)
+                Ipld::<C, H>::Map(map)
             }
             0xb9 => {
                 let len = read_u16(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::Map(map)
+                Ipld::<C, H>::Map(map)
             }
             0xba => {
                 let len = read_u32(r)?;
                 let map = read_map(r, len as usize)?;
-                Ipld::Map(map)
+                Ipld::<C, H>::Map(map)
             }
             0xbb => {
                 let len = read_u64(r)?;
@@ -545,22 +569,22 @@ impl TryReadCbor for Ipld {
                     return Err(Error::LengthOutOfRange);
                 }
                 let map = read_map(r, len as usize)?;
-                Ipld::Map(map)
+                Ipld::<C, H>::Map(map)
             }
 
             // Major type 6: optional semantic tagging of other major types
-            0xd8 => Ipld::Link(read_link(r)?),
+            0xd8 => Ipld::<C, H>::Link(read_link(r)?),
 
             // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4 => Ipld::Bool(false),
-            0xf5 => Ipld::Bool(true),
-            0xf6 => Ipld::Null,
-            0xf7 => Ipld::Null,
-            0xfa => Ipld::Float(read_f32(r)? as f64),
-            0xfb => Ipld::Float(read_f64(r)?),
+            0xf4 => Ipld::<C, H>::Bool(false),
+            0xf5 => Ipld::<C, H>::Bool(true),
+            0xf6 => Ipld::<C, H>::Null,
+            0xf7 => Ipld::<C, H>::Null,
+            0xfa => Ipld::<C, H>::Float(read_f32(r)? as f64),
+            0xfb => Ipld::<C, H>::Float(read_f64(r)?),
             _ => return Ok(None),
         };
         Ok(Some(ipld))
     }
 }
-impl_decode!(Ipld);
+impl_decode!(Ipld<C, H>);
