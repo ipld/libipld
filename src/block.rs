@@ -1,17 +1,11 @@
 //! Block validation
 use crate::cid::CidGeneric;
-use crate::codec::{Cid, Codec, Decode, Encode, IpldCodec};
+use crate::codec::{Codec, Decode, Encode, IpldCodec};
+use crate::encode_decode::EncodeDecodeIpld;
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
 use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
-use crate::raw::RawCodec;
 use crate::MAX_BLOCK_SIZE;
-#[cfg(feature = "dag-cbor")]
-use libipld_cbor::DagCborCodec;
-#[cfg(feature = "dag-json")]
-use libipld_json::DagJsonCodec;
-#[cfg(feature = "dag-pb")]
-use libipld_pb::DagPbCodec;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 
@@ -88,29 +82,33 @@ where
 /// Decode raw ipld.
 ///
 /// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode_ipld(codec: IpldCodec, data: &[u8]) -> Result<Ipld> {
-    match codec {
-        RawCodec::CODE => raw_decode::<IpldCodec, HCode, RawCodec, _>(codec, data),
-        #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => raw_decode::<IpldCodec, HCode, DagCborCodec, _>(codec, data),
-        #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => raw_decode::<IpldCodec, HCode, DagPbCodec, _>(codec, data),
-        #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => raw_decode::<IpldCodec, HCode, DagJsonCodec, _>(codec, data),
-    }
+pub fn raw_decode_ipld<C, H>(codec: C, data: &[u8]) -> Result<Ipld<C, H>>
+where
+    C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+{
+    codec
+        .decode(data)
+        .map_err(|e| Error::CodecError(Box::new(e)))
 }
 
 /// Decode block to ipld.
-pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
-    match cid.codec() {
-        RawCodec::CODE => decode::<IpldCodec, HCode, RawCodec, _>(cid, data),
-        #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => decode::<IpldCodec, HCode, DagCborCodec, _>(cid, data),
-        #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => decode::<IpldCodec, HCode, DagPbCodec, _>(cid, data),
-        #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => decode::<IpldCodec, HCode, DagJsonCodec, _>(cid, data),
+pub fn decode_ipld<C, H>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
+where
+    C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+    Box<dyn MultihashDigest<H>>: From<H>,
+{
+    if data.len() > MAX_BLOCK_SIZE {
+        return Err(Error::BlockTooLarge(data.len()));
     }
+    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
+    if hash.as_ref() != cid.hash() {
+        return Err(Error::InvalidHash(hash.to_vec()));
+    }
+    cid.codec()
+        .decode(data)
+        .map_err(|e| Error::CodecError(Box::new(e)))
 }
 
 /// Returns the references in an ipld block.
