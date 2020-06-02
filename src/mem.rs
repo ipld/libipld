@@ -2,7 +2,7 @@
 //!
 //! Note that currently it doesn't work with custom code tables.
 use crate::block::Block;
-use crate::cid::Cid;
+use crate::codec::Cid;
 use crate::error::StoreError;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
 use async_std::sync::{Arc, RwLock};
@@ -169,7 +169,7 @@ mod tests {
     use super::*;
     use crate::block::{decode, encode, Block};
     use crate::cbor::DagCborCodec;
-    use crate::cid::{Cid, Codec as CCode};
+    use crate::codec::{Cid, IpldCodec};
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::{Code as HCode, Sha2_256};
@@ -181,12 +181,12 @@ mod tests {
             Err(StoreError::BlockNotFound { .. }) => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<CCode, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
+        Some(decode::<IpldCodec, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
         let Block { cid, data } =
-            encode::<CCode, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
+            encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
         store.insert(&cid, data, Visibility::Public).await.unwrap();
         cid
     }

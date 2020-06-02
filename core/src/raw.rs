@@ -1,5 +1,5 @@
 //! Implements the raw codec.
-use crate::codec::{Code, Codec, Decode, Encode};
+use crate::codec::{Codec, Decode, Encode, IpldCodec};
 use crate::error::{TypeError, TypeErrorType};
 use crate::ipld::Ipld;
 use std::convert::TryFrom;
@@ -10,7 +10,7 @@ use thiserror::Error;
 pub struct RawCodec;
 
 impl Codec for RawCodec {
-    const CODE: Code = Code::Raw;
+    const CODE: IpldCodec = IpldCodec::Raw;
 
     type Error = RawError;
 }

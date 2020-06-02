@@ -78,15 +78,15 @@ jobs:
 
     - name: Build
       if: contains(matrix.platform.target, 'android') == false
-      run: cargo build --all --target ${{ matrix.platform.target }}
+      run: cargo build --workspace --all-features --target ${{ matrix.platform.target }}
 
     - name: Build android
       if: contains(matrix.platform.target, 'android')
-      run: cargo ndk --android-platform 29 --target ${{ matrix.platform.target }} build --all
+      run: cargo ndk --android-platform 29 --target ${{ matrix.platform.target }} build --workspace --all-features
 
     - name: Rust tests
       if: matrix.platform.cross == false
-      run: cargo test --all
+      run: cargo test --workspace --all-features
 
   lint-rust:
     runs-on: ubuntu-latest
@@ -110,4 +110,4 @@ jobs:
       run: cargo fmt --all -- --check
 
     - name: cargo clippy
-      run: cargo clippy --workspace --examples --tests -- -D warnings
+      run: cargo clippy --workspace --all-features --examples --tests -- -D warnings

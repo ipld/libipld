@@ -1,6 +1,6 @@
 //! Block validation
-use crate::cid::{Cid, CidGeneric};
-use crate::codec::{Code as CCode, Codec, Decode, Encode};
+use crate::cid::CidGeneric;
+use crate::codec::{Cid, Codec, Decode, Encode, IpldCodec};
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
 use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
@@ -16,7 +16,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 
 /// Block
-pub struct Block<C = CCode, H = HCode>
+pub struct Block<C = IpldCodec, H = HCode>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
@@ -88,30 +88,28 @@ where
 /// Decode raw ipld.
 ///
 /// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode_ipld(codec: CCode, data: &[u8]) -> Result<Ipld> {
+pub fn raw_decode_ipld(codec: IpldCodec, data: &[u8]) -> Result<Ipld> {
     match codec {
-        RawCodec::CODE => raw_decode::<CCode, HCode, RawCodec, _>(codec, data),
+        RawCodec::CODE => raw_decode::<IpldCodec, HCode, RawCodec, _>(codec, data),
         #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => raw_decode::<CCode, HCode, DagCborCodec, _>(codec, data),
+        DagCborCodec::CODE => raw_decode::<IpldCodec, HCode, DagCborCodec, _>(codec, data),
         #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => raw_decode::<CCode, HCode, DagPbCodec, _>(codec, data),
+        DagPbCodec::CODE => raw_decode::<IpldCodec, HCode, DagPbCodec, _>(codec, data),
         #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => raw_decode::<CCode, HCode, DagJsonCodec, _>(codec, data),
-        _ => Err(Error::UnsupportedCodec(codec.into())),
+        DagJsonCodec::CODE => raw_decode::<IpldCodec, HCode, DagJsonCodec, _>(codec, data),
     }
 }
 
 /// Decode block to ipld.
 pub fn decode_ipld(cid: &Cid, data: &[u8]) -> Result<Ipld> {
     match cid.codec() {
-        RawCodec::CODE => decode::<CCode, HCode, RawCodec, _>(cid, data),
+        RawCodec::CODE => decode::<IpldCodec, HCode, RawCodec, _>(cid, data),
         #[cfg(feature = "dag-cbor")]
-        DagCborCodec::CODE => decode::<CCode, HCode, DagCborCodec, _>(cid, data),
+        DagCborCodec::CODE => decode::<IpldCodec, HCode, DagCborCodec, _>(cid, data),
         #[cfg(feature = "dag-pb")]
-        DagPbCodec::CODE => decode::<CCode, HCode, DagPbCodec, _>(cid, data),
+        DagPbCodec::CODE => decode::<IpldCodec, HCode, DagPbCodec, _>(cid, data),
         #[cfg(feature = "dag-json")]
-        DagJsonCodec::CODE => decode::<CCode, HCode, DagJsonCodec, _>(cid, data),
-        _ => Err(Error::UnsupportedCodec(cid.codec().into())),
+        DagJsonCodec::CODE => decode::<IpldCodec, HCode, DagJsonCodec, _>(cid, data),
     }
 }
 
@@ -133,15 +131,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cid::Cid;
+    use crate::codec::Cid;
     use crate::ipld;
     use crate::multihash::Sha2_256;
 
     #[test]
     fn test_references() {
-        let cid1 = Cid::new_v0(Sha2_256::digest(b"cid1")).unwrap();
-        let cid2 = Cid::new_v0(Sha2_256::digest(b"cid2")).unwrap();
-        let cid3 = Cid::new_v0(Sha2_256::digest(b"cid3")).unwrap();
+        let cid1 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid1"));
+        let cid2 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid2"));
+        let cid3 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid3"));
         let ipld = ipld!({
             "cid1": &cid1,
             "cid2": { "other": true, "cid2": { "cid2": &cid2 }},

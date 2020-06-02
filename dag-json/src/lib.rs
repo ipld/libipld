@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Code, Codec, Decode, Encode};
+use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
 use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
@@ -16,7 +16,7 @@ mod codec;
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {
-    const CODE: Code = Code::DagJSON;
+    const CODE: IpldCodec = IpldCodec::DagJson;
 
     type Error = Error;
 }
@@ -44,14 +44,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::Cid;
+    use libipld_core::codec::Cid;
     use libipld_core::multihash::Sha2_256;
     use std::collections::BTreeMap;
 
     #[test]
     fn encode_struct() {
         let digest = Sha2_256::digest(b"block");
-        let cid = Cid::new_v0(digest).unwrap();
+        let cid = Cid::new_v1(IpldCodec::Raw, digest);
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }
