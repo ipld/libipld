@@ -1,5 +1,6 @@
 //! Ipld representation.
-use crate::cid::{CidGeneric, Codec};
+use crate::cid::CidGeneric;
+use crate::codec::IpldCodec;
 use crate::error::TypeError;
 use crate::multihash::Code as MultihashCode;
 use std::collections::BTreeMap;
@@ -7,7 +8,7 @@ use std::convert::TryFrom;
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ipld<C = Codec, H = MultihashCode>
+pub enum Ipld<C = IpldCodec, H = MultihashCode>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,

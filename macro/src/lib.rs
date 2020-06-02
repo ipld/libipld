@@ -50,7 +50,7 @@
 ///     "comma -->",
 /// ]);
 /// ```
-pub use libipld_core::cid::{Cid, Codec as CCode};
+pub use libipld_core::codec::{Cid, IpldCodec};
 pub use libipld_core::ipld::Ipld;
 
 #[macro_export(local_inner_macros)]
@@ -268,7 +268,7 @@ macro_rules! ipld_internal {
     // Must be below every other rule.
     ($other:expr) => {
         {
-            $crate::Ipld::<$crate::CCode>::from($other)
+            $crate::Ipld::<$crate::IpldCodec>::from($other)
         }
     };
 }
@@ -311,6 +311,6 @@ mod tests {
             "numbers": [1, 2, 3],
             "a": a,
         });
-        let _: Ipld = ipld!(Cid::new_v0(Sha2_256::digest(b"cid")).unwrap());
+        let _: Ipld = ipld!(Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid")));
     }
 }

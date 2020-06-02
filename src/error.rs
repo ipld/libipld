@@ -1,5 +1,5 @@
 //! `Ipld` error definitions.
-use crate::cid::Cid;
+use crate::codec::Cid;
 pub use libipld_core::error::*;
 use thiserror::Error;
 
