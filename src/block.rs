@@ -54,7 +54,7 @@ where
     C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    if u64::try_from(codec).unwrap() != O::CODE.into() {
+    if codec != O::CODE {
         return Err(Error::UnsupportedCodec(codec.into()));
     }
     D::decode(&mut data).map_err(|e| Error::CodecError(Box::new(e)))
