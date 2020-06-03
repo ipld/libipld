@@ -79,19 +79,6 @@ where
     raw_decode::<C, H, O, D>(cid.codec(), data)
 }
 
-/// Decode raw ipld.
-///
-/// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode_ipld<C, H>(codec: C, data: &[u8]) -> Result<Ipld<C, H>>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-{
-    codec
-        .decode(data)
-        .map_err(|e| Error::CodecError(Box::new(e)))
-}
-
 /// Decode block to ipld.
 pub fn decode_ipld<C, H>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
 where
