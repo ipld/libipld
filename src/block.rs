@@ -105,7 +105,6 @@ where
         if let Some(node) = &self.node {
             Ok(node.clone())
         } else if let Some(raw) = &self.raw {
-            //let decoded = Box::<dyn DynIpldCodec>::from(Box::new(self.codec))._decode(&raw).unwrap();
             let decoded = self.codec.decode(&raw).unwrap();
             self.node = Some(decoded.clone());
             Ok(decoded)
@@ -122,10 +121,6 @@ where
         if let Some(raw) = &self.raw {
             Ok(raw.clone())
         } else if let Some(node) = &self.node {
-            //let encoded = Box::<dyn Codec>::from(self.codec)
-            //    .encode(&node)
-            //    .unwrap()
-            //    .to_vec();
             let encoded = self.codec.encode(&node).unwrap().to_vec();
             self.raw = Some(encoded.clone());
             Ok(encoded)
@@ -147,7 +142,6 @@ where
         if let Some(cid) = &self.cid {
             Ok(cid.clone())
         } else {
-            // TODO vmx 2020-01-31: should probably be `encodeUnsafe()`
             let hash = Box::<dyn MultihashDigest<H>>::from(self.hash_alg).digest(&self.encode()?);
             let cid = CidGeneric::new_v1(self.codec, hash);
             Ok(cid)
@@ -347,7 +341,6 @@ where
             let hash = if let Some(raw) = &self.raw {
                 hasher.digest(raw)
             } else {
-                // TODO vmx 2020-01-31: should probably be `encodeUnsafe()`
                 hasher.digest(&self.encode()?)
             };
             let cid = CidGeneric::new_v1(self.codec, hash);
