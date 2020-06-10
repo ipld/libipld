@@ -14,10 +14,10 @@ use thiserror::Error;
 pub enum BlockError {
     /// TDOO
     #[error("Cannot decode block.")]
-    DecodeError,
+    DecodeError(String),
     /// TDOO
     #[error("Cannot encode block.")]
-    EncodeError,
+    EncodeError(String),
     /// TDOO
     #[error("Cannot find codec implementation.")]
     CodecNotFound,
@@ -105,11 +105,16 @@ where
         if let Some(ref node) = self.node {
             Ok(node)
         } else if let Some(ref raw) = self.raw {
-            let decoded = self.codec.decode(raw).unwrap();
+            let decoded = self
+                .codec
+                .decode(raw)
+                .map_err(|err| BlockError::DecodeError(err.to_string()))?;
             self.node = Some(decoded);
             Ok(self.node.as_ref().unwrap())
         } else {
-            Err(BlockError::DecodeError)
+            Err(BlockError::DecodeError(
+                "Block is missing data.".to_string(),
+            ))
         }
     }
 
@@ -121,11 +126,15 @@ where
         if let Some(ref raw) = self.raw {
             Ok(raw)
         } else if let Some(ref node) = self.node {
-            let encoded = self.codec.encode(node).unwrap().to_vec();
+            let encoded = self
+                .codec
+                .encode(node)
+                .map_err(|err| BlockError::EncodeError(err.to_string()))?
+                .to_vec();
             self.raw = Some(encoded);
             Ok(self.raw.as_ref().unwrap())
         } else {
-            Err(BlockError::EncodeError)
+            Err(BlockError::EncodeError("Block is missing data".to_string()))
         }
     }
 
@@ -285,11 +294,16 @@ where
         }
         // The data needs to be decoded
         else if let Some(ref raw) = self.raw {
-            let decoded = self.codec.decode(raw).unwrap();
+            let decoded = self
+                .codec
+                .decode(raw)
+                .map_err(|err| BlockError::DecodeError(err.to_string()))?;
             self.node_cached = Some(decoded);
             Ok(self.node_cached.as_ref().unwrap())
         } else {
-            Err(BlockError::DecodeError)
+            Err(BlockError::DecodeError(
+                "Block is missing data.".to_string(),
+            ))
         }
     }
 
@@ -308,11 +322,15 @@ where
         }
         // The data needs to be decoded
         else if let Some(ref node) = self.node {
-            let encoded = self.codec.encode(node).unwrap().to_vec();
+            let encoded = self
+                .codec
+                .encode(node)
+                .map_err(|err| BlockError::EncodeError(err.to_string()))?
+                .to_vec();
             self.raw_cached = Some(encoded);
             Ok(self.raw_cached.as_ref().unwrap())
         } else {
-            Err(BlockError::EncodeError)
+            Err(BlockError::EncodeError("Block is missing data".to_string()))
         }
     }
 
