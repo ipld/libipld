@@ -63,7 +63,7 @@ where
         if self.blocks.contains_key(cid) {
             return Ok(());
         }
-        let ipld = BlockRefGeneric::<C, H>::new(cid, &data).decode()?;
+        let ipld = BlockRefGeneric::<C, H>::new(cid, &data).decode()?.clone();
         let refs = crate::block::references(&ipld);
         for cid in &refs {
             self.add_referer(&cid, 1);
@@ -79,7 +79,7 @@ where
     ) -> Result<CidGeneric<C, H>, StoreError> {
         let mut last_cid = None;
         for mut block in batch.into_iter() {
-            let cid = block.cid()?;
+            let cid = block.cid()?.clone();
             self.insert_block(&cid, block.encode()?.into())?;
             last_cid = Some(cid);
         }
@@ -236,18 +236,14 @@ mod tests {
             Err(StoreError::BlockNotFound { .. }) => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(BlockRef::new(cid, &bytes).decode().unwrap())
+        Some(BlockRef::new(cid, &bytes).decode().unwrap().clone())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
         let mut block = BlockRef::encoder(ipld, IpldCodec::DagCbor, HCode::Sha2_256);
-        let cid = block.cid().unwrap();
+        let cid = block.cid().unwrap().clone();
         store
-            .insert(
-                &cid,
-                block.encode().unwrap().into_boxed_slice(),
-                Visibility::Public,
-            )
+            .insert(&cid, block.encode().unwrap().into(), Visibility::Public)
             .await
             .unwrap();
         cid

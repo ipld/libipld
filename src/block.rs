@@ -101,13 +101,13 @@ where
     ///
     /// The actual decoding is only performed if the object doesn't have a copy of the IPLD
     /// object yet. If that method was called before, it returns the cached result.
-    pub fn decode(&mut self) -> Result<Ipld<C, H>, BlockError> {
-        if let Some(node) = &self.node {
-            Ok(node.clone())
-        } else if let Some(raw) = &self.raw {
-            let decoded = self.codec.decode(&raw).unwrap();
-            self.node = Some(decoded.clone());
-            Ok(decoded)
+    pub fn decode(&mut self) -> Result<&Ipld<C, H>, BlockError> {
+        if let Some(ref node) = self.node {
+            Ok(node)
+        } else if let Some(ref raw) = self.raw {
+            let decoded = self.codec.decode(raw).unwrap();
+            self.node = Some(decoded);
+            Ok(self.node.as_ref().unwrap())
         } else {
             Err(BlockError::DecodeError)
         }
@@ -117,13 +117,13 @@ where
     ///
     /// The actual encoding is only performed if the object doesn't have a copy of the encoded
     /// raw binary data yet. If that method was called before, it returns the cached result.
-    pub fn encode(&mut self) -> Result<Vec<u8>, BlockError> {
-        if let Some(raw) = &self.raw {
-            Ok(raw.clone())
-        } else if let Some(node) = &self.node {
-            let encoded = self.codec.encode(&node).unwrap().to_vec();
-            self.raw = Some(encoded.clone());
-            Ok(encoded)
+    pub fn encode(&mut self) -> Result<&[u8], BlockError> {
+        if let Some(ref raw) = self.raw {
+            Ok(raw)
+        } else if let Some(ref node) = self.node {
+            let encoded = self.codec.encode(node).unwrap().to_vec();
+            self.raw = Some(encoded);
+            Ok(self.raw.as_ref().unwrap())
         } else {
             Err(BlockError::EncodeError)
         }
@@ -135,16 +135,16 @@ where
     /// operation will be performed. If the encoded data is already available, from a previous
     /// call of `encode()` or because the `Block` was instantiated via `encoder()`, then it
     /// isn't re-encoded.
-    pub fn cid(&mut self) -> Result<CidGeneric<C, H>, BlockError>
+    pub fn cid(&mut self) -> Result<&CidGeneric<C, H>, BlockError>
     where
         Box<dyn MultihashDigest<H>>: From<H>,
     {
-        if let Some(cid) = &self.cid {
-            Ok(cid.clone())
+        if let Some(ref cid) = self.cid {
+            Ok(cid)
         } else {
             let hash = Box::<dyn MultihashDigest<H>>::from(self.hash_alg).digest(&self.encode()?);
-            let cid = CidGeneric::new_v1(self.codec, hash);
-            Ok(cid)
+            self.cid = Some(CidGeneric::new_v1(self.codec, hash));
+            Ok(self.cid.as_ref().unwrap())
         }
     }
 }
@@ -274,20 +274,20 @@ where
     ///
     /// The actual decoding is only performed if the object doesn't have a copy of the IPLD
     /// object yet. If that method was called before, it returns the cached result.
-    pub fn decode(&mut self) -> Result<Ipld<C, H>, BlockError> {
+    pub fn decode(&mut self) -> Result<&Ipld<C, H>, BlockError> {
         // The block was constructed with a decdoded data
-        if let Some(node) = &self.node {
-            Ok((*node).clone())
+        if let Some(node) = self.node {
+            Ok(node)
         }
         // The decoder was already called at least once
-        else if let Some(node_cached) = &self.node_cached {
-            Ok(node_cached.clone())
+        else if let Some(ref node_cached) = self.node_cached {
+            Ok(node_cached)
         }
         // The data needs to be decoded
-        else if let Some(raw) = &self.raw {
-            let decoded = self.codec.decode(&raw).unwrap();
-            self.node_cached = Some(decoded.clone());
-            Ok(decoded)
+        else if let Some(ref raw) = self.raw {
+            let decoded = self.codec.decode(raw).unwrap();
+            self.node_cached = Some(decoded);
+            Ok(self.node_cached.as_ref().unwrap())
         } else {
             Err(BlockError::DecodeError)
         }
@@ -297,20 +297,20 @@ where
     ///
     /// The actual encoding is only performed if the object doesn't have a copy of the encoded
     /// raw binary data yet. If that method was called before, it returns the cached result.
-    pub fn encode(&mut self) -> Result<Vec<u8>, BlockError> {
+    pub fn encode(&mut self) -> Result<&[u8], BlockError> {
         // The block was constructed with an encoded data
-        if let Some(raw) = &self.raw {
-            Ok(raw.to_vec())
+        if let Some(raw) = self.raw {
+            Ok(raw)
         }
         // The encoder was already called at least once
-        else if let Some(raw_cached) = &self.raw_cached {
-            Ok(raw_cached.clone())
+        else if let Some(ref raw_cached) = self.raw_cached {
+            Ok(raw_cached)
         }
         // The data needs to be decoded
-        else if let Some(node) = &self.node {
-            let encoded = self.codec.encode(&node).unwrap().to_vec();
-            self.raw_cached = Some(encoded.clone());
-            Ok(encoded)
+        else if let Some(ref node) = self.node {
+            let encoded = self.codec.encode(node).unwrap().to_vec();
+            self.raw_cached = Some(encoded);
+            Ok(self.raw_cached.as_ref().unwrap())
         } else {
             Err(BlockError::EncodeError)
         }
@@ -322,17 +322,17 @@ where
     /// operation will be performed. If the encoded data is already available, from a previous
     /// call of `encode()` or because the `Block` was instantiated via `encoder()`, then it
     /// isn't re-encoded.
-    pub fn cid(&mut self) -> Result<CidGeneric<C, H>, BlockError>
+    pub fn cid(&mut self) -> Result<&CidGeneric<C, H>, BlockError>
     where
         Box<dyn MultihashDigest<H>>: From<H>,
     {
         // The block was constructed with a CID
-        if let Some(cid) = &self.cid {
-            Ok((*cid).clone())
+        if let Some(cid) = self.cid {
+            Ok(cid)
         }
         // The CID was already calculated at leat once
-        else if let Some(cid_cached) = &self.cid_cached {
-            Ok(cid_cached.clone())
+        else if let Some(ref cid_cached) = self.cid_cached {
+            Ok(cid_cached)
         }
         // The CID needs to be calculated
         else {
@@ -343,8 +343,8 @@ where
             } else {
                 hasher.digest(&self.encode()?)
             };
-            let cid = CidGeneric::new_v1(self.codec, hash);
-            Ok(cid)
+            self.cid_cached = Some(CidGeneric::new_v1(self.codec, hash));
+            Ok(self.cid_cached.as_ref().unwrap())
         }
     }
 }
