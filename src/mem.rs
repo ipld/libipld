@@ -1,5 +1,5 @@
 //! Reference implementation of the store traits.
-use crate::block::Block;
+use crate::block::{BlockGeneric, BlockRefGeneric};
 use crate::cid::CidGeneric;
 use crate::encode_decode::EncodeDecodeIpld;
 use crate::error::StoreError;
@@ -63,8 +63,7 @@ where
         if self.blocks.contains_key(cid) {
             return Ok(());
         }
-        let ipld = crate::block::decode_ipld::<C, H>(cid, &data)
-            .map_err(|e| StoreError::Other(Box::new(e)))?;
+        let ipld = BlockRefGeneric::<C, H>::new(cid, &data).decode()?;
         let refs = crate::block::references(&ipld);
         for cid in &refs {
             self.add_referer(&cid, 1);
@@ -74,10 +73,14 @@ where
         Ok(())
     }
 
-    fn insert_batch(&mut self, batch: Vec<Block<C, H>>) -> Result<CidGeneric<C, H>, StoreError> {
+    fn insert_batch(
+        &mut self,
+        batch: Vec<BlockGeneric<C, H>>,
+    ) -> Result<CidGeneric<C, H>, StoreError> {
         let mut last_cid = None;
-        for Block { cid, data } in batch.into_iter() {
-            self.insert_block(&cid, data)?;
+        for mut block in batch.into_iter() {
+            let cid = block.cid()?;
+            self.insert_block(&cid, block.encode()?.into())?;
             last_cid = Some(cid);
         }
         Ok(last_cid.ok_or(StoreError::EmptyBatch)?)
@@ -170,7 +173,7 @@ where
 
     fn insert_batch<'a>(
         &'a self,
-        batch: Vec<Block<C, H>>,
+        batch: Vec<BlockGeneric<C, H>>,
         _visibility: Visibility,
     ) -> StoreResult<'a, CidGeneric<C, H>> {
         Box::pin(async move { self.inner.write().await.insert_batch(batch) })
@@ -220,12 +223,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::{decode, encode, Block};
-    use crate::cbor::DagCborCodec;
+    use crate::block::BlockRef;
     use crate::codec::{Cid, IpldCodec};
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::{Code as HCode, Sha2_256};
+    use crate::multihash::Code as HCode;
     use crate::store::{Store, Visibility};
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
@@ -234,13 +236,20 @@ mod tests {
             Err(StoreError::BlockNotFound { .. }) => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<IpldCodec, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
+        Some(BlockRef::new(cid, &bytes).decode().unwrap())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let Block { cid, data } =
-            encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
-        store.insert(&cid, data, Visibility::Public).await.unwrap();
+        let mut block = BlockRef::encoder(ipld, IpldCodec::DagCbor, HCode::Sha2_256);
+        let cid = block.cid().unwrap();
+        store
+            .insert(
+                &cid,
+                block.encode().unwrap().into_boxed_slice(),
+                Visibility::Public,
+            )
+            .await
+            .unwrap();
         cid
     }
 

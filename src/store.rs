@@ -1,7 +1,8 @@
 //! Store traits.
-use crate::block::Block;
+use crate::block::BlockGeneric;
 use crate::cid::CidGeneric;
 use crate::codec::IpldCodec;
+use crate::encode_decode::EncodeDecodeIpld;
 use crate::error::StoreError;
 use crate::multihash::Code as MultihashCode;
 use core::future::Future;
@@ -24,7 +25,7 @@ pub enum Visibility {
 /// Implementable by ipld storage providers.
 pub trait ReadonlyStore<C = IpldCodec, H = MultihashCode>: Clone
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
+    C: Into<u64> + TryFrom<u64> + Copy + EncodeDecodeIpld<H>,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Returns a block from the store. If the block is not in the store it fetches it from the
@@ -35,7 +36,7 @@ where
 /// Implementable by ipld storage backends.
 pub trait Store<C = IpldCodec, H = MultihashCode>: ReadonlyStore<C, H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
+    C: Into<u64> + TryFrom<u64> + Copy + EncodeDecodeIpld<H>,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Inserts and pins block into the store and announces it if it is visible.
@@ -50,7 +51,7 @@ where
     /// if it is visible. The last block is pinned.
     fn insert_batch<'a>(
         &'a self,
-        batch: Vec<Block<C, H>>,
+        batch: Vec<BlockGeneric<C, H>>,
         visibility: Visibility,
     ) -> StoreResult<'a, CidGeneric<C, H>>;
 
@@ -64,7 +65,7 @@ where
 /// Implemented by ipld storage backends that support multiple users.
 pub trait MultiUserStore<C, H>: Store<C, H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
+    C: Into<u64> + TryFrom<u64> + Copy + EncodeDecodeIpld<H>,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Pin a block.

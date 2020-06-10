@@ -1,4 +1,5 @@
 //! `Ipld` error definitions.
+use crate::block::BlockError;
 pub use libipld_core::error::*;
 use thiserror::Error;
 
@@ -47,4 +48,7 @@ pub enum StoreError {
     /// Other failure.
     #[error("{0}")]
     Other(#[from] Box<dyn std::error::Error + Send>),
+    /// Block API encoding/decoding errors.
+    #[error("Block encoding/decoding failed: {0}")]
+    BlockApi(#[from] BlockError),
 }
