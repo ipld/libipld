@@ -42,7 +42,7 @@ where
     H: Copy + TryFrom<u64> + Into<u64>,
 {
     cid: Option<CidGeneric<C, H>>,
-    raw: Option<Vec<u8>>,
+    raw: Option<Box<[u8]>>,
     node: Option<Ipld<C, H>>,
     codec: C,
     hash_alg: H,
@@ -57,7 +57,7 @@ where
     ///
     /// It needs a registry that contains codec and hash algorithms implementations in order to
     /// be able to decode the data into IPLD.
-    pub fn new(cid: CidGeneric<C, H>, raw: Vec<u8>) -> Self {
+    pub fn new(cid: CidGeneric<C, H>, raw: Box<[u8]>) -> Self {
         let codec = cid.codec();
         let hash_alg = cid.hash().algorithm();
         Self {
@@ -87,7 +87,7 @@ where
     ///
     /// No computation is done, the CID creation and the decoding will only be performed when the
     /// corresponding methods are called.
-    pub fn decoder(raw: Vec<u8>, codec: C, hash_alg: H) -> Self {
+    pub fn decoder(raw: Box<[u8]>, codec: C, hash_alg: H) -> Self {
         Self {
             cid: None,
             raw: Some(raw),
@@ -129,8 +129,7 @@ where
             let encoded = self
                 .codec
                 .encode(node)
-                .map_err(|err| BlockError::EncodeError(err.to_string()))?
-                .to_vec();
+                .map_err(|err| BlockError::EncodeError(err.to_string()))?;
             self.raw = Some(encoded);
             Ok(self.raw.as_ref().unwrap())
         } else {
@@ -217,7 +216,7 @@ where
     codec: C,
     hash_alg: H,
     cid_cached: Option<CidGeneric<C, H>>,
-    raw_cached: Option<Vec<u8>>,
+    raw_cached: Option<Box<[u8]>>,
     node_cached: Option<Ipld<C, H>>,
 }
 
@@ -325,8 +324,7 @@ where
             let encoded = self
                 .codec
                 .encode(node)
-                .map_err(|err| BlockError::EncodeError(err.to_string()))?
-                .to_vec();
+                .map_err(|err| BlockError::EncodeError(err.to_string()))?;
             self.raw_cached = Some(encoded);
             Ok(self.raw_cached.as_ref().unwrap())
         } else {
