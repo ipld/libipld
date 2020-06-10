@@ -12,16 +12,16 @@ use thiserror::Error;
 /// Block API Error.
 #[derive(Error, Debug)]
 pub enum BlockError {
-    /// TDOO
+    /// Block cannot be decoded.
     #[error("Cannot decode block.")]
     DecodeError(String),
-    /// TDOO
+    /// Block cannot be encoded.
     #[error("Cannot encode block.")]
     EncodeError(String),
-    /// TDOO
+    /// Codec implementation not found.
     #[error("Cannot find codec implementation.")]
     CodecNotFound,
-    /// TDOO
+    /// Hash algorithm implementation not found.
     #[error("Cannot find hash algorithm implementation.")]
     HashAlgNotFound,
 }
