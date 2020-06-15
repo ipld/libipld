@@ -3,7 +3,7 @@ use crate::cid::CidGeneric;
 use crate::codec::{Codec, Decode, Encode, IpldCodec};
 use crate::encode_decode::EncodeDecodeIpld;
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
+use crate::multihash::{Code as HCode, DigestFromCode, Multihasher};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt;
@@ -142,12 +142,12 @@ where
     /// isn't re-encoded.
     pub fn cid(&mut self) -> Result<&CidGeneric<C, H>, BlockError>
     where
-        Box<dyn MultihashDigest<H>>: From<H>,
+        H: DigestFromCode,
     {
         if let Some(ref cid) = self.cid {
             Ok(cid)
         } else {
-            let hash = Box::<dyn MultihashDigest<H>>::from(self.hash_alg).digest(&self.encode()?);
+            let hash = self.hash_alg.clone().digest(&self.encode()?);
             self.cid = Some(CidGeneric::new_v1(self.codec, hash));
             Ok(self.cid.as_ref().unwrap())
         }
@@ -158,7 +158,6 @@ impl<C, H> fmt::Debug for BlockGeneric<C, H>
 where
     C: Copy + TryFrom<u64> + Into<u64> + fmt::Debug + EncodeDecodeIpld<H>,
     H: Copy + TryFrom<u64> + Into<u64> + fmt::Debug,
-    H: Into<Box<dyn MultihashDigest<H>>>,
     <C as TryFrom<u64>>::Error: fmt::Debug,
     <H as TryFrom<u64>>::Error: fmt::Debug,
 {
@@ -337,7 +336,7 @@ where
     /// isn't re-encoded.
     pub fn cid(&mut self) -> Result<&CidGeneric<C, H>, BlockError>
     where
-        Box<dyn MultihashDigest<H>>: From<H>,
+        H: DigestFromCode,
     {
         // The block was constructed with a CID
         if let Some(cid) = self.cid {
@@ -349,12 +348,11 @@ where
         }
         // The CID needs to be calculated
         else {
-            let hasher = Box::<dyn MultihashDigest<H>>::from(self.hash_alg);
             // We already have the encoded data, use that one directly
             let hash = if let Some(raw) = &self.raw {
-                hasher.digest(raw)
+                self.hash_alg.digest(raw)
             } else {
-                hasher.digest(&self.encode()?)
+                self.hash_alg.clone().digest(&self.encode()?)
             };
             self.cid_cached = Some(CidGeneric::new_v1(self.codec, hash));
             Ok(self.cid_cached.as_ref().unwrap())

@@ -778,8 +778,7 @@ dependencies = [
 [[package]]
 name = "multihash"
 version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f75db05d738947aa5389863aadafbcf2e509d7ba099dc2ddcdf4fc66bf7a9e03"
+source = "git+https://github.com/multiformats/rust-multihash?branch=digestfromcode-trait#91fadc082be809833623c1701fa3f3071994078d"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",

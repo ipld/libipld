@@ -50,3 +50,6 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
+
+[patch.crates-io]
+multihash = { git  = "https://github.com/multiformats/rust-multihash", branch = "digestfromcode-trait" }

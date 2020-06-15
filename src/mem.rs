@@ -3,7 +3,7 @@ use crate::block::{BlockGeneric, BlockRefGeneric};
 use crate::cid::CidGeneric;
 use crate::encode_decode::EncodeDecodeIpld;
 use crate::error::StoreError;
-use crate::multihash::MultihashDigest;
+use crate::multihash::DigestFromCode;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
 use async_std::sync::{Arc, RwLock};
 use std::collections::{HashMap, HashSet};
@@ -24,8 +24,7 @@ where
 impl<C, H> InnerStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy + Eq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + Eq + DigestFromCode,
 {
     /// Create a new empty `InnerStore`
     pub fn new() -> Self {
@@ -133,8 +132,7 @@ where
 impl<C, H> MemStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy + Eq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + Eq + DigestFromCode,
 {
     /// Create a new empty `MemStore`
     pub fn new() -> Self {
@@ -148,8 +146,7 @@ where
 impl<C, H> ReadonlyStore<C, H> for MemStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + DigestFromCode,
 {
     fn get<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, Box<[u8]>> {
         Box::pin(async move { self.inner.read().await.get(cid) })
@@ -159,8 +156,7 @@ where
 impl<C, H> Store<C, H> for MemStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + DigestFromCode,
 {
     fn insert<'a>(
         &'a self,
