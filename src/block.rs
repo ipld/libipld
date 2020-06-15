@@ -1,9 +1,9 @@
 //! Lazily encode/decode blocks.
 use crate::cid::CidGeneric;
-use crate::codec::IpldCodec;
+use crate::codec::{Codec, Decode, Encode, IpldCodec};
 use crate::encode_decode::EncodeDecodeIpld;
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, MultihashDigest};
+use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt;
@@ -18,6 +18,9 @@ pub enum BlockError {
     /// Block cannot be encoded.
     #[error("Cannot encode block.")]
     EncodeError(String),
+    /// Codec is not supported.
+    #[error("Codec `{0} is not supported.")]
+    UnsupportedCodec(u64),
 }
 
 /// Concrete Block which uses the default code tables
@@ -359,6 +362,71 @@ where
     }
 }
 
+/// Encode native types into a block.
+///
+/// # Example
+///
+/// ```
+/// use libipld::block::encode;
+/// use libipld::cbor::DagCborCodec;
+/// use libipld::multihash::{Code as HCode, Sha2_256};
+/// use libipld::IpldCodec;
+///
+/// let native = "Hello World!".to_string();
+/// let mut block = encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, _>(&native).unwrap();
+/// assert_eq!(
+///     block.cid().unwrap().to_string(),
+///     "bafyreih62zarvnosx5aktyzkhk6ufn5b33eqmm5te5ozor25r3rfigznje"
+/// );
+/// ```
+pub fn encode<C, H, O, M, E>(e: &E) -> Result<BlockGeneric<C, H>, BlockError>
+where
+    O: Codec<C>,
+    M: Multihasher<H>,
+    E: Encode<O, C>,
+    C: Into<u64> + TryFrom<u64> + Copy + EncodeDecodeIpld<H>,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    let mut data = Vec::new();
+    e.encode(&mut data)
+        .map_err(|err| BlockError::EncodeError(err.to_string()))?;
+    let hash = M::digest(&data);
+    let cid = CidGeneric::<C, H>::new_v1(O::CODE, hash);
+    Ok(BlockGeneric::new(cid, data.into_boxed_slice()))
+}
+
+/// Decode into native types.
+///
+/// Useful for nested encodings when for example the data is encrypted.
+///
+/// # Example
+///
+/// ```
+/// use libipld::block::decode;
+/// use libipld::cbor::DagCborCodec;
+/// use libipld::multihash::{Code as HCode, Sha2_256};
+/// use libipld::IpldCodec;
+///
+/// let data = [
+///     0x6c, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21,
+/// ];
+/// let native: String =
+///     decode::<IpldCodec, HCode, DagCborCodec, _>(IpldCodec::DagCbor, &data).unwrap();
+/// assert_eq!(native, "Hello World!".to_string());
+/// ```
+pub fn decode<C, H, O, D>(codec: C, mut data: &[u8]) -> Result<D, BlockError>
+where
+    O: Codec<C>,
+    D: Decode<O, C>,
+    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
+    H: Into<u64> + TryFrom<u64> + Copy,
+{
+    if codec != O::CODE {
+        return Err(BlockError::UnsupportedCodec(codec.into()));
+    }
+    D::decode(&mut data).map_err(|err| BlockError::DecodeError(err.to_string()))
+}
+
 /// Returns the references in an ipld block.
 pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<CidGeneric<C, H>>
 where
@@ -377,8 +445,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codec::Cid;
-    use crate::codec::IpldCodec;
+    use crate::cbor::DagCborCodec;
+    use crate::codec::{Cid, IpldCodec};
     use crate::ipld;
     use crate::multihash::Sha2_256;
 
@@ -397,5 +465,26 @@ mod tests {
         assert!(refs.contains(&cid1));
         assert!(refs.contains(&cid2));
         assert!(refs.contains(&cid3));
+    }
+
+    #[test]
+    fn test_encode() {
+        let native = "Hello World!".to_string();
+        let mut block = encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, _>(&native).unwrap();
+
+        let mut block_ipld =
+            Block::encoder(Ipld::String(native), IpldCodec::DagCbor, HCode::Sha2_256);
+        assert_eq!(block.cid().unwrap(), block_ipld.cid().unwrap());
+    }
+
+    #[test]
+    fn test_decode() {
+        let ipld = Ipld::String("Hello World!".to_string());
+        let mut block = Block::encoder(ipld, IpldCodec::DagCbor, HCode::Sha2_256);
+        let data = block.encode().unwrap();
+
+        let native: String =
+            decode::<IpldCodec, HCode, DagCborCodec, _>(IpldCodec::DagCbor, &data).unwrap();
+        assert_eq!(native, "Hello World!".to_string());
     }
 }
