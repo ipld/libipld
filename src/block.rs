@@ -18,12 +18,6 @@ pub enum BlockError {
     /// Block cannot be encoded.
     #[error("Cannot encode block.")]
     EncodeError(String),
-    /// Codec implementation not found.
-    #[error("Cannot find codec implementation.")]
-    CodecNotFound,
-    /// Hash algorithm implementation not found.
-    #[error("Cannot find hash algorithm implementation.")]
-    HashAlgNotFound,
 }
 
 /// Concrete Block which uses the default code tables
