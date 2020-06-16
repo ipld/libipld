@@ -109,9 +109,8 @@ where
             self.node = Some(decoded);
             Ok(self.node.as_ref().unwrap())
         } else {
-            Err(BlockError::DecodeError(
-                "Block is missing data.".to_string(),
-            ))
+            // All existing contructors make sure that eithe `self.node` or `self.raw` is set.
+            unreachable!()
         }
     }
 
@@ -130,7 +129,8 @@ where
             self.raw = Some(encoded);
             Ok(self.raw.as_ref().unwrap())
         } else {
-            Err(BlockError::EncodeError("Block is missing data".to_string()))
+            // All existing contructors make sure that eithe `self.node` or `self.raw` is set.
+            unreachable!()
         }
     }
 
@@ -296,9 +296,8 @@ where
             self.node_cached = Some(decoded);
             Ok(self.node_cached.as_ref().unwrap())
         } else {
-            Err(BlockError::DecodeError(
-                "Block is missing data.".to_string(),
-            ))
+            // All existing contructors make sure that eithe `self.node` or `self.raw` is set.
+            unreachable!()
         }
     }
 
@@ -324,7 +323,8 @@ where
             self.raw_cached = Some(encoded);
             Ok(self.raw_cached.as_ref().unwrap())
         } else {
-            Err(BlockError::EncodeError("Block is missing data".to_string()))
+            // All existing contructors make sure that eithe `self.node` or `self.raw` is set.
+            unreachable!()
         }
     }
 
