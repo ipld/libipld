@@ -50,12 +50,11 @@ pub enum TypeErrorType {
     Index(usize),
 }
 
-impl<C, H> From<&Ipld<C, H>> for TypeErrorType
+impl<H> From<&Ipld<H>> for TypeErrorType
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    fn from(ipld: &Ipld<C, H>) -> Self {
+    fn from(ipld: &Ipld<H>) -> Self {
         match ipld {
             Ipld::Null => Self::Null,
             Ipld::Bool(_) => Self::Bool,

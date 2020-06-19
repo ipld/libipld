@@ -1,16 +1,13 @@
 //! Ipld representation.
 use crate::cid::CidGeneric;
-use crate::codec::IpldCodec;
 use crate::error::TypeError;
-use crate::multihash::Code as MultihashCode;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ipld<C = IpldCodec, H = MultihashCode>
+pub enum Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Represents the absence of a value or the value undefined.
@@ -26,11 +23,11 @@ where
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
     /// Represents a list.
-    List(Vec<Ipld<C, H>>),
+    List(Vec<Ipld<H>>),
     /// Represents a map.
-    Map(BTreeMap<String, Ipld<C, H>>),
+    Map(BTreeMap<String, Ipld<H>>),
     /// Represents a link to an Ipld node.
-    Link(CidGeneric<C, H>),
+    Link(CidGeneric<u64, H>),
 }
 
 /// An index into ipld
@@ -61,9 +58,8 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
     }
 }
 
-impl<C, H> Ipld<C, H>
+impl<H> Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Indexes into a ipld list or map.
@@ -94,7 +90,7 @@ where
     }
 
     /// Returns an iterator.
-    pub fn iter(&self) -> IpldIter<'_, C, H> {
+    pub fn iter(&self) -> IpldIter<'_, H> {
         IpldIter {
             stack: vec![Box::new(vec![self].into_iter())],
         }
@@ -102,20 +98,18 @@ where
 }
 
 /// Ipld iterator.
-pub struct IpldIter<'a, C, H>
+pub struct IpldIter<'a, H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    stack: Vec<Box<dyn Iterator<Item = &'a Ipld<C, H>> + 'a>>,
+    stack: Vec<Box<dyn Iterator<Item = &'a Ipld<H>> + 'a>>,
 }
 
-impl<'a, C, H> Iterator for IpldIter<'a, C, H>
+impl<'a, H> Iterator for IpldIter<'a, H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    type Item = &'a Ipld<C, H>;
+    type Item = &'a Ipld<H>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -144,43 +138,45 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cid::{Cid, Codec as CCode};
-    use crate::multihash::{Code as HCode, Sha2_256};
+    use crate::cid::CidGeneric;
+    use crate::multihash::{Code, Sha2_256};
+
+    type Ipld = super::Ipld<Code>;
 
     #[test]
     fn ipld_bool_from() {
-        assert_eq!(Ipld::<CCode, HCode>::Bool(true), Ipld::from(true));
-        assert_eq!(Ipld::<CCode, HCode>::Bool(false), Ipld::from(false));
+        assert_eq!(Ipld::Bool(true), Ipld::from(true));
+        assert_eq!(Ipld::Bool(false), Ipld::from(false));
     }
 
     #[test]
     fn ipld_integer_from() {
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i8));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i16));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i32));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i64));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1i128));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i8));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i64));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1i128));
 
         //assert_eq!(Ipld::Integer(1), 1u8.to_ipld().to_owned());
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u16));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u32));
-        assert_eq!(Ipld::<CCode, HCode>::Integer(1), Ipld::from(1u64));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
+        assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
     }
 
     #[test]
     fn ipld_float_from() {
-        assert_eq!(Ipld::<CCode, HCode>::Float(1.0), Ipld::from(1.0f32));
-        assert_eq!(Ipld::<CCode, HCode>::Float(1.0), Ipld::from(1.0f64));
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
+        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]
     fn ipld_string_from() {
         assert_eq!(
-            Ipld::<CCode, HCode>::String("a string".into()),
+            Ipld::String("a string".into()),
             Ipld::from("a string")
         );
         assert_eq!(
-            Ipld::<CCode, HCode>::String("a string".into()),
+            Ipld::String("a string".into()),
             Ipld::from("a string".to_string())
         );
     }
@@ -188,11 +184,11 @@ mod tests {
     #[test]
     fn ipld_bytes_from() {
         assert_eq!(
-            Ipld::<CCode, HCode>::Bytes(vec![0, 1, 2, 3]),
+            Ipld::Bytes(vec![0, 1, 2, 3]),
             Ipld::from(&[0u8, 1u8, 2u8, 3u8][..])
         );
         assert_eq!(
-            Ipld::<CCode, HCode>::Bytes(vec![0, 1, 2, 3]),
+            Ipld::Bytes(vec![0, 1, 2, 3]),
             Ipld::from(vec![0u8, 1u8, 2u8, 3u8])
         );
     }
@@ -201,22 +197,22 @@ mod tests {
     fn ipld_link_from() {
         let data = vec![0, 1, 2, 3];
         let hash = Sha2_256::digest(&data);
-        let cid = Cid::new_v0(hash).unwrap();
-        assert_eq!(Ipld::<CCode, HCode>::Link(cid.clone()), Ipld::from(cid));
+        let cid = CidGeneric::new_v1(0, hash);
+        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
     }
 
     #[test]
     fn index() {
         let ipld =
-            Ipld::<CCode, HCode>::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
+            Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
         assert_eq!(ipld.get(0).unwrap(), &Ipld::Integer(0));
         assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
         assert_eq!(ipld.get(2).unwrap(), &Ipld::Integer(2));
 
         let mut map = BTreeMap::new();
-        map.insert("a".to_string(), Ipld::<CCode, HCode>::Integer(0));
-        map.insert("b".to_string(), Ipld::<CCode, HCode>::Integer(1));
-        map.insert("c".to_string(), Ipld::<CCode, HCode>::Integer(2));
+        map.insert("a".to_string(), Ipld::Integer(0));
+        map.insert("b".to_string(), Ipld::Integer(1));
+        map.insert("c".to_string(), Ipld::Integer(2));
         let ipld = Ipld::Map(map);
         assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
     }
@@ -224,34 +220,6 @@ mod tests {
     #[test]
     fn custom_code_tables() {
         use multihash::{wrap, MultihashGeneric};
-
-        #[derive(Clone, Copy, Debug, PartialEq)]
-        pub enum IpldCodec {
-            Raw = 0x55,
-            DagCbor = 0x71,
-            DagJson = 0x0129,
-        }
-
-        impl From<IpldCodec> for u64 {
-            /// Return the codec as integer value.
-            fn from(codec: IpldCodec) -> Self {
-                codec as _
-            }
-        }
-
-        impl TryFrom<u64> for IpldCodec {
-            type Error = String;
-
-            /// Return the `IpldCodec` based on the integer value. Error if no matching code exists.
-            fn try_from(raw: u64) -> Result<Self, Self::Error> {
-                match raw {
-                    0x55 => Ok(Self::Raw),
-                    0x71 => Ok(Self::DagCbor),
-                    0x0129 => Ok(Self::DagJson),
-                    _ => Err("Cannot convert code to codec.".to_string()),
-                }
-            }
-        }
 
         #[derive(Clone, Copy, Debug, PartialEq)]
         pub enum HashCodeTable {
@@ -288,12 +256,12 @@ mod tests {
             }
         }
 
-        type CustomCid = CidGeneric<IpldCodec, HashCodeTable>;
-        type CustomIpld = Ipld<IpldCodec, HashCodeTable>;
+        type CustomCid = CidGeneric<u64, HashCodeTable>;
+        type CustomIpld = super::Ipld<HashCodeTable>;
 
         let data = vec![0, 1, 2, 3];
         let hash = SameHash::digest(&data);
-        let cid = CustomCid::new_v1(IpldCodec::Raw, hash);
+        let cid = CustomCid::new_v1(0, hash);
         assert_eq!(CustomIpld::Link(cid.clone()), CustomIpld::from(cid));
     }
 }

@@ -1,5 +1,5 @@
 //! Implements the raw codec.
-use crate::codec::{Codec, Decode, Encode, IpldCodec};
+use crate::codec::{Codec, Decode, Encode};
 use crate::error::{TypeError, TypeErrorType};
 use crate::ipld::Ipld;
 use std::convert::TryFrom;
@@ -10,8 +10,6 @@ use thiserror::Error;
 pub struct RawCodec;
 
 impl Codec for RawCodec {
-    const CODE: IpldCodec = IpldCodec::Raw;
-
     type Error = RawError;
 }
 
@@ -44,9 +42,8 @@ impl Encode<RawCodec> for Vec<u8> {
     }
 }
 
-impl<C, H> Encode<RawCodec> for Ipld<C, H>
+impl<H> Encode<RawCodec> for Ipld<H>
 where
-    C: Copy + TryFrom<u64> + Into<u64>,
     H: Copy + TryFrom<u64> + Into<u64>,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
@@ -73,9 +70,8 @@ impl Decode<RawCodec> for Vec<u8> {
     }
 }
 
-impl<C, H> Decode<RawCodec> for Ipld<C, H>
+impl<H> Decode<RawCodec> for Ipld<H>
 where
-    C: Copy + TryFrom<u64> + Into<u64>,
     H: Copy + TryFrom<u64> + Into<u64>,
 {
     fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
@@ -87,6 +83,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::multihash::Code;
 
     #[test]
     fn test_raw_codec() {
@@ -99,7 +96,7 @@ mod tests {
         let ipld = Ipld::Bytes(data2);
         let bytes = RawCodec::encode(&ipld).unwrap();
         assert_eq!(data, &*bytes);
-        let ipld2: Ipld = RawCodec::decode(&bytes).unwrap();
+        let ipld2: Ipld<Code> = RawCodec::decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

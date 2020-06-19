@@ -6,9 +6,8 @@ use std::convert::TryFrom;
 
 macro_rules! derive_to_ipld_prim {
     ($enum:ident, $ty:ty, $fn:ident) => {
-        impl<C, H> From<$ty> for Ipld<C, H>
+        impl<H> From<$ty> for Ipld<H>
         where
-            C: Into<u64> + TryFrom<u64> + Copy,
             H: Into<u64> + TryFrom<u64> + Copy,
         {
             fn from(t: $ty) -> Self {
@@ -20,9 +19,8 @@ macro_rules! derive_to_ipld_prim {
 
 macro_rules! derive_to_ipld {
     ($enum:ident, $ty:ty, $($fn:ident),*) => {
-        impl<C, H> From<$ty> for Ipld<C, H>
+        impl<H> From<$ty> for Ipld<H>
         where
-            C: Into<u64> + TryFrom<u64> + Copy,
             H: Into<u64> + TryFrom<u64> + Copy,
         {
             fn from(t: $ty) -> Self {
@@ -34,9 +32,8 @@ macro_rules! derive_to_ipld {
 
 macro_rules! derive_to_ipld_generic {
    ($enum:ident, $ty:ty, $($fn:ident),*) => {
-       impl<C, H> From<$ty> for Ipld<C, H>
+       impl<H> From<$ty> for Ipld<H>
        where
-           C: Into<u64> + TryFrom<u64> + Copy,
            H: Into<u64> + TryFrom<u64> + Copy,
        {
            fn from(t: $ty) -> Self {
@@ -65,7 +62,7 @@ derive_to_ipld!(String, &str, to_string);
 derive_to_ipld!(Bytes, Box<[u8]>, into_vec);
 derive_to_ipld!(Bytes, Vec<u8>, into);
 derive_to_ipld!(Bytes, &[u8], to_vec);
-derive_to_ipld!(List, Vec<Ipld<C, H>>, into);
-derive_to_ipld!(Map, BTreeMap<String, Ipld<C, H>>, to_owned);
-derive_to_ipld_generic!(Link, CidGeneric<C, H>, clone);
-derive_to_ipld_generic!(Link, &CidGeneric<C, H>, to_owned);
+derive_to_ipld!(List, Vec<Ipld<H>>, into);
+derive_to_ipld!(Map, BTreeMap<String, Ipld<H>>, to_owned);
+derive_to_ipld_generic!(Link, CidGeneric<u64, H>, clone);
+derive_to_ipld_generic!(Link, &CidGeneric<u64, H>, to_owned);
