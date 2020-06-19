@@ -4,7 +4,7 @@
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
 use std::convert::TryFrom;
 use std::io::{Read, Write};
@@ -17,8 +17,6 @@ mod codec;
 pub struct DagPbCodec;
 
 impl Codec for DagPbCodec {
-    const CODE: IpldCodec = IpldCodec::DagPb;
-
     type Error = Error;
 }
 
@@ -39,22 +37,20 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-impl<C, H> Encode<DagPbCodec> for Ipld<C, H>
+impl<H> Encode<DagPbCodec> for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
-        let pb_node: PbNode<C, H> = self.try_into()?;
+        let pb_node: PbNode<H> = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
         Ok(())
     }
 }
 
-impl<C, H> Decode<DagPbCodec> for Ipld<C, H>
+impl<H> Decode<DagPbCodec> for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {

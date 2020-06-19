@@ -10,13 +10,12 @@ mod dag_pb {
 }
 
 /// A protobuf ipld link.
-pub struct PbLink<C, H>
+pub struct PbLink<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Content identifier.
-    pub cid: CidGeneric<C, H>,
+    pub cid: CidGeneric<u64, H>,
     /// Name of the link.
     pub name: String,
     /// Size of the data.
@@ -24,22 +23,20 @@ where
 }
 
 /// A protobuf ipld node.
-pub struct PbNode<C, H>
+pub struct PbNode<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// List of protobuf ipld links.
-    pub links: Vec<PbLink<C, H>>,
+    pub links: Vec<PbLink<H>>,
     /// Binary data blob.
     pub data: Box<[u8]>,
 }
 
 use prost::Message;
 
-impl<C, H> PbNode<C, H>
+impl<H> PbNode<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     /// Deserializes a `PbNode` from bytes.
@@ -48,7 +45,7 @@ where
         let data = proto.data.into_boxed_slice();
         let mut links = Vec::new();
         for link in proto.links {
-            let cid = CidGeneric::<C, H>::try_from(link.hash)?;
+            let cid = CidGeneric::<u64, H>::try_from(link.hash)?;
             let name = link.name;
             let size = link.tsize;
             links.push(PbLink { cid, name, size });
@@ -80,31 +77,29 @@ where
     }
 }
 
-impl<C, H> Into<Ipld<C, H>> for PbNode<C, H>
+impl<H> Into<Ipld<H>> for PbNode<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    fn into(self) -> Ipld<C, H> {
-        let mut map = BTreeMap::<String, Ipld<C, H>>::new();
+    fn into(self) -> Ipld<H> {
+        let mut map = BTreeMap::<String, Ipld<H>>::new();
         let links = self
             .links
             .into_iter()
             .map(|link| link.into())
-            .collect::<Vec<Ipld<C, H>>>();
+            .collect::<Vec<Ipld<H>>>();
         map.insert("Links".to_string(), links.into());
         map.insert("Data".to_string(), self.data.into());
         map.into()
     }
 }
 
-impl<C, H> Into<Ipld<C, H>> for PbLink<C, H>
+impl<H> Into<Ipld<H>> for PbLink<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
-    fn into(self) -> Ipld<C, H> {
-        let mut map = BTreeMap::<String, Ipld<C, H>>::new();
+    fn into(self) -> Ipld<H> {
+        let mut map = BTreeMap::<String, Ipld<H>>::new();
         map.insert("Hash".to_string(), self.cid.into());
         map.insert("Name".to_string(), self.name.into());
         map.insert("Tsize".to_string(), self.size.into());
@@ -112,14 +107,13 @@ where
     }
 }
 
-impl<C, H> TryFrom<&Ipld<C, H>> for PbNode<C, H>
+impl<H> TryFrom<&Ipld<H>> for PbNode<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld<C, H>) -> Result<PbNode<C, H>, Self::Error> {
+    fn try_from(ipld: &Ipld<H>) -> Result<PbNode<H>, Self::Error> {
         let links = if let Ipld::List(links) = ipld.get("Links")? {
             links
                 .iter()
@@ -137,14 +131,13 @@ where
     }
 }
 
-impl<C, H> TryFrom<&Ipld<C, H>> for PbLink<C, H>
+impl<H> TryFrom<&Ipld<H>> for PbLink<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld<C, H>) -> Result<PbLink<C, H>, Self::Error> {
+    fn try_from(ipld: &Ipld<H>) -> Result<PbLink<H>, Self::Error> {
         let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
             cid.clone()
         } else {

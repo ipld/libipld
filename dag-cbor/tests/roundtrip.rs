@@ -1,5 +1,6 @@
 use libipld_cbor::{DagCborCodec, Error};
 use libipld_core::codec::Codec;
+use libipld_core::multihash::Code;
 use libipld_core::ipld::Ipld;
 
 #[test]
@@ -18,7 +19,7 @@ fn roundtrip_with_cid() {
         "a163666f6fd82a582300122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
 
-    let ipld: Ipld = DagCborCodec::decode(&input).unwrap();
+    let ipld: Ipld<Code> = DagCborCodec::decode(&input).unwrap();
     let bytes = DagCborCodec::encode(&ipld).unwrap().to_vec();
 
     assert_eq!(input, bytes);
@@ -29,7 +30,7 @@ fn invalid_cid_prefix() {
     let input =
         "a163666f6fd82a582301122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
-    let result: Result<Ipld, _> = DagCborCodec::decode(&input);
+    let result: Result<Ipld<Code>, _> = DagCborCodec::decode(&input);
 
     match result.unwrap_err() {
         Error::InvalidCidPrefix(1) => {}
@@ -41,7 +42,7 @@ fn invalid_cid_prefix() {
 fn zero_length_cid() {
     let input = "a163666f6fd82a5800";
     let input = hex::decode(input).unwrap();
-    let result: Result<Ipld, _> = DagCborCodec::decode(&input);
+    let result: Result<Ipld<Code>, _> = DagCborCodec::decode(&input);
 
     match result.unwrap_err() {
         Error::LengthOutOfRange => {}

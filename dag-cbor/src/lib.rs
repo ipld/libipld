@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use libipld_core::codec::{Codec, Decode, Encode};
 use thiserror::Error;
 
 pub mod decode;
@@ -13,8 +13,6 @@ pub mod encode;
 pub struct DagCborCodec;
 
 impl Codec for DagCborCodec {
-    const CODE: IpldCodec = IpldCodec::DagCbor;
-
     type Error = Error;
 }
 
@@ -67,13 +65,15 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::codec::Cid;
+    use libipld_core::cid::CidGeneric;
     use libipld_core::multihash::Sha2_256;
     use libipld_macro::ipld;
 
+    type Cid<H> = CidGeneric<u64, H>;
+
     #[test]
     fn test_encode_decode_cbor() {
-        let cid = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid"));
+        let cid = Cid::new_v1(0, Sha2_256::digest(b"cid"));
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],

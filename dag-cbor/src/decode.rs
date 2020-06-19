@@ -8,6 +8,8 @@ use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use std::io::Read;
 
+type Cid<H> = CidGeneric<u64, H>;
+
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
     let mut buf = [0; 1];
@@ -107,10 +109,9 @@ pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeM
 }
 
 /// Reads a cid from a stream of cbor encoded bytes.
-pub fn read_link<C, H, R>(r: &mut R) -> Result<CidGeneric<C, H>>
+pub fn read_link<H, R>(r: &mut R) -> Result<Cid<H>>
 where
     R: Read,
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     let tag = read_u8(r)?;
@@ -132,7 +133,7 @@ where
 
     // skip the first byte per
     // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
-    Ok(CidGeneric::<C, H>::try_from(&bytes[1..])?)
+    Ok(Cid::<H>::try_from(&bytes[1..])?)
 }
 
 /// `TryReadCbor` trait.
@@ -164,10 +165,9 @@ macro_rules! impl_decode {
             }
         }
     };
-    ($ty:ident<C, H>) => {
-        impl<C, H> Decode<DagCbor> for $ty<C, H>
+    ($ty:ident<H>) => {
+        impl<H> Decode<DagCbor> for $ty<H>
         where
-            C: Into<u64> + TryFrom<u64> + Copy,
             H: Into<u64> + TryFrom<u64> + Copy,
         {
             fn decode<R: Read>(r: &mut R) -> Result<Self> {
@@ -337,9 +337,8 @@ impl TryReadCbor for String {
 }
 impl_decode!(String);
 
-impl<C, H> TryReadCbor for CidGeneric<C, H>
+impl<H> TryReadCbor for Cid<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -349,7 +348,7 @@ where
         }
     }
 }
-impl_decode!(CidGeneric<C, H>);
+impl_decode!(Cid<H>);
 
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -431,9 +430,8 @@ impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
 }
 impl_decode!(BTreeMap<String, T>);
 
-impl<C, H> TryReadCbor for Ipld<C, H>
+impl<H> TryReadCbor for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -587,4 +585,4 @@ where
         Ok(Some(ipld))
     }
 }
-impl_decode!(Ipld<C, H>);
+impl_decode!(Ipld<H>);

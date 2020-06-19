@@ -253,9 +253,8 @@ impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
     }
 }
 
-impl<C, H> Encode<DagCbor> for Ipld<C, H>
+impl<H> Encode<DagCbor> for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy + 'static,
     H: Into<u64> + TryFrom<u64> + Copy + 'static,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {

@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
@@ -16,14 +16,11 @@ mod codec;
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {
-    const CODE: IpldCodec = IpldCodec::DagJson;
-
     type Error = Error;
 }
 
-impl<C, H> Encode<DagJsonCodec> for Ipld<C, H>
+impl<H> Encode<DagJsonCodec> for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
@@ -31,9 +28,8 @@ where
     }
 }
 
-impl<C, H> Decode<DagJsonCodec> for Ipld<C, H>
+impl<H> Decode<DagJsonCodec> for Ipld<H>
 where
-    C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
 {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
