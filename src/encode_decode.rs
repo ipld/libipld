@@ -4,7 +4,7 @@ use crate::cbor::{DagCborCodec, Error as CborError};
 use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
 use crate::json::{DagJsonCodec, Error as JsonError};
-use crate::multihash::Code as HCode;
+use crate::multihash::{Code as HCode, MultihashCode};
 #[cfg(feature = "dag-pb")]
 use crate::pb::{DagPbCodec, Error as PbError};
 use crate::raw;
@@ -95,7 +95,7 @@ use thiserror::Error;
 pub trait EncodeDecodeIpld<H = HCode>
 where
     Self: Copy + TryFrom<u64> + Into<u64>,
-    H: Copy + TryFrom<u64> + Into<u64>,
+    H: MultihashCode,
 {
     /// Error type.
     type Error: std::error::Error + Send + 'static;

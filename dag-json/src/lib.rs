@@ -4,6 +4,7 @@
 
 use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
 use std::convert::TryFrom;
@@ -24,7 +25,7 @@ impl Codec for DagJsonCodec {
 impl<C, H> Encode<DagJsonCodec> for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
         codec::encode(self, w)
@@ -34,7 +35,7 @@ where
 impl<C, H> Decode<DagJsonCodec> for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         codec::decode(r)

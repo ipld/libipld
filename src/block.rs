@@ -1,10 +1,10 @@
 //! Block validation
-use crate::cid::CidGeneric;
+use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode, IpldCodec};
 use crate::encode_decode::EncodeDecodeIpld;
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
+use crate::multihash::{Code as HCode, MultihashDigest, Multihasher, MultihashCode};
 use crate::MAX_BLOCK_SIZE;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -14,10 +14,10 @@ use std::convert::TryFrom;
 pub struct Block<C = IpldCodec, H = HCode>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Content identifier.
-    pub cid: CidGeneric<C, H>,
+    pub cid: Cid<C, H>,
     /// Binary data.
     pub data: Box<[u8]>,
 }
@@ -29,7 +29,7 @@ where
     M: Multihasher<H>,
     E: Encode<O, C>,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     let mut data = Vec::new();
     e.encode(&mut data)
@@ -37,8 +37,8 @@ where
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = M::digest(&data);
-    let cid = CidGeneric::<C, H>::new_v1(O::CODE, hash);
+    let hash = H::Multihash::from(M::multi_digest(&data));
+    let cid = Cid::<C, H>::new_v1(O::CODE, hash);
     Ok(Block {
         cid,
         data: data.into_boxed_slice(),
@@ -53,7 +53,7 @@ where
     O: Codec<C>,
     D: Decode<O, C>,
     C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     if codec != O::CODE {
         return Err(Error::UnsupportedCodec(codec.into()));
@@ -62,37 +62,35 @@ where
 }
 
 /// Decodes a block.
-pub fn decode<C, H, O, D>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<D>
+pub fn decode<C, H, O, D>(cid: &Cid<C, H>, data: &[u8]) -> Result<D>
 where
     O: Codec<C>,
     D: Decode<O, C>,
     C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: MultihashCode,
 {
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
-    if hash.as_ref() != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_vec()));
+    let hash = cid.hash().code().digest(&data);
+    if &hash != cid.hash() {
+        return Err(Error::InvalidHash(hash.to_bytes()));
     }
     raw_decode::<C, H, O, D>(cid.codec(), data)
 }
 
 /// Decode block to ipld.
-pub fn decode_ipld<C, H>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
+pub fn decode_ipld<C, H>(cid: &Cid<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
 where
     C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    Box<dyn MultihashDigest<H>>: From<H>,
+    H: MultihashCode,
 {
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
-    if hash.as_ref() != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_vec()));
+    let hash = cid.hash().code().digest(&data);
+    if &hash != cid.hash() {
+        return Err(Error::InvalidHash(hash.to_bytes()));
     }
     cid.codec()
         .decode(data)
@@ -100,12 +98,12 @@ where
 }
 
 /// Returns the references in an ipld block.
-pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<CidGeneric<C, H>>
+pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<Cid<C, H>>
 where
     C: Into<u64> + TryFrom<u64> + Copy + Eq,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
+    H: MultihashCode,
 {
-    let mut set: HashSet<CidGeneric<C, H>> = Default::default();
+    let mut set: HashSet<Cid<C, H>> = Default::default();
     for ipld in ipld.iter() {
         if let Ipld::Link(cid) = ipld {
             set.insert(cid.to_owned());

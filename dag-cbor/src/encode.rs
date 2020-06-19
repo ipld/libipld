@@ -1,9 +1,10 @@
 //! CBOR encoder.
 use crate::{DagCborCodec as DagCbor, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
-use libipld_core::cid::CidGeneric;
+use libipld_core::cid::Cid;
 use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::io::Write;
@@ -203,10 +204,10 @@ impl Encode<DagCbor> for i128 {
     }
 }
 
-impl<C, H> Encode<DagCbor> for CidGeneric<C, H>
+impl<C, H> Encode<DagCbor> for Cid<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
@@ -256,7 +257,7 @@ impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
 impl<C, H> Encode<DagCbor> for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy + 'static,
-    H: Into<u64> + TryFrom<u64> + Copy + 'static,
+    H: MultihashCode,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         match self {

@@ -2,9 +2,10 @@
 use crate::{DagCborCodec as DagCbor, Error, Result};
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::cid::CidGeneric;
+use libipld_core::cid::Cid;
 use libipld_core::codec::Decode;
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 use std::collections::BTreeMap;
 use std::io::Read;
 
@@ -107,11 +108,11 @@ pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeM
 }
 
 /// Reads a cid from a stream of cbor encoded bytes.
-pub fn read_link<C, H, R>(r: &mut R) -> Result<CidGeneric<C, H>>
+pub fn read_link<C, H, R>(r: &mut R) -> Result<Cid<C, H>>
 where
     R: Read,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     let tag = read_u8(r)?;
     if tag != 42 {
@@ -132,7 +133,7 @@ where
 
     // skip the first byte per
     // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
-    Ok(CidGeneric::<C, H>::try_from(&bytes[1..])?)
+    Ok(Cid::<C, H>::try_from(&bytes[1..])?)
 }
 
 /// `TryReadCbor` trait.
@@ -168,7 +169,7 @@ macro_rules! impl_decode {
         impl<C, H> Decode<DagCbor> for $ty<C, H>
         where
             C: Into<u64> + TryFrom<u64> + Copy,
-            H: Into<u64> + TryFrom<u64> + Copy,
+            H: MultihashCode,
         {
             fn decode<R: Read>(r: &mut R) -> Result<Self> {
                 read(r)
@@ -337,10 +338,10 @@ impl TryReadCbor for String {
 }
 impl_decode!(String);
 
-impl<C, H> TryReadCbor for CidGeneric<C, H>
+impl<C, H> TryReadCbor for Cid<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -349,7 +350,7 @@ where
         }
     }
 }
-impl_decode!(CidGeneric<C, H>);
+impl_decode!(Cid<C, H>);
 
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -434,7 +435,7 @@ impl_decode!(BTreeMap<String, T>);
 impl<C, H> TryReadCbor for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {

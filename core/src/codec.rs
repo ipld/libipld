@@ -1,11 +1,10 @@
 //! `Ipld` codecs.
-use crate::cid::CidGeneric;
 use crate::multihash;
 use std::convert::TryFrom;
 use std::io::{Read, Write};
 
 /// A CID with the IPLD Codec code table and the Multihash code table.
-pub type Cid = CidGeneric<IpldCodec, multihash::Code>;
+pub type Cid = cid::Cid<IpldCodec, multihash::Code>;
 
 /// The IPLD Codec code table.
 ///

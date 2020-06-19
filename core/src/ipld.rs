@@ -1,17 +1,17 @@
 //! Ipld representation.
-use crate::cid::CidGeneric;
+use crate::cid::Cid;
 use crate::codec::IpldCodec;
 use crate::error::TypeError;
-use crate::multihash::Code as MultihashCode;
+use crate::multihash::{Code, MultihashCode};
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ipld<C = IpldCodec, H = MultihashCode>
+pub enum Ipld<C = IpldCodec, H = Code>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Represents the absence of a value or the value undefined.
     Null,
@@ -30,7 +30,7 @@ where
     /// Represents a map.
     Map(BTreeMap<String, Ipld<C, H>>),
     /// Represents a link to an Ipld node.
-    Link(CidGeneric<C, H>),
+    Link(Cid<C, H>),
 }
 
 /// An index into ipld
@@ -64,7 +64,7 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
 impl<C, H> Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Indexes into a ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
@@ -105,7 +105,7 @@ where
 pub struct IpldIter<'a, C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     stack: Vec<Box<dyn Iterator<Item = &'a Ipld<C, H>> + 'a>>,
 }
@@ -113,7 +113,7 @@ where
 impl<'a, C, H> Iterator for IpldIter<'a, C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     type Item = &'a Ipld<C, H>;
 

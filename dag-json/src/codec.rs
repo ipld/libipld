@@ -1,6 +1,7 @@
 use core::convert::TryFrom;
-use libipld_core::cid::CidGeneric;
+use libipld_core::cid::Cid;
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::ser::Serializer;
@@ -17,7 +18,7 @@ pub fn encode<W, C, H>(ipld: &Ipld<C, H>, writer: &mut W) -> Result<(), Error>
 where
     W: Write,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     let mut ser = Serializer::new(writer);
     serialize(&ipld, &mut ser)?;
@@ -28,7 +29,7 @@ pub fn decode<R, C, H>(r: &mut R) -> Result<Ipld<C, H>, Error>
 where
     R: Read,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     let mut de = serde_json::Deserializer::from_reader(r);
     Ok(deserialize(&mut de)?)
@@ -38,7 +39,7 @@ fn serialize<S, C, H>(ipld: &Ipld<C, H>, ser: S) -> Result<S::Ok, S::Error>
 where
     S: ser::Serializer,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     match &ipld {
         Ipld::Null => ser.serialize_none(),
@@ -69,7 +70,7 @@ fn deserialize<'de, D, C, H>(deserializer: D) -> Result<Ipld<C, H>, D::Error>
 where
     D: de::Deserializer<'de>,
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     // Sadly such a PhantomData hack is needed
     deserializer.deserialize_any(JSONVisitor(PhantomData, PhantomData))
@@ -79,11 +80,11 @@ where
 struct Wrapper<'a, C, H>(&'a Ipld<C, H>)
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy;
+    H: MultihashCode;
 impl<'a, C, H> Serialize for Wrapper<'a, C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -99,7 +100,7 @@ struct JSONVisitor<C, H>(PhantomData<C>, PhantomData<H>);
 impl<'de, C, H> de::Visitor<'de> for JSONVisitor<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     type Value = Ipld<C, H>;
 
@@ -205,7 +206,7 @@ where
         if let Some((key, WrapperOwned(Ipld::String(value)))) = values.first() {
             if key == LINK_KEY && values.len() == 1 {
                 let link = base64::decode(value).map_err(SerdeError::custom)?;
-                let cid = CidGeneric::<C, H>::try_from(link).map_err(SerdeError::custom)?;
+                let cid = Cid::<C, H>::try_from(link).map_err(SerdeError::custom)?;
                 return Ok(Ipld::Link(cid));
             }
         }
@@ -234,11 +235,11 @@ where
 struct WrapperOwned<C, H>(Ipld<C, H>)
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy;
+    H: MultihashCode;
 impl<'de, C, H> Deserialize<'de> for WrapperOwned<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

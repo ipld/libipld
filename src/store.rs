@@ -1,9 +1,9 @@
 //! Store traits.
 use crate::block::Block;
-use crate::cid::CidGeneric;
+use crate::cid::Cid;
 use crate::codec::IpldCodec;
 use crate::error::StoreError;
-use crate::multihash::Code as MultihashCode;
+use crate::multihash::{Code, MultihashCode};
 use core::future::Future;
 use core::pin::Pin;
 use std::convert::TryFrom;
@@ -22,26 +22,26 @@ pub enum Visibility {
 }
 
 /// Implementable by ipld storage providers.
-pub trait ReadonlyStore<C = IpldCodec, H = MultihashCode>: Clone
+pub trait ReadonlyStore<C = IpldCodec, H = Code>: Clone
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Returns a block from the store. If the block is not in the store it fetches it from the
     /// network and pins the block. Dropping the future cancels the request.
-    fn get<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, Box<[u8]>>;
+    fn get<'a>(&'a self, cid: &'a Cid<C, H>) -> StoreResult<'a, Box<[u8]>>;
 }
 
 /// Implementable by ipld storage backends.
-pub trait Store<C = IpldCodec, H = MultihashCode>: ReadonlyStore<C, H>
+pub trait Store<C = IpldCodec, H = Code>: ReadonlyStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Inserts and pins block into the store and announces it if it is visible.
     fn insert<'a>(
         &'a self,
-        cid: &'a CidGeneric<C, H>,
+        cid: &'a Cid<C, H>,
         data: Box<[u8]>,
         visibility: Visibility,
     ) -> StoreResult<'a, ()>;
@@ -52,40 +52,40 @@ where
         &'a self,
         batch: Vec<Block<C, H>>,
         visibility: Visibility,
-    ) -> StoreResult<'a, CidGeneric<C, H>>;
+    ) -> StoreResult<'a, Cid<C, H>>;
 
     /// Flushes the write buffer.
     fn flush(&self) -> StoreResult<'_, ()>;
 
     /// Decreases the ref count on a cid.
-    fn unpin<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, ()>;
+    fn unpin<'a>(&'a self, cid: &'a Cid<C, H>) -> StoreResult<'a, ()>;
 }
 
 /// Implemented by ipld storage backends that support multiple users.
 pub trait MultiUserStore<C, H>: Store<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Pin a block.
     ///
     /// This creates a symlink chain from root -> path -> block. The block is unpinned by
     /// breaking the symlink chain.
-    fn pin<'a>(&'a self, cid: &'a CidGeneric<C, H>, path: &'a Path) -> StoreResult<'a, ()>;
+    fn pin<'a>(&'a self, cid: &'a Cid<C, H>, path: &'a Path) -> StoreResult<'a, ()>;
 }
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
 /// byte strings.
-pub trait AliasStore<C = IpldCodec, H = MultihashCode>
+pub trait AliasStore<C = IpldCodec, H = Code>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Creates an alias for a `Cid` with announces the alias on the public network.
     fn alias<'a>(
         &'a self,
         alias: &'a [u8],
-        cid: &'a CidGeneric<C, H>,
+        cid: &'a Cid<C, H>,
         visibility: Visibility,
     ) -> StoreResult<'a, ()>;
 
@@ -93,5 +93,5 @@ where
     fn unalias<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, ()>;
 
     /// Resolves an alias for a `Cid`.
-    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<CidGeneric<C, H>>>;
+    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<Cid<C, H>>>;
 }

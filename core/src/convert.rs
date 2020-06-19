@@ -1,6 +1,7 @@
 //! Conversion to and from ipld.
-use crate::cid::CidGeneric;
+use crate::cid::Cid;
 use crate::ipld::Ipld;
+use crate::multihash::MultihashCode;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
@@ -9,7 +10,7 @@ macro_rules! derive_to_ipld_prim {
         impl<C, H> From<$ty> for Ipld<C, H>
         where
             C: Into<u64> + TryFrom<u64> + Copy,
-            H: Into<u64> + TryFrom<u64> + Copy,
+            H: MultihashCode,
         {
             fn from(t: $ty) -> Self {
                 Ipld::$enum(t.$fn() as _)
@@ -23,7 +24,7 @@ macro_rules! derive_to_ipld {
         impl<C, H> From<$ty> for Ipld<C, H>
         where
             C: Into<u64> + TryFrom<u64> + Copy,
-            H: Into<u64> + TryFrom<u64> + Copy,
+            H: MultihashCode,
         {
             fn from(t: $ty) -> Self {
                 Ipld::$enum(t$(.$fn())*)
@@ -37,7 +38,7 @@ macro_rules! derive_to_ipld_generic {
        impl<C, H> From<$ty> for Ipld<C, H>
        where
            C: Into<u64> + TryFrom<u64> + Copy,
-           H: Into<u64> + TryFrom<u64> + Copy,
+           H: MultihashCode,
        {
            fn from(t: $ty) -> Self {
                Ipld::$enum(t$(.$fn())*)
@@ -67,5 +68,5 @@ derive_to_ipld!(Bytes, Vec<u8>, into);
 derive_to_ipld!(Bytes, &[u8], to_vec);
 derive_to_ipld!(List, Vec<Ipld<C, H>>, into);
 derive_to_ipld!(Map, BTreeMap<String, Ipld<C, H>>, to_owned);
-derive_to_ipld_generic!(Link, CidGeneric<C, H>, clone);
-derive_to_ipld_generic!(Link, &CidGeneric<C, H>, to_owned);
+derive_to_ipld_generic!(Link, Cid<C, H>, clone);
+derive_to_ipld_generic!(Link, &Cid<C, H>, to_owned);

@@ -1,8 +1,9 @@
 use crate::Error;
 use core::convert::{TryFrom, TryInto};
-use libipld_core::cid::CidGeneric;
+use libipld_core::cid::Cid;
 use libipld_core::error::{TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 use std::collections::BTreeMap;
 
 mod dag_pb {
@@ -13,10 +14,10 @@ mod dag_pb {
 pub struct PbLink<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Content identifier.
-    pub cid: CidGeneric<C, H>,
+    pub cid: Cid<C, H>,
     /// Name of the link.
     pub name: String,
     /// Size of the data.
@@ -27,7 +28,7 @@ where
 pub struct PbNode<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// List of protobuf ipld links.
     pub links: Vec<PbLink<C, H>>,
@@ -40,7 +41,7 @@ use prost::Message;
 impl<C, H> PbNode<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     /// Deserializes a `PbNode` from bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
@@ -48,7 +49,7 @@ where
         let data = proto.data.into_boxed_slice();
         let mut links = Vec::new();
         for link in proto.links {
-            let cid = CidGeneric::<C, H>::try_from(link.hash)?;
+            let cid = Cid::<C, H>::try_from(link.hash)?;
             let name = link.name;
             let size = link.tsize;
             links.push(PbLink { cid, name, size });
@@ -83,7 +84,7 @@ where
 impl<C, H> Into<Ipld<C, H>> for PbNode<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn into(self) -> Ipld<C, H> {
         let mut map = BTreeMap::<String, Ipld<C, H>>::new();
@@ -101,7 +102,7 @@ where
 impl<C, H> Into<Ipld<C, H>> for PbLink<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn into(self) -> Ipld<C, H> {
         let mut map = BTreeMap::<String, Ipld<C, H>>::new();
@@ -115,7 +116,7 @@ where
 impl<C, H> TryFrom<&Ipld<C, H>> for PbNode<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     type Error = TypeError;
 
@@ -140,7 +141,7 @@ where
 impl<C, H> TryFrom<&Ipld<C, H>> for PbLink<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     type Error = TypeError;
 

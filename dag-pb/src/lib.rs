@@ -6,6 +6,7 @@ pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
 use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
 use libipld_core::ipld::Ipld;
+use libipld_core::multihash::MultihashCode;
 use std::convert::TryFrom;
 use std::io::{Read, Write};
 use thiserror::Error;
@@ -42,7 +43,7 @@ pub enum Error {
 impl<C, H> Encode<DagPbCodec> for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
         let pb_node: PbNode<C, H> = self.try_into()?;
@@ -55,7 +56,7 @@ where
 impl<C, H> Decode<DagPbCodec> for Ipld<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
+    H: MultihashCode,
 {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         let mut bytes = Vec::new();
