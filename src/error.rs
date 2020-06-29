@@ -1,5 +1,4 @@
 //! `Ipld` error definitions.
-use crate::cid::Cid;
 pub use libipld_core::error::*;
 use thiserror::Error;
 
@@ -37,9 +36,11 @@ pub enum Error {
 /// Store error.
 #[derive(Debug, Error)]
 pub enum StoreError {
-    /// The block wasn't found.
+    /// The block wasn't found. The supplied string is a CID.
     #[error("failed to retrive block {0}")]
-    BlockNotFound(Cid),
+    // The string is an actual CID. Transform the CID into a string so that the generics don't
+    // bleed into this error enum.
+    BlockNotFound(String),
     /// The batch was empty.
     #[error("empty batch")]
     EmptyBatch,

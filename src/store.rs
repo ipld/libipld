@@ -1,6 +1,7 @@
 //! Store traits.
 use crate::block::Block;
-use crate::cid::{CidGeneric, Codec};
+use crate::cid::CidGeneric;
+use crate::codec::IpldCodec;
 use crate::error::StoreError;
 use crate::multihash::Code as MultihashCode;
 use core::future::Future;
@@ -21,7 +22,7 @@ pub enum Visibility {
 }
 
 /// Implementable by ipld storage providers.
-pub trait ReadonlyStore<C = Codec, H = MultihashCode>: Clone
+pub trait ReadonlyStore<C = IpldCodec, H = MultihashCode>: Clone
 where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
@@ -32,7 +33,7 @@ where
 }
 
 /// Implementable by ipld storage backends.
-pub trait Store<C = Codec, H = MultihashCode>: ReadonlyStore<C, H>
+pub trait Store<C = IpldCodec, H = MultihashCode>: ReadonlyStore<C, H>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
@@ -75,7 +76,7 @@ where
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
 /// byte strings.
-pub trait AliasStore<C = Codec, H = MultihashCode>
+pub trait AliasStore<C = IpldCodec, H = MultihashCode>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
     H: Into<u64> + TryFrom<u64> + Copy,
