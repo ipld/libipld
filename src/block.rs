@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::convert::TryFrom;
 
 /// Block
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Block<C = CCode, H = HCode>
 where
     C: Into<u64> + TryFrom<u64> + Copy,
