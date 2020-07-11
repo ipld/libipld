@@ -101,19 +101,16 @@ pub struct MemStore {
     aliases: Arc<RwLock<HashMap<Box<[u8]>, Cid>>>,
 }
 
-impl ReadonlyStore for MemStore {
+impl ReadonlyStore for MemStore
+{
     fn get<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Box<[u8]>> {
         Box::pin(async move { self.inner.read().await.get(cid) })
     }
 }
 
-impl Store for MemStore {
-    fn insert<'a>(
-        &'a self,
-        cid: &'a Cid,
-        data: Box<[u8]>,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
+impl Store for MemStore
+{
+    fn insert<'a>(&'a self, cid: &'a Cid, data: Box<[u8]>, _visibility: Visibility) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.insert(cid, data) })
     }
 

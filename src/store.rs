@@ -19,29 +19,30 @@ pub enum Visibility {
 }
 
 /// Implementable by ipld storage providers.
-pub trait ReadonlyStore: Clone {
+pub trait ReadonlyStore<T = Box<[u8]>>: Clone
+where
+    T: Clone,
+{
     /// Returns a block from the store. If the block is not in the
     /// store it fetches it from the network and pins the block. This
     /// future should be wrapped in a timeout. Dropping the future
     /// cancels the request.
-    fn get<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Box<[u8]>>;
+    fn get<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, T>;
 }
 
 /// Implementable by ipld storage backends.
-pub trait Store: ReadonlyStore {
+pub trait Store<T = Box<[u8]>>: ReadonlyStore<T>
+where
+    T: Clone,
+{
     /// Inserts and pins block into the store and announces it if it is visible.
-    fn insert<'a>(
-        &'a self,
-        cid: &'a Cid,
-        data: Box<[u8]>,
-        visibility: Visibility,
-    ) -> StoreResult<'a, ()>;
+    fn insert<'a>(&'a self, cid: &'a Cid, data: T, visibility: Visibility) -> StoreResult<'a, ()>;
 
     /// Inserts a batch of blocks atomically into the store and announces them block
     /// if it is visible. The last block is pinned.
     fn insert_batch<'a>(
         &'a self,
-        batch: Vec<Block>,
+        batch: Vec<Block<T>>,
         visibility: Visibility,
     ) -> StoreResult<'a, Cid>;
 

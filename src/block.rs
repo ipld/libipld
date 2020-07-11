@@ -15,11 +15,11 @@ use libipld_pb::DagPbCodec;
 use std::collections::HashSet;
 
 /// Block
-pub struct Block {
+pub struct Block<T = Box<[u8]>> {
     /// Content identifier.
     pub cid: Cid,
     /// Binary data.
-    pub data: Box<[u8]>,
+    pub data: T,
 }
 
 /// Encode a block.
