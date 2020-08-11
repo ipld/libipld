@@ -606,7 +606,7 @@ checksum = "3baa92041a6fec78c687fa0cc2b3fae8884f743d672cf551bed1d6dac6988d0f"
 
 [[package]]
 name = "libipld"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-std",
  "criterion",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-core"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cid",
  "multibase",

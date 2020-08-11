@@ -8,7 +8,7 @@ pub trait Codec: Sized {
     const CODE: Code;
 
     /// Error type.
-    type Error: std::error::Error + Send + 'static;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Encodes an encodable type.
     fn encode<T: Encode<Self> + ?Sized>(obj: &T) -> Result<Box<[u8]>, Self::Error> {
