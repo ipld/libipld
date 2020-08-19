@@ -37,7 +37,7 @@ pub enum Error {
 }
 
 impl Encode<DagPbCodec> for Ipld {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
+    fn encode<W: Write>(&self, _: DagPbCodec, w: &mut W) -> Result<(), Error> {
         let pb_node: PbNode = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
@@ -46,7 +46,7 @@ impl Encode<DagPbCodec> for Ipld {
 }
 
 impl Decode<DagPbCodec> for Ipld {
-    fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
+    fn decode<R: Read>(_: DagPbCodec, r: &mut R) -> Result<Self, Error> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
         Ok(PbNode::from_bytes(&bytes)?.into())
@@ -75,8 +75,8 @@ mod tests {
         pb_node.insert("Links".to_string(), links.into());
         let data: Ipld = pb_node.into();
 
-        let bytes = DagPbCodec::encode(&data).unwrap();
-        let data2 = DagPbCodec::decode(&bytes).unwrap();
+        let bytes = DagPbCodec.encode(&data).unwrap();
+        let data2 = DagPbCodec.decode(&bytes).unwrap();
         assert_eq!(data, data2);
     }
 }

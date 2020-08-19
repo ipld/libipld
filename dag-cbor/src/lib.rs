@@ -85,8 +85,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = DagCborCodec::encode(&ipld).unwrap();
-        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
+        let bytes = DagCborCodec.encode(&ipld).unwrap();
+        let ipld2 = DagCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

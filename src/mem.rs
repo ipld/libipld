@@ -1,10 +1,13 @@
 //! Reference implementation of the store traits.
 use crate::block::Block;
 use crate::cid::Cid;
+use crate::codec::{Codec, Encode, Decode};
+use crate::multihash::MultihashDigest;
 use crate::error::StoreError;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
 use async_std::sync::{Arc, RwLock};
 use std::collections::{HashMap, HashSet};
+use core::marker::PhantomData;
 
 #[derive(Default)]
 struct InnerStore {
@@ -20,9 +23,9 @@ impl InnerStore {
         Self::default()
     }
 
-    fn get(&self, cid: &Cid) -> Result<Box<[u8]>, StoreError> {
-        if let Some(data) = self.blocks.get(cid).cloned() {
-            Ok(data)
+    fn get<C, M, T>(&self, cid: Cid) -> Result<Block<C, M, T>, StoreError> {
+        if let Some(data) = self.blocks.get(&cid).cloned() {
+            Ok(Block { _marker: PhantomData, cid, data })
         } else {
             Err(StoreError::BlockNotFound(cid.to_string()))
         }
@@ -36,32 +39,30 @@ impl InnerStore {
         self.referers.insert(cid, referers + n);
     }
 
-    fn insert(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<(), StoreError> {
-        self.insert_block(cid, data)?;
-        self.pin(cid);
+    fn insert<C, M, T>(&mut self, block: &Block<C, M, T>) -> Result<(), StoreError> {
+        self.insert_block(&block)?;
+        self.pin(&block.cid);
         Ok(())
     }
 
-    fn insert_block(&mut self, cid: &Cid, data: Box<[u8]>) -> Result<(), StoreError> {
-        if self.blocks.contains_key(cid) {
+    fn insert_block<C, M, T>(&mut self, block: &Block<C, M, T>) -> Result<(), StoreError> {
+        if self.blocks.contains_key(&block.cid) {
             return Ok(());
         }
-        let ipld =
-            crate::block::decode_ipld(cid, &data).map_err(|e| StoreError::Other(Box::new(e)))?;
-        let refs = crate::block::references(&ipld);
+        let refs = block.references().map_err(|e| StoreError::Other(e.into()))?;
         for cid in &refs {
-            self.add_referer(&cid, 1);
+            self.add_referer(&block.cid, 1);
         }
-        self.refs.insert(cid.clone(), refs);
-        self.blocks.insert(cid.clone(), data);
+        self.refs.insert(block.cid.clone(), refs);
+        self.blocks.insert(block.cid.clone(), block.data.clone());
         Ok(())
     }
 
-    fn insert_batch(&mut self, batch: Vec<Block>) -> Result<Cid, StoreError> {
+    fn insert_batch<C, M, T>(&mut self, batch: &[Block<C, M, T>]) -> Result<Cid, StoreError> {
         let mut last_cid = None;
-        for Block { cid, data } in batch.into_iter() {
-            self.insert_block(&cid, data)?;
-            last_cid = Some(cid);
+        for block in batch {
+            self.insert_block(block)?;
+            last_cid = Some(block.cid.clone());
         }
         Ok(last_cid.ok_or(StoreError::EmptyBatch)?)
     }
@@ -118,26 +119,40 @@ impl MemStore {
 }
 
 impl ReadonlyStore for MemStore {
-    fn get<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Box<[u8]>> {
+    fn get<'a, C, M, T>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M, T>>
+    where
+        C: Codec + Send + Sync,
+        M: MultihashDigest + Send + Sync,
+        T: Decode<C> + Send + Sync,
+    {
         Box::pin(async move { self.inner.read().await.get(cid) })
     }
 }
 
 impl Store for MemStore {
-    fn insert<'a>(
+    fn insert<'a, C, M, T>(
         &'a self,
-        cid: &'a Cid,
-        data: Box<[u8]>,
+        block: &'a Block<C, M, T>,
         _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.inner.write().await.insert(cid, data) })
+    ) -> StoreResult<'a, ()>
+    where
+        C: Codec + Send + Sync,
+        M: MultihashDigest + Send + Sync,
+        T: Encode<C> + Send + Sync,
+    {
+        Box::pin(async move { self.inner.write().await.insert(block) })
     }
 
-    fn insert_batch<'a>(
+    fn insert_batch<'a, C, M, T>(
         &'a self,
-        batch: Vec<Block>,
+        batch: &'a [Block<C, M, T>],
         _visibility: Visibility,
-    ) -> StoreResult<'a, Cid> {
+    ) -> StoreResult<'a, Cid>
+    where
+        C: Codec + Send + Sync,
+        M: MultihashDigest + Send + Sync,
+        T: Encode<C> + Send + Sync,
+    {
         Box::pin(async move { self.inner.write().await.insert_batch(batch) })
     }
 

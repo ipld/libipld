@@ -67,7 +67,7 @@ pub fn write_tag<W: Write>(w: &mut W, tag: u64) -> Result<()> {
 }
 
 impl Encode<DagCbor> for bool {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         let buf = if *self { [0xf5] } else { [0xf4] };
         w.write_all(&buf)?;
         Ok(())
@@ -75,56 +75,56 @@ impl Encode<DagCbor> for bool {
 }
 
 impl Encode<DagCbor> for u8 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u8(w, 0, *self)
     }
 }
 
 impl Encode<DagCbor> for u16 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u16(w, 0, *self)
     }
 }
 
 impl Encode<DagCbor> for u32 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u32(w, 0, *self)
     }
 }
 
 impl Encode<DagCbor> for u64 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 0, *self)
     }
 }
 
 impl Encode<DagCbor> for i8 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u8(w, 1, -(*self + 1) as u8)
     }
 }
 
 impl Encode<DagCbor> for i16 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u16(w, 1, -(*self + 1) as u16)
     }
 }
 
 impl Encode<DagCbor> for i32 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u32(w, 1, -(*self + 1) as u32)
     }
 }
 
 impl Encode<DagCbor> for i64 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 1, -(*self + 1) as u64)
     }
 }
 
 impl Encode<DagCbor> for f32 {
     #[allow(clippy::float_cmp)]
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         if self.is_infinite() {
             if self.is_sign_positive() {
                 w.write_all(&[0xf9, 0x7c, 0x00])?;
@@ -144,10 +144,10 @@ impl Encode<DagCbor> for f32 {
 
 impl Encode<DagCbor> for f64 {
     #[allow(clippy::float_cmp)]
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         if !self.is_finite() || f64::from(*self as f32) == *self {
             let value = *self as f32;
-            value.encode(w)?;
+            value.encode(c, w)?;
         } else {
             let mut buf = [0xfb, 0, 0, 0, 0, 0, 0, 0, 0];
             BigEndian::write_f64(&mut buf[1..], *self);
@@ -158,7 +158,7 @@ impl Encode<DagCbor> for f64 {
 }
 
 impl Encode<DagCbor> for [u8] {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 2, self.len() as u64)?;
         w.write_all(self)?;
         Ok(())
@@ -166,13 +166,13 @@ impl Encode<DagCbor> for [u8] {
 }
 
 impl Encode<DagCbor> for Box<[u8]> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
-        Encode::<DagCbor>::encode(&self[..], w)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        self[..].encode(c, w)
     }
 }
 
 impl Encode<DagCbor> for str {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 3, self.len() as u64)?;
         w.write_all(self.as_bytes())?;
         Ok(())
@@ -180,13 +180,13 @@ impl Encode<DagCbor> for str {
 }
 
 impl Encode<DagCbor> for String {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
-        self.as_str().encode(w)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        self.as_str().encode(c, w)
     }
 }
 
 impl Encode<DagCbor> for i128 {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         if *self < 0 {
             if -(*self + 1) > u64::max_value() as i128 {
                 return Err(Error::NumberOutOfRange);
@@ -203,7 +203,7 @@ impl Encode<DagCbor> for i128 {
 }
 
 impl Encode<DagCbor> for Cid {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
         // insert zero byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
         // TODO: don't allocate
@@ -217,9 +217,9 @@ impl Encode<DagCbor> for Cid {
 }
 
 impl<T: Encode<DagCbor>> Encode<DagCbor> for Option<T> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         if let Some(value) = self {
-            value.encode(w)?;
+            value.encode(c, w)?;
         } else {
             write_null(w)?;
         }
@@ -228,38 +228,38 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Option<T> {
 }
 
 impl<T: Encode<DagCbor>> Encode<DagCbor> for Vec<T> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 4, self.len() as u64)?;
         for value in self {
-            value.encode(w)?;
+            value.encode(c, w)?;
         }
         Ok(())
     }
 }
 
 impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 5, self.len() as u64)?;
         for (k, v) in self {
-            k.encode(w)?;
-            v.encode(w)?;
+            k.encode(c, w)?;
+            v.encode(c, w)?;
         }
         Ok(())
     }
 }
 
 impl Encode<DagCbor> for Ipld {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         match self {
             Self::Null => write_null(w),
-            Self::Bool(b) => Encode::<DagCbor>::encode(b, w),
-            Self::Integer(i) => Encode::<DagCbor>::encode(i, w),
-            Self::Float(f) => Encode::<DagCbor>::encode(f, w),
-            Self::Bytes(b) => Encode::<DagCbor>::encode(b.as_slice(), w),
-            Self::String(s) => Encode::<DagCbor>::encode(s, w),
-            Self::List(l) => Encode::<DagCbor>::encode(l, w),
-            Self::Map(m) => Encode::<DagCbor>::encode(m, w),
-            Self::Link(c) => Encode::<DagCbor>::encode(c, w),
+            Self::Bool(b) => b.encode(c, w),
+            Self::Integer(i) => i.encode(c, w),
+            Self::Float(f) => f.encode(c, w),
+            Self::Bytes(b) => b.as_slice().encode(c, w),
+            Self::String(s) => s.encode(c, w),
+            Self::List(l) => l.encode(c, w),
+            Self::Map(m) => m.encode(c, w),
+            Self::Link(cid) => cid.encode(c, w),
         }
     }
 }

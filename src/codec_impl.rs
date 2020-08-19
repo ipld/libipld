@@ -3,6 +3,7 @@
 use crate::cbor::{DagCborCodec, Error as CborError};
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Error;
+use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
 use crate::json::{DagJsonCodec, Error as JsonError};
 #[cfg(feature = "dag-pb")]
@@ -19,13 +20,13 @@ pub enum IpldCodec {
     Raw,
     /// Cbor codec.
     #[cfg(feature = "dag-cbor")]
-    Cbor,
+    DagCbor,
     /// Json codec.
     #[cfg(feature = "dag-json")]
-    Json,
+    DagJson,
     /// Protobuf codec.
     #[cfg(feature = "dag-pb")]
-    Pb,
+    DagPb,
 }
 
 impl TryFrom<u64> for IpldCodec {
@@ -35,11 +36,11 @@ impl TryFrom<u64> for IpldCodec {
         Ok(match ccode {
             crate::cid::RAW => Self::Raw,
             #[cfg(feature = "dag-cbor")]
-            crate::cid::DAG_CBOR => Self::Cbor,
+            crate::cid::DAG_CBOR => Self::DagCbor,
             #[cfg(feature = "dag-json")]
-            crate::cid::DAG_JSON => Self::Json,
+            crate::cid::DAG_JSON => Self::DagJson,
             #[cfg(feature = "dag-pb")]
-            crate::cid::DAG_PB => Self::Pb,
+            crate::cid::DAG_PROTOBUF => Self::DagPb,
             _ => return Err(Error::UnsupportedCodec(ccode)),
         })
     }
@@ -49,55 +50,32 @@ impl Codec for IpldCodec {
     type Error = IpldCodecError;
 }
 
-/// Wrapper
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Wrapper<T>(pub T);
-
-//#[cfg(all(feature = "dag-cbor", feature = "dag-json", feature = "dag-pb"))]
-impl<T> Encode<IpldCodec> for Wrapper<T>
-where
-    T: Encode<RawCodec>,
-//    #[cfg(feature = "dag-cbor")]
-//    T: Encode<DagCborCodec>,
-//    #[cfg(feature = "dag-json")]
-//    T: Encode<DagJsonCodec>,
-//    #[cfg(feature = "dag-pb")]
-//    T: Encode<DagPbCodec>,
-{
+impl Encode<IpldCodec> for Ipld {
     fn encode<W: Write>(&self, c: IpldCodec, w: &mut W) -> Result<(), <IpldCodec as Codec>::Error> {
         match c {
-            IpldCodec::Raw => self.0.encode(RawCodec, w)?,
+            IpldCodec::Raw => self.encode(RawCodec, w)?,
             #[cfg(feature = "dag-cbor")]
-            IpldCodec::Cbor => self.0.encode(DagCborCodec, w)?,
+            IpldCodec::DagCbor => self.encode(DagCborCodec, w)?,
             #[cfg(feature = "dag-json")]
-            IpldCodec::Json => self.0.encode(DagJsonCodec, w)?,
+            IpldCodec::DagJson => self.encode(DagJsonCodec, w)?,
             #[cfg(feature = "dag-pb")]
-            IpldCodec::Pb => self.0.encode(DagPbCodec, w)?,
+            IpldCodec::DagPb => self.encode(DagPbCodec, w)?,
         };
         Ok(())
     }
 }
 
-impl<T> Decode<IpldCodec> for Wrapper<T>
-where
-    T: Decode<RawCodec>,
-//    #[cfg(feature = "dag-cbor")]
-//    T: Decode<DagCborCodec>,
-//    #[cfg(feature = "dag-json")]
-//    T: Decode<DagJsonCodec>,
-//    #[cfg(feature = "dag-pb")]
-//    T: Decode<DagPbCodec>,
-{
+impl Decode<IpldCodec> for Ipld {
     fn decode<R: Read>(c: IpldCodec, r: &mut R) -> Result<Self, <IpldCodec as Codec>::Error> {
-        Ok(Wrapper(match c {
-            IpldCodec::Raw => T::decode(RawCodec, r)?,
+        Ok(match c {
+            IpldCodec::Raw => Self::decode(RawCodec, r)?,
             #[cfg(feature = "dag-cbor")]
-            IpldCodec::Cbor => T::decode(DagCborCodec, r)?,
+            IpldCodec::DagCbor => Self::decode(DagCborCodec, r)?,
             #[cfg(feature = "dag-json")]
-            IpldCodec::Json => T::decode(DagJsonCodec, r)?,
+            IpldCodec::DagJson => Self::decode(DagJsonCodec, r)?,
             #[cfg(feature = "dag-pb")]
-            IpldCodec::Pb => T::decode(DagPbCodec, r)?,
-        }))
+            IpldCodec::DagPb => Self::decode(DagPbCodec, r)?,
+        })
     }
 }
 
@@ -124,7 +102,6 @@ pub enum IpldCodecError {
     Pb(#[from] PbError),
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,7 +116,7 @@ mod tests {
     #[test]
     fn raw_decode() {
         let data = [0x22, 0x33, 0x44];
-        let result = IpldCodec::Raw.decode(&data).unwrap();
+        let result: Ipld = IpldCodec::Raw.decode(&data).unwrap();
         assert_eq!(result, Ipld::Bytes(data.to_vec()));
     }
 
@@ -155,7 +132,7 @@ mod tests {
     #[test]
     fn dag_cbor_decode() {
         let data = [0x43, 0x22, 0x33, 0x44];
-        let result = IpldCodec::DagCbor.decode(&data).unwrap();
+        let result: Ipld = IpldCodec::DagCbor.decode(&data).unwrap();
         assert_eq!(result, Ipld::Bytes(vec![0x22, 0x33, 0x44]));
     }
 
@@ -171,7 +148,7 @@ mod tests {
     #[test]
     fn dag_json_decode() {
         let data = b"true";
-        let result = IpldCodec::DagJson.decode(data).unwrap();
+        let result: Ipld = IpldCodec::DagJson.decode(data).unwrap();
         assert_eq!(result, Ipld::Bool(true));
     }
 
@@ -199,7 +176,7 @@ mod tests {
         let expected = Ipld::Map(data_map);
 
         let data = [0x0a, 0x04, 0x64, 0x61, 0x74, 0x61];
-        let result = IpldCodec::DagPb.decode(&data).unwrap();
+        let result: Ipld = IpldCodec::DagPb.decode(&data).unwrap();
         assert_eq!(result, expected);
     }
-}*/
+}

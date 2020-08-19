@@ -5,9 +5,9 @@
 pub mod block;
 pub mod codec_impl;
 pub mod error;
-//pub mod mem;
-//pub mod path;
-//pub mod store;
+pub mod mem;
+pub mod path;
+pub mod store;
 
 #[cfg(feature = "dag-cbor")]
 pub use libipld_cbor as cbor;

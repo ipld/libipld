@@ -140,28 +140,28 @@ pub trait TryReadCbor: Sized {
 macro_rules! impl_decode {
     ($ty:ident) => {
         impl Decode<DagCbor> for $ty {
-            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<T>) => {
         impl<T: TryReadCbor> Decode<DagCbor> for $ty<T> {
-            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<$param:ident, T>) => {
         impl<T: TryReadCbor> Decode<DagCbor> for $ty<$param, T> {
-            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<[u8]>) => {
         impl Decode<DagCbor> for $ty<[u8]> {
-            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
