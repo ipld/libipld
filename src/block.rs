@@ -1,96 +1,71 @@
 //! Block validation
 use crate::cid::Cid;
-use crate::codec::{Codec, Decode, Encode, IpldCodec};
-use crate::encode_decode::EncodeDecodeIpld;
+use crate::codec::{Codec, Decode, Encode};
 use crate::error::{Error, Result};
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, MultihashDigest, Multihasher, MultihashCode};
+use crate::multihash::MultihashDigest;
 use crate::MAX_BLOCK_SIZE;
 use std::collections::HashSet;
-use std::convert::TryFrom;
 
 /// Block
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Block<C = IpldCodec, H = HCode>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
     /// Content identifier.
-    pub cid: Cid<C, H>,
+    pub cid: Cid,
     /// Binary data.
     pub data: Box<[u8]>,
 }
 
 /// Encode a block.`
-pub fn encode<C, H, O, M, E>(e: &E) -> Result<Block<C, H>>
+pub fn encode<C, E, M>(codec: u64, hash: u64, e: &E) -> Result<Block>
 where
-    O: Codec<C>,
-    M: Multihasher<H>,
-    E: Encode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
+    C: Codec,
+    E: Encode<C>,
+    M: MultihashDigest,
 {
-    let mut data = Vec::new();
+    let mut data = Vec::with_capacity(MAX_BLOCK_SIZE);
     e.encode(&mut data)
         .map_err(|e| Error::CodecError(Box::new(e)))?;
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = H::Multihash::from(M::multi_digest(&data));
-    let cid = Cid::<C, H>::new_v1(O::CODE, hash);
+    let hash = M::new(hash, &data)
+        .map_err(|_| Error::UnsupportedMultihash(hash))?
+        .to_raw()
+        .map_err(|_| Error::UnsupportedMultihash(hash))?;
+    let cid = Cid::new_v1(codec, hash);
     Ok(Block {
         cid,
         data: data.into_boxed_slice(),
     })
 }
 
-/// Raw decode.
-///
-/// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode<C, H, O, D>(codec: C, mut data: &[u8]) -> Result<D>
+/// Decodes a block.
+pub fn decode<C, D, M>(cid: &Cid, data: &[u8]) -> Result<D>
 where
-    O: Codec<C>,
-    D: Decode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: MultihashCode,
+    C: Codec,
+    D: Decode<C>,
+    M: MultihashDigest,
 {
-    if codec != O::CODE {
-        return Err(Error::UnsupportedCodec(codec.into()));
+    if data.len() > MAX_BLOCK_SIZE {
+        return Err(Error::BlockTooLarge(data.len()));
+    }
+    let mh = M::new(cid.hash().code(), &data)
+        .map_err(|_| Error::UnsupportedMultihash(cid.hash().code()))?;
+    if mh.digest() != cid.hash().digest() {
+        return Err(Error::InvalidHash(mh.to_bytes()));
     }
     D::decode(&mut data).map_err(|e| Error::CodecError(Box::new(e)))
 }
 
-/// Decodes a block.
-pub fn decode<C, H, O, D>(cid: &Cid<C, H>, data: &[u8]) -> Result<D>
-where
-    O: Codec<C>,
-    D: Decode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: MultihashCode,
-{
-    if data.len() > MAX_BLOCK_SIZE {
-        return Err(Error::BlockTooLarge(data.len()));
-    }
-    let hash = cid.hash().code().digest(&data);
-    if &hash != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_bytes()));
-    }
-    raw_decode::<C, H, O, D>(cid.codec(), data)
-}
-
 /// Decode block to ipld.
-pub fn decode_ipld<C, H>(cid: &Cid<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
-    H: MultihashCode,
-{
+pub fn decode_ipld<M: MultihashDigest>(cid: &Cid, data: &[u8]) -> Result<Ipld> {
     if data.len() > MAX_BLOCK_SIZE {
         return Err(Error::BlockTooLarge(data.len()));
     }
-    let hash = cid.hash().code().digest(&data);
-    if &hash != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_bytes()));
+    let mh = M::new(cid.hash().code(), data)
+        .map_err(|_| Error::UnsupportedMultihash(cid.hash().code()))?;
+    if mh.digest() != cid.hash().digest() {
+        return Err(Error::InvalidHash(mh.to_bytes()));
     }
     cid.codec()
         .decode(data)
@@ -98,12 +73,8 @@ where
 }
 
 /// Returns the references in an ipld block.
-pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<Cid<C, H>>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq,
-    H: MultihashCode,
-{
-    let mut set: HashSet<Cid<C, H>> = Default::default();
+pub fn references(ipld: &Ipld) -> HashSet<Cid> {
+    let mut set: HashSet<Cid> = Default::default();
     for ipld in ipld.iter() {
         if let Ipld::Link(cid) = ipld {
             set.insert(cid.to_owned());

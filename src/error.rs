@@ -21,7 +21,7 @@ pub enum Error {
     UnsupportedCodec(u64),
     /// The multihash is unsupported.
     #[error("Unsupported multihash {0:?}.")]
-    UnsupportedMultihash(crate::multihash::Code),
+    UnsupportedMultihash(u64),
     /// Type error.
     #[error("{0}")]
     TypeError(#[from] TypeError),

@@ -4,13 +4,10 @@ use crate::cbor::{DagCborCodec, Error as CborError};
 use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
 use crate::json::{DagJsonCodec, Error as JsonError};
-use crate::multihash::{Code as HCode, MultihashCode};
 #[cfg(feature = "dag-pb")]
 use crate::pb::{DagPbCodec, Error as PbError};
 use crate::raw;
-use crate::IpldCodec;
 use libipld_core::codec::Codec;
-use std::convert::TryFrom;
 use thiserror::Error;
 
 /// The `EncodeDecodeIpld` trait allows to encode/decode [`Ipld`] objects.
@@ -92,22 +89,18 @@ use thiserror::Error;
 /// }
 /// impl Error for EncodeDecodeError {}
 /// ```
-pub trait EncodeDecodeIpld<H = HCode>
-where
-    Self: Copy + TryFrom<u64> + Into<u64>,
-    H: MultihashCode,
-{
+pub trait EncodeDecodeIpld<H: MultihashDigest> {
     /// Error type.
-    type Error: std::error::Error + Send + 'static;
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Encodes an `Ipld` object as bytes.
     fn encode(
         &self,
-        obj: &Ipld<Self, H>,
+        obj: &Ipld,
     ) -> Result<Box<[u8]>, <Self as EncodeDecodeIpld<H>>::Error>;
 
     /// Decodes bytes into an `Ipld` object.
-    fn decode(&self, bytes: &[u8]) -> Result<Ipld<Self, H>, <Self as EncodeDecodeIpld<H>>::Error>;
+    fn decode(&self, bytes: &[u8]) -> Result<Ipld, <Self as EncodeDecodeIpld>::Error>;
 }
 
 /// Errors that happen within the [`EncodeDecodeIpld`] implementation of [`IpldCodec`].
@@ -138,7 +131,7 @@ impl EncodeDecodeIpld for IpldCodec {
     type Error = EncodeDecodeError;
 
     /// Encodes an encodable type.
-    fn encode(&self, obj: &Ipld<IpldCodec>) -> Result<Box<[u8]>, EncodeDecodeError> {
+    fn encode(&self, obj: &Ipld) -> Result<Box<[u8]>, EncodeDecodeError> {
         match self {
             Self::Raw => raw::RawCodec::encode(obj).map_err(|err| err.into()),
             #[cfg(feature = "dag-cbor")]
@@ -151,7 +144,7 @@ impl EncodeDecodeIpld for IpldCodec {
     }
 
     /// Decodes a decodable type.
-    fn decode(&self, bytes: &[u8]) -> Result<Ipld<IpldCodec>, EncodeDecodeError> {
+    fn decode(&self, bytes: &[u8]) -> Result<Ipld, EncodeDecodeError> {
         match self {
             Self::Raw => raw::RawCodec::decode(&bytes).map_err(|err| err.into()),
             #[cfg(feature = "dag-cbor")]

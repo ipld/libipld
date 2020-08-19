@@ -3,7 +3,7 @@
 #![deny(warnings)]
 
 pub mod block;
-pub mod encode_decode;
+//pub mod encode_decode;
 pub mod error;
 pub mod mem;
 pub mod path;
