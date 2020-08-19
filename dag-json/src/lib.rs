@@ -2,12 +2,10 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
-use libipld_core::multihash::MultihashCode;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
-use std::convert::TryFrom;
 use std::io::{Read, Write};
 
 mod codec;
@@ -17,26 +15,16 @@ mod codec;
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {
-    const CODE: IpldCodec = IpldCodec::DagJson;
-
     type Error = Error;
 }
 
-impl<C, H> Encode<DagJsonCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
+impl Encode<DagJsonCodec> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
         codec::encode(self, w)
     }
 }
 
-impl<C, H> Decode<DagJsonCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
+impl Decode<DagJsonCodec> for Ipld {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         codec::decode(r)
     }
@@ -45,14 +33,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::codec::Cid;
-    use libipld_core::multihash::Sha2_256;
+    use libipld_core::cid::{Cid, RAW};
+    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
     use std::collections::BTreeMap;
 
     #[test]
     fn encode_struct() {
-        let digest = Sha2_256::digest(b"block");
-        let cid = Cid::new_v1(IpldCodec::Raw, digest);
+        let digest = Multihash::new(SHA2_256, &b"block"[..]).unwrap();
+        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }

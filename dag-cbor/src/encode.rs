@@ -4,9 +4,7 @@ use byteorder::{BigEndian, ByteOrder};
 use libipld_core::cid::Cid;
 use libipld_core::codec::Encode;
 use libipld_core::ipld::Ipld;
-use libipld_core::multihash::MultihashCode;
 use std::collections::BTreeMap;
-use std::convert::TryFrom;
 use std::io::Write;
 
 /// Writes a null byte to a cbor encoded byte stream.
@@ -204,11 +202,7 @@ impl Encode<DagCbor> for i128 {
     }
 }
 
-impl<C, H> Encode<DagCbor> for Cid<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
+impl Encode<DagCbor> for Cid {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
         // insert zero byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
@@ -254,11 +248,7 @@ impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
     }
 }
 
-impl<C, H> Encode<DagCbor> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + 'static,
-    H: MultihashCode,
-{
+impl Encode<DagCbor> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
         match self {
             Self::Null => write_null(w),

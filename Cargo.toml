@@ -24,9 +24,9 @@ model = "0.1.2"
 
 [features]
 default = ["dag-cbor", "derive"]
-dag-cbor = ["libipld-cbor", "libipld-core/dag-cbor"]
-dag-json = ["libipld-json", "libipld-core/dag-json"]
-dag-pb = ["libipld-pb", "libipld-core/dag-pb"]
+dag-cbor = ["libipld-cbor"]
+dag-json = ["libipld-json"]
+dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
 all = ["dag-cbor", "dag-json", "dag-pb", "derive"]
 
@@ -50,7 +50,3 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
-
-#[patch.crates-io]
-#cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "new-multihash" }
-#multihash = { git = "https://github.com/ipfs-rust/tiny-multihash" }

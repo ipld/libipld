@@ -4,10 +4,8 @@
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::TryInto;
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
-use libipld_core::multihash::MultihashCode;
-use std::convert::TryFrom;
 use std::io::{Read, Write};
 use thiserror::Error;
 
@@ -18,8 +16,6 @@ mod codec;
 pub struct DagPbCodec;
 
 impl Codec for DagPbCodec {
-    const CODE: IpldCodec = IpldCodec::DagPb;
-
     type Error = Error;
 }
 
@@ -40,24 +36,16 @@ pub enum Error {
     Io(#[from] std::io::Error),
 }
 
-impl<C, H> Encode<DagPbCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
+impl Encode<DagPbCodec> for Ipld {
     fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
-        let pb_node: PbNode<C, H> = self.try_into()?;
+        let pb_node: PbNode = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
         Ok(())
     }
 }
 
-impl<C, H> Decode<DagPbCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: MultihashCode,
-{
+impl Decode<DagPbCodec> for Ipld {
     fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
@@ -68,13 +56,14 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::codec::Cid;
-    use libipld_core::multihash::Sha2_256;
+    use libipld_core::cid::{Cid, RAW};
+    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
     use std::collections::BTreeMap;
 
     #[test]
     fn test_encode_decode() {
-        let cid = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid"));
+        let digest = Multihash::new(SHA2_256, &b"cid"[..]).unwrap();
+        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
         let mut pb_link = BTreeMap::<String, Ipld>::new();
         pb_link.insert("Hash".to_string(), cid.into());
         pb_link.insert("Name".to_string(), "block".to_string().into());
