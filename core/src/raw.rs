@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use thiserror::Error;
 
 /// Raw codec.
+#[derive(Clone, Copy, Debug)]
 pub struct RawCodec;
 
 impl Codec for RawCodec {
@@ -24,27 +25,27 @@ pub enum RawError {
 }
 
 impl Encode<RawCodec> for [u8] {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
+    fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(self)?)
     }
 }
 
 impl Encode<RawCodec> for Box<[u8]> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
+    fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(&self[..])?)
     }
 }
 
 impl Encode<RawCodec> for Vec<u8> {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
+    fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<(), RawError> {
         Ok(w.write_all(&self[..])?)
     }
 }
 
 impl Encode<RawCodec> for Ipld {
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), RawError> {
+    fn encode<W: Write>(&self, c: RawCodec, w: &mut W) -> Result<(), RawError> {
         if let Ipld::Bytes(bytes) = self {
-            bytes.encode(w)
+            bytes.encode(c, w)
         } else {
             Err(TypeError::new(TypeErrorType::Bytes, self).into())
         }
@@ -52,14 +53,14 @@ impl Encode<RawCodec> for Ipld {
 }
 
 impl Decode<RawCodec> for Box<[u8]> {
-    fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
-        let buf: Vec<u8> = Decode::<RawCodec>::decode(r)?;
+    fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self, RawError> {
+        let buf: Vec<u8> = Decode::decode(c, r)?;
         Ok(buf.into_boxed_slice())
     }
 }
 
 impl Decode<RawCodec> for Vec<u8> {
-    fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
+    fn decode<R: Read>(_: RawCodec, r: &mut R) -> Result<Self, RawError> {
         let mut buf = vec![];
         r.read_to_end(&mut buf)?;
         Ok(buf)
@@ -67,8 +68,8 @@ impl Decode<RawCodec> for Vec<u8> {
 }
 
 impl Decode<RawCodec> for Ipld {
-    fn decode<R: Read>(r: &mut R) -> Result<Self, RawError> {
-        let bytes: Vec<u8> = Decode::<RawCodec>::decode(r)?;
+    fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self, RawError> {
+        let bytes: Vec<u8> = Decode::decode(c, r)?;
         Ok(Ipld::Bytes(bytes))
     }
 }

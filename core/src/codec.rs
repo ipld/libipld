@@ -2,33 +2,33 @@
 use std::io::{Read, Write};
 
 /// Codec trait.
-pub trait Codec: Sized {
+pub trait Codec: Copy + Sized {
     /// Error type.
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// Encodes an encodable type.
-    fn encode<T: Encode<Self> + ?Sized>(obj: &T) -> Result<Box<[u8]>, Self::Error> {
+    fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Box<[u8]>, Self::Error> {
         let mut buf = Vec::new();
-        obj.encode(&mut buf)?;
+        obj.encode(*self, &mut buf)?;
         Ok(buf.into_boxed_slice())
     }
 
     /// Decodes a decodable type.
-    fn decode<T: Decode<Self>>(mut bytes: &[u8]) -> Result<T, Self::Error> {
-        T::decode(&mut bytes)
+    fn decode<T: Decode<Self>>(&self, mut bytes: &[u8]) -> Result<T, Self::Error> {
+        T::decode(*self, &mut bytes)
     }
 }
 
 /// Encode trait.
 pub trait Encode<C: Codec> {
     /// Encodes into a `impl Write`.
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), C::Error>;
+    fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<(), C::Error>;
 }
 
 /// Decode trait.
 pub trait Decode<C: Codec>: Sized {
     /// Decode from an `impl Read`.
-    fn decode<R: Read>(r: &mut R) -> Result<Self, C::Error>;
+    fn decode<R: Read>(c: C, r: &mut R) -> Result<Self, C::Error>;
 }
 
 #[cfg(test)]

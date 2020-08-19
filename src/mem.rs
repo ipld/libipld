@@ -46,8 +46,8 @@ impl InnerStore {
         if self.blocks.contains_key(cid) {
             return Ok(());
         }
-        let ipld = crate::block::decode_ipld(cid, &data)
-            .map_err(|e| StoreError::Other(Box::new(e)))?;
+        let ipld =
+            crate::block::decode_ipld(cid, &data).map_err(|e| StoreError::Other(Box::new(e)))?;
         let refs = crate::block::references(&ipld);
         for cid in &refs {
             self.add_referer(&cid, 1);

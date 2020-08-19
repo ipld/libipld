@@ -23,7 +23,7 @@ proptest = "0.9.6"
 model = "0.1.2"
 
 [features]
-default = ["dag-cbor", "derive"]
+default = ["all", "derive"]
 dag-cbor = ["libipld-cbor"]
 dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
