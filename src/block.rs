@@ -9,6 +9,7 @@ use std::collections::HashSet;
 
 /// Block
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Block {
     /// Content identifier.
     pub cid: Cid,
     /// Binary data.

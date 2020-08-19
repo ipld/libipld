@@ -27,7 +27,7 @@ pub enum Error {
     TypeError(#[from] TypeError),
     /// The codec returned an error.
     #[error("Codec error: {0}")]
-    CodecError(Box<dyn std::error::Error + Send>),
+    CodecError(Box<dyn std::error::Error + Send + Sync + 'static>),
     /// The store returned an error.
     #[error("{0}")]
     StoreError(#[from] StoreError),
@@ -46,5 +46,5 @@ pub enum StoreError {
     EmptyBatch,
     /// Other failure.
     #[error("{0}")]
-    Other(#[from] Box<dyn std::error::Error + Send>),
+    Other(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
