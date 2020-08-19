@@ -50,3 +50,7 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
+
+#[patch.crates-io]
+#cid = { git = "https://github.com/dvc94ch/rust-cid", branch = "new-multihash" }
+#multihash = { git = "https://github.com/ipfs-rust/tiny-multihash" }
