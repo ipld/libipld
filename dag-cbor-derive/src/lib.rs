@@ -10,7 +10,8 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
     let encode = gen::encode(&s);
     let try_read_cbor = gen::decode(&s);
     s.gen_impl(quote! {
-        use libipld::cbor::{DagCborCodec, Error, Result};
+        use libipld::cbor::{DagCborCodec, Result};
+        use libipld::error::Error;
         use libipld::cbor::encode::write_u64;
         use libipld::cbor::decode::{read, read_u8, read_key, TryReadCbor};
         use libipld::codec::{Encode, Decode};
@@ -26,7 +27,7 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
         }
 
         gen impl Decode<DagCborCodec> for @Self {
-            fn decode<R: Read>(r: &mut R) -> Result<Self> {
+            fn decode<R: Read>(c: DagCborCodec, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }

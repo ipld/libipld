@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+use libipld::cbor::error::LengthOutOfRange;
 use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;
@@ -21,10 +23,10 @@ macro_rules! test_case {
     ($data:expr, $ty:ty, $ipld:expr) => {
         let data = $data;
         let mut bytes = Vec::new();
-        data.encode(&mut bytes)?;
-        let ipld: Ipld = Decode::<DagCborCodec>::decode(&mut bytes.as_slice())?;
+        data.encode(DagCborCodec, &mut bytes)?;
+        let ipld: Ipld = Decode::decode(DagCborCodec, &mut bytes.as_slice())?;
         assert_eq!(ipld, $ipld);
-        let data: $ty = Decode::<DagCborCodec>::decode(&mut bytes.as_slice())?;
+        let data: $ty = Decode::decode(DagCborCodec, &mut bytes.as_slice())?;
         assert_eq!(data, $data);
     };
 }
