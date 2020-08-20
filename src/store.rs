@@ -24,26 +24,28 @@ pub enum Visibility {
 pub trait ReadonlyStore: Clone {
     /// The multihash type of the store.
     type Multihash: MultihashDigest;
+    /// The codec type of the store.
+    type Codec: Codec;
 
     /// Returns a block from the store. If the block is not in the store it fetches it from the
     /// network and pins the block. Dropping the future cancels the request.
-    fn get<'a, C: Codec>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, Self::Multihash>>;
+    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
 }
 
 /// Implementable by ipld storage backends.
 pub trait Store: ReadonlyStore {
     /// Inserts and pins block into the store and announces it if it is visible.
-    fn insert<'a, C: Codec>(
+    fn insert<'a>(
         &'a self,
-        block: &'a Block<C, Self::Multihash>,
+        block: &'a Block<Self::Codec, Self::Multihash>,
         visibility: Visibility,
     ) -> StoreResult<'a, ()>;
 
     /// Inserts a batch of blocks atomically into the store and announces them block
     /// if it is visible. The last block is pinned.
-    fn insert_batch<'a, C: Codec>(
+    fn insert_batch<'a>(
         &'a self,
-        batch: &'a [Block<C, Self::Multihash>],
+        batch: &'a [Block<Self::Codec, Self::Multihash>],
         visibility: Visibility,
     ) -> StoreResult<'a, Cid>;
 
