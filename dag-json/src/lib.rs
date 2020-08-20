@@ -2,10 +2,10 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode};
-use libipld_core::ipld::Ipld;
-use libipld_core::error::{Result, UnsupportedCodec};
 use core::convert::TryFrom;
+use libipld_core::codec::{Codec, Decode, Encode};
+use libipld_core::error::{Result, UnsupportedCodec};
+use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
 use std::io::{Read, Write};

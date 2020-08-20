@@ -2,7 +2,7 @@
 #[cfg(feature = "dag-cbor")]
 use crate::cbor::DagCborCodec;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::{UnsupportedCodec, Result};
+use crate::error::{Result, UnsupportedCodec};
 use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
 use crate::json::DagJsonCodec;

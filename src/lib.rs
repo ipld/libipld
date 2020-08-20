@@ -4,7 +4,7 @@
 
 pub mod block;
 pub mod codec_impl;
-//pub mod mem;
+pub mod mem;
 pub mod path;
 pub mod store;
 

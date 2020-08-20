@@ -1,7 +1,7 @@
 //! Block validation
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::{Result, BlockTooLarge, UnsupportedMultihash, InvalidMultihash};
+use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::MAX_BLOCK_SIZE;
@@ -19,6 +19,15 @@ pub struct Block<C, M> {
 }
 
 impl<C: Codec, M: MultihashDigest> Block<C, M> {
+    /// Creates a new block.
+    pub fn new(cid: Cid, data: Box<[u8]>) -> Self {
+        Self {
+            _marker: PhantomData,
+            cid,
+            data,
+        }
+    }
+
     /// Encode a block.`
     pub fn encode<T: Encode<C>>(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
         let mut bytes = Vec::with_capacity(MAX_BLOCK_SIZE);
@@ -37,9 +46,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
             data: bytes.into_boxed_slice(),
         })
     }
-}
 
-impl<C: Codec, M: MultihashDigest> Block<C, M> {
     /// Decodes a block.
     pub fn decode<T: Decode<C>>(&self) -> Result<T> {
         if self.data.len() > MAX_BLOCK_SIZE {

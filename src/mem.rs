@@ -2,13 +2,10 @@
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::Codec;
-use crate::error::Error;
-use crate::error::StoreError;
+use crate::error::{BlockNotFound, EmptyBatch, Result};
 use crate::multihash::MultihashDigest;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
 use async_std::sync::{Arc, RwLock};
-use core::convert::TryFrom;
-use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Default)]
@@ -25,15 +22,11 @@ impl InnerStore {
         Self::default()
     }
 
-    fn get<C, M>(&self, cid: Cid) -> Result<Block<C, M>, StoreError> {
+    fn get<C: Codec, M: MultihashDigest>(&self, cid: Cid) -> Result<Block<C, M>> {
         if let Some(data) = self.blocks.get(&cid).cloned() {
-            Ok(Block {
-                _marker: PhantomData,
-                cid,
-                data,
-            })
+            Ok(Block::new(cid, data))
         } else {
-            Err(StoreError::BlockNotFound(cid.to_string()))
+            Err(BlockNotFound(cid.to_string()).into())
         }
     }
 
@@ -45,9 +38,9 @@ impl InnerStore {
         self.referers.insert(cid, referers + n);
     }
 
-    fn insert<C, M>(&mut self, block: &Block<C, M>) -> Result<(), StoreError>
+    fn insert<C, M>(&mut self, block: &Block<C, M>) -> Result<()>
     where
-        C: Codec + TryFrom<u64, Error = Error>,
+        C: Codec,
         M: MultihashDigest,
     {
         self.insert_block(&block)?;
@@ -55,29 +48,27 @@ impl InnerStore {
         Ok(())
     }
 
-    fn insert_block<C, M>(&mut self, block: &Block<C, M>) -> Result<(), StoreError>
+    fn insert_block<C, M>(&mut self, block: &Block<C, M>) -> Result<()>
     where
-        C: Codec + TryFrom<u64, Error = Error>,
+        C: Codec,
         M: MultihashDigest,
     {
         if self.blocks.contains_key(&block.cid) {
             return Ok(());
         }
-        let ipld = block
-            .decode_ipld()
-            .map_err(|e| StoreError::Other(e.into()))?;
+        let ipld = block.decode_ipld()?;
         let refs = ipld.references();
         for cid in &refs {
-            self.add_referer(&block.cid, 1);
+            self.add_referer(cid, 1);
         }
         self.refs.insert(block.cid.clone(), refs);
         self.blocks.insert(block.cid.clone(), block.data.clone());
         Ok(())
     }
 
-    fn insert_batch<C, M>(&mut self, batch: &[Block<C, M>]) -> Result<Cid, StoreError>
+    fn insert_batch<C, M>(&mut self, batch: &[Block<C, M>]) -> Result<Cid>
     where
-        C: Codec + TryFrom<u64, Error = Error>,
+        C: Codec,
         M: MultihashDigest,
     {
         let mut last_cid = None;
@@ -85,7 +76,7 @@ impl InnerStore {
             self.insert_block(block)?;
             last_cid = Some(block.cid.clone());
         }
-        Ok(last_cid.ok_or(StoreError::EmptyBatch)?)
+        Ok(last_cid.ok_or(EmptyBatch)?)
     }
 
     fn pin(&mut self, cid: &Cid) {
@@ -96,7 +87,7 @@ impl InnerStore {
         self.pins.insert(cid, pins + 1);
     }
 
-    fn unpin(&mut self, cid: &Cid) -> Result<(), StoreError> {
+    fn unpin(&mut self, cid: &Cid) -> Result<()> {
         if let Some((cid, pins)) = self.pins.remove_entry(cid) {
             if pins > 1 {
                 self.pins.insert(cid, pins - 1);
@@ -202,28 +193,27 @@ impl AliasStore for MemStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::{decode, encode, Block};
+    use crate::block::Block;
     use crate::cbor::DagCborCodec;
-    use crate::codec::{Cid, IpldCodec};
+    use crate::cid::DAG_CBOR;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::{Code as HCode, Sha2_256};
+    use crate::multihash::{Multihash, SHA2_256};
     use crate::store::{Store, Visibility};
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
-        let bytes = match store.get(cid).await {
-            Ok(bytes) => bytes,
-            Err(StoreError::BlockNotFound { .. }) => return None,
+        let block = match store.get::<DagCborCodec, Multihash>(cid.clone()).await {
+            Ok(block) => block,
+            Err(e) if e.downcast_ref::<BlockNotFound>().is_some() => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<IpldCodec, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
+        Some(block.decode_ipld().unwrap())
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let Block { cid, data } =
-            encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
-        store.insert(&cid, data, Visibility::Public).await.unwrap();
-        cid
+        let block = Block::<DagCborCodec, Multihash>::encode(DAG_CBOR, SHA2_256, ipld).unwrap();
+        store.insert(&block, Visibility::Public).await.unwrap();
+        block.cid
     }
 
     #[async_std::test]
