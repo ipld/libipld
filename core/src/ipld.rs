@@ -1,7 +1,7 @@
 //! Ipld representation.
 use crate::cid::Cid;
 use crate::error::TypeError;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
@@ -87,6 +87,17 @@ impl Ipld {
         IpldIter {
             stack: vec![Box::new(vec![self].into_iter())],
         }
+    }
+
+    /// Returns the references to other blocks.
+    pub fn references(&self) -> HashSet<Cid> {
+        let mut set: HashSet<Cid> = Default::default();
+        for ipld in self.iter() {
+            if let Ipld::Link(cid) = ipld {
+                set.insert(cid.to_owned());
+            }
+        }
+        set
     }
 }
 

@@ -1,8 +1,10 @@
 //! CBOR encoder.
-use crate::{DagCborCodec as DagCbor, Error, Result};
+use crate::error::NumberOutOfRange;
+use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use libipld_core::cid::Cid;
 use libipld_core::codec::Encode;
+use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -189,12 +191,12 @@ impl Encode<DagCbor> for i128 {
     fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         if *self < 0 {
             if -(*self + 1) > u64::max_value() as i128 {
-                return Err(Error::NumberOutOfRange);
+                return Err(NumberOutOfRange.into());
             }
             write_u64(w, 1, -(*self + 1) as u64)?;
         } else {
             if *self > u64::max_value() as i128 {
-                return Err(Error::NumberOutOfRange);
+                return Err(NumberOutOfRange.into());
             }
             write_u64(w, 0, *self as u64)?;
         }

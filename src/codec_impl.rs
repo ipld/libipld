@@ -1,17 +1,16 @@
 //! IPLD Codecs.
 #[cfg(feature = "dag-cbor")]
-use crate::cbor::{DagCborCodec, Error as CborError};
+use crate::cbor::DagCborCodec;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::Error;
+use crate::error::{UnsupportedCodec, Result};
 use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
-use crate::json::{DagJsonCodec, Error as JsonError};
+use crate::json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]
-use crate::pb::{DagPbCodec, Error as PbError};
-use crate::raw::{RawCodec, RawError};
+use crate::pb::DagPbCodec;
+use crate::raw::RawCodec;
 use core::convert::TryFrom;
 use std::io::{Read, Write};
-use thiserror::Error;
 
 /// Default codecs.
 #[derive(Clone, Copy, Debug)]
@@ -30,9 +29,9 @@ pub enum IpldCodec {
 }
 
 impl TryFrom<u64> for IpldCodec {
-    type Error = Error;
+    type Error = UnsupportedCodec;
 
-    fn try_from(ccode: u64) -> Result<Self, Self::Error> {
+    fn try_from(ccode: u64) -> core::result::Result<Self, Self::Error> {
         Ok(match ccode {
             crate::cid::RAW => Self::Raw,
             #[cfg(feature = "dag-cbor")]
@@ -41,17 +40,19 @@ impl TryFrom<u64> for IpldCodec {
             crate::cid::DAG_JSON => Self::DagJson,
             #[cfg(feature = "dag-pb")]
             crate::cid::DAG_PROTOBUF => Self::DagPb,
-            _ => return Err(Error::UnsupportedCodec(ccode)),
+            _ => return Err(UnsupportedCodec(ccode)),
         })
     }
 }
 
 impl Codec for IpldCodec {
-    type Error = IpldCodecError;
+    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
+        Ipld::decode(*self, &mut bytes)
+    }
 }
 
 impl Encode<IpldCodec> for Ipld {
-    fn encode<W: Write>(&self, c: IpldCodec, w: &mut W) -> Result<(), <IpldCodec as Codec>::Error> {
+    fn encode<W: Write>(&self, c: IpldCodec, w: &mut W) -> Result<()> {
         match c {
             IpldCodec::Raw => self.encode(RawCodec, w)?,
             #[cfg(feature = "dag-cbor")]
@@ -66,7 +67,7 @@ impl Encode<IpldCodec> for Ipld {
 }
 
 impl Decode<IpldCodec> for Ipld {
-    fn decode<R: Read>(c: IpldCodec, r: &mut R) -> Result<Self, <IpldCodec as Codec>::Error> {
+    fn decode<R: Read>(c: IpldCodec, r: &mut R) -> Result<Self> {
         Ok(match c {
             IpldCodec::Raw => Self::decode(RawCodec, r)?,
             #[cfg(feature = "dag-cbor")]
@@ -77,29 +78,6 @@ impl Decode<IpldCodec> for Ipld {
             IpldCodec::DagPb => Self::decode(DagPbCodec, r)?,
         })
     }
-}
-
-/// Errors that happen within the [`EncodeDecodeIpld`] implementation of [`IpldCodec`].
-#[derive(Debug, Error)]
-pub enum IpldCodecError {
-    /// [Raw Codec](raw::RawCodec) error.
-    #[error("Raw Codec: {0}")]
-    Raw(#[from] RawError),
-
-    #[cfg(feature = "dag-cbor")]
-    /// [DAG-CBOR Codec](DagCborCodec) error.
-    #[error("DAG-CBOR Codec: {0}")]
-    Cbor(#[from] CborError),
-
-    /// [DAG-JSON Codec](DagJsonCodec) error.
-    #[cfg(feature = "dag-json")]
-    #[error("DAG-JSON Codec: {0}")]
-    Json(#[from] JsonError),
-
-    /// [DAG-PB Codec](DagPbCodec) error.
-    #[cfg(feature = "dag-pb")]
-    #[error("DAG-PB Codec: {0}")]
-    Pb(#[from] PbError),
 }
 
 #[cfg(test)]

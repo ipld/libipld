@@ -3,11 +3,11 @@
 #![deny(warnings)]
 
 pub use crate::codec::{PbLink, PbNode};
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use libipld_core::codec::{Codec, Decode, Encode};
+use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 use std::io::{Read, Write};
-use thiserror::Error;
 
 mod codec;
 
@@ -16,28 +16,21 @@ mod codec;
 pub struct DagPbCodec;
 
 impl Codec for DagPbCodec {
-    type Error = Error;
+    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
+        Ipld::decode(*self, &mut bytes)
+    }
 }
 
-/// Protobuf error.
-#[derive(Debug, Error)]
-pub enum Error {
-    /// Prost error.
-    #[error(transparent)]
-    Prost(#[from] prost::DecodeError),
-    /// CID error.
-    #[error(transparent)]
-    Cid(#[from] libipld_core::cid::Error),
-    /// Type error.
-    #[error(transparent)]
-    TypeError(#[from] libipld_core::error::TypeError),
-    /// Io error.
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
+impl TryFrom<u64> for DagPbCodec {
+    type Error = UnsupportedCodec;
+
+    fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
+        Ok(Self)
+    }
 }
 
 impl Encode<DagPbCodec> for Ipld {
-    fn encode<W: Write>(&self, _: DagPbCodec, w: &mut W) -> Result<(), Error> {
+    fn encode<W: Write>(&self, _: DagPbCodec, w: &mut W) -> Result<()> {
         let pb_node: PbNode = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
@@ -46,7 +39,7 @@ impl Encode<DagPbCodec> for Ipld {
 }
 
 impl Decode<DagPbCodec> for Ipld {
-    fn decode<R: Read>(_: DagPbCodec, r: &mut R) -> Result<Self, Error> {
+    fn decode<R: Read>(_: DagPbCodec, r: &mut R) -> Result<Self> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
         Ok(PbNode::from_bytes(&bytes)?.into())

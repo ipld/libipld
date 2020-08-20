@@ -4,8 +4,7 @@
 
 pub mod block;
 pub mod codec_impl;
-pub mod error;
-pub mod mem;
+//pub mod mem;
 pub mod path;
 pub mod store;
 
@@ -19,6 +18,3 @@ pub use libipld_json as json;
 pub use libipld_macro::*;
 #[cfg(feature = "dag-pb")]
 pub use libipld_pb as pb;
-
-/// The maximum block size is 1MiB.
-pub const MAX_BLOCK_SIZE: usize = 1_048_576;

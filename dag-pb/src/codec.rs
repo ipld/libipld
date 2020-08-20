@@ -1,7 +1,6 @@
-use crate::Error;
 use core::convert::{TryFrom, TryInto};
 use libipld_core::cid::Cid;
-use libipld_core::error::{TypeError, TypeErrorType};
+use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
@@ -31,7 +30,7 @@ use prost::Message;
 
 impl PbNode {
     /// Deserializes a `PbNode` from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let proto: dag_pb::PbNode = dag_pb::PbNode::decode(bytes)?;
         let data = proto.data.into_boxed_slice();
         let mut links = Vec::new();
@@ -95,7 +94,7 @@ impl Into<Ipld> for PbLink {
 impl TryFrom<&Ipld> for PbNode {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld) -> Result<PbNode, Self::Error> {
+    fn try_from(ipld: &Ipld) -> core::result::Result<PbNode, Self::Error> {
         let links = if let Ipld::List(links) = ipld.get("Links")? {
             links
                 .iter()
@@ -116,7 +115,7 @@ impl TryFrom<&Ipld> for PbNode {
 impl TryFrom<&Ipld> for PbLink {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld) -> Result<PbLink, Self::Error> {
+    fn try_from(ipld: &Ipld) -> core::result::Result<PbLink, Self::Error> {
         let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
             cid.clone()
         } else {

@@ -4,6 +4,8 @@
 
 use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::ipld::Ipld;
+use libipld_core::error::{Result, UnsupportedCodec};
+use core::convert::TryFrom;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
 use std::io::{Read, Write};
@@ -15,18 +17,28 @@ mod codec;
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {
-    type Error = Error;
+    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
+        Ipld::decode(*self, &mut bytes)
+    }
+}
+
+impl TryFrom<u64> for DagJsonCodec {
+    type Error = UnsupportedCodec;
+
+    fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
+        Ok(Self)
+    }
 }
 
 impl Encode<DagJsonCodec> for Ipld {
-    fn encode<W: Write>(&self, _: DagJsonCodec, w: &mut W) -> Result<(), Error> {
-        codec::encode(self, w)
+    fn encode<W: Write>(&self, _: DagJsonCodec, w: &mut W) -> Result<()> {
+        Ok(codec::encode(self, w)?)
     }
 }
 
 impl Decode<DagJsonCodec> for Ipld {
-    fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self, Error> {
-        codec::decode(r)
+    fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
+        Ok(codec::decode(r)?)
     }
 }
 

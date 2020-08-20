@@ -1,15 +1,15 @@
 //! Store traits.
 use crate::block::Block;
-use crate::codec::{Codec, Encode, Decode};
-use crate::multihash::MultihashDigest;
 use crate::cid::Cid;
-use crate::error::StoreError;
+use crate::codec::Codec;
+use crate::error::Result;
+use crate::multihash::MultihashDigest;
 use core::future::Future;
 use core::pin::Pin;
 use std::path::Path;
 
 /// Result type of store methods.
-pub type StoreResult<'a, T> = Pin<Box<dyn Future<Output = Result<T, StoreError>> + Send + 'a>>;
+pub type StoreResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// Visibility of a block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -24,37 +24,25 @@ pub enum Visibility {
 pub trait ReadonlyStore: Clone {
     /// Returns a block from the store. If the block is not in the store it fetches it from the
     /// network and pins the block. Dropping the future cancels the request.
-    fn get<'a, C, M, T>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M, T>>
-    where
-        C: Codec + Send + Sync,
-        M: MultihashDigest + Send + Sync,
-        T: Decode<C> + Send + Sync;
+    fn get<'a, C: Codec, M: MultihashDigest>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>>;
 }
 
 /// Implementable by ipld storage backends.
 pub trait Store: ReadonlyStore {
     /// Inserts and pins block into the store and announces it if it is visible.
-    fn insert<'a, C, M, T>(
+    fn insert<'a, C: Codec, M: MultihashDigest>(
         &'a self,
-        block: &'a Block<C, M, T>,
+        block: &'a Block<C, M>,
         visibility: Visibility,
-    ) -> StoreResult<'a, ()>
-    where
-        C: Codec + Send + Sync,
-        M: MultihashDigest + Send + Sync,
-        T: Encode<C> + Send + Sync;
+    ) -> StoreResult<'a, ()>;
 
     /// Inserts a batch of blocks atomically into the store and announces them block
     /// if it is visible. The last block is pinned.
-    fn insert_batch<'a, C, M, T>(
+    fn insert_batch<'a, C: Codec, M: MultihashDigest>(
         &'a self,
-        batch: &'a [Block<C, M, T>],
+        batch: &'a [Block<C, M>],
         visibility: Visibility,
-    ) -> StoreResult<'a, Cid>
-    where
-        C: Codec + Send + Sync,
-        M: MultihashDigest + Send + Sync,
-        T: Encode<C> + Send + Sync;
+    ) -> StoreResult<'a, Cid>;
 
     /// Flushes the write buffer.
     fn flush(&self) -> StoreResult<'_, ()>;

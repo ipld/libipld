@@ -1,4 +1,5 @@
-use libipld_cbor::{DagCborCodec, Error};
+use libipld_cbor::error::{InvalidCidPrefix, LengthOutOfRange};
+use libipld_cbor::DagCborCodec;
 use libipld_core::codec::Codec;
 use libipld_core::ipld::Ipld;
 
@@ -31,9 +32,10 @@ fn invalid_cid_prefix() {
     let input = hex::decode(input).unwrap();
     let result: Result<Ipld, _> = DagCborCodec.decode(&input);
 
-    match result.unwrap_err() {
-        Error::InvalidCidPrefix(1) => {}
-        x => panic!("unexpected error: {:?}", x),
+    let err = result.unwrap_err();
+    if let Some(_) = err.downcast_ref::<InvalidCidPrefix>() {
+    } else {
+        panic!("unexpected error: {:?}", err);
     }
 }
 
@@ -43,8 +45,9 @@ fn zero_length_cid() {
     let input = hex::decode(input).unwrap();
     let result: Result<Ipld, _> = DagCborCodec.decode(&input);
 
-    match result.unwrap_err() {
-        Error::LengthOutOfRange => {}
-        x => panic!("unexpected error: {:?}", x),
+    let err = result.unwrap_err();
+    if let Some(_) = err.downcast_ref::<LengthOutOfRange>() {
+    } else {
+        panic!("unexpected error: {:?}", err);
     }
 }

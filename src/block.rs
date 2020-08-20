@@ -1,42 +1,35 @@
 //! Block validation
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::{Error, Result};
+use crate::error::{Result, BlockTooLarge, UnsupportedMultihash, InvalidMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::MAX_BLOCK_SIZE;
-use std::collections::HashSet;
+use core::convert::TryInto;
 use core::marker::PhantomData;
-use core::convert::{TryInto, TryFrom};
 
 /// Block
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Block<C, M, T> {
-    _marker: PhantomData<(C, M, T)>,
+pub struct Block<C, M> {
+    _marker: PhantomData<(C, M)>,
     /// Content identifier.
     pub cid: Cid,
     /// Binary data.
     pub data: Box<[u8]>,
 }
 
-impl<C, M, T> Block<C, M, T>
-where
-    C: Codec + TryFrom<u64, Error = Error>,
-    M: MultihashDigest,
-    T: Encode<C>,
-{
+impl<C: Codec, M: MultihashDigest> Block<C, M> {
     /// Encode a block.`
-    pub fn encode(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
+    pub fn encode<T: Encode<C>>(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
         let mut bytes = Vec::with_capacity(MAX_BLOCK_SIZE);
-        payload.encode(ccode.try_into()?, &mut bytes)
-            .map_err(|e| Error::CodecError(Box::new(e)))?;
+        payload.encode(ccode.try_into()?, &mut bytes)?;
         if bytes.len() > MAX_BLOCK_SIZE {
-            return Err(Error::BlockTooLarge(bytes.len()));
+            return Err(BlockTooLarge(bytes.len()).into());
         }
         let digest = M::new(hcode, &bytes)
-            .map_err(|_| Error::UnsupportedMultihash(hcode))?
+            .map_err(|_| UnsupportedMultihash(hcode))?
             .to_raw()
-            .map_err(|_| Error::UnsupportedMultihash(hcode))?;
+            .map_err(|_| UnsupportedMultihash(hcode))?;
         let cid = Cid::new_v1(ccode, digest);
         Ok(Self {
             _marker: PhantomData,
@@ -46,42 +39,23 @@ where
     }
 }
 
-impl<C, M, T> Block<C, M, T>
-where
-    C: Codec + TryFrom<u64, Error = Error>,
-    M: MultihashDigest,
-    T: Decode<C>,
-{
+impl<C: Codec, M: MultihashDigest> Block<C, M> {
     /// Decodes a block.
-    pub fn decode(&self) -> Result<T> {
+    pub fn decode<T: Decode<C>>(&self) -> Result<T> {
         if self.data.len() > MAX_BLOCK_SIZE {
-            return Err(Error::BlockTooLarge(self.data.len()));
+            return Err(BlockTooLarge(self.data.len()).into());
         }
         let mh = M::new(self.cid.hash().code(), &self.data)
-            .map_err(|_| Error::UnsupportedMultihash(self.cid.hash().code()))?;
+            .map_err(|_| UnsupportedMultihash(self.cid.hash().code()))?;
         if mh.digest() != self.cid.hash().digest() {
-            return Err(Error::InvalidHash(mh.to_bytes()));
+            return Err(InvalidMultihash(mh.to_bytes()).into());
         }
         T::decode(self.cid.codec().try_into()?, &mut &self.data[..])
-            .map_err(|e| Error::CodecError(Box::new(e)))
     }
-}
 
-impl<C, M, T> Block<C, M, T>
-where
-    C: Codec + TryFrom<u64, Error = Error>,
-{
-    /// Returns the references in an ipld block.
-    pub fn references(&self) -> Result<HashSet<Cid>> {
-        let ipld = Ipld::decode(self.cid.codec().try_into()?, &mut &self.data[..])
-            .map_err(|e| Error::CodecError(Box::new(e)))?;
-        let mut set: HashSet<Cid> = Default::default();
-        for ipld in ipld.iter() {
-            if let Ipld::Link(cid) = ipld {
-                set.insert(cid.to_owned());
-            }
-        }
-        Ok(set)
+    /// Decodes to ipld.
+    pub fn decode_ipld(&self) -> Result<Ipld> {
+        C::try_from(self.cid.codec())?.decode_ipld(&self.data)
     }
 }
 
@@ -93,16 +67,21 @@ mod tests {
     use crate::ipld;
     use crate::multihash::{Multihash, SHA2_256};
 
-    type IpldBlock = Block<IpldCodec, Multihash, Ipld>;
+    type IpldBlock = Block<IpldCodec, Multihash>;
 
     #[test]
     fn test_references() {
         let b1 = IpldBlock::encode(RAW, SHA2_256, &ipld!(&b"cid1"[..])).unwrap();
         let b2 = IpldBlock::encode(DAG_JSON, SHA2_256, &ipld!("cid2")).unwrap();
-        let b3 = IpldBlock::encode(DAG_PROTOBUF, SHA2_256, &ipld!({
-            "Data": &b"data"[..],
-            "Links": Ipld::List(vec![]),
-        })).unwrap();
+        let b3 = IpldBlock::encode(
+            DAG_PROTOBUF,
+            SHA2_256,
+            &ipld!({
+                "Data": &b"data"[..],
+                "Links": Ipld::List(vec![]),
+            }),
+        )
+        .unwrap();
 
         let payload = ipld!({
             "cid1": &b1.cid,
@@ -113,7 +92,7 @@ mod tests {
         let payload2 = block.decode().unwrap();
         assert_eq!(payload, payload2);
 
-        let refs = block.references();
+        let refs = payload2.references();
         assert_eq!(refs.len(), 3);
         assert!(refs.contains(&b1.cid));
         assert!(refs.contains(&b2.cid));

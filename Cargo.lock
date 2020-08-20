@@ -727,6 +727,7 @@ dependencies = [
 name = "libipld-core"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "multibase",
  "thiserror",
  "tiny-cid",
