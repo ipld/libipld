@@ -4,7 +4,7 @@
 
 use core::convert::TryFrom;
 use libipld_core::codec::{Codec, Decode, Encode};
-use libipld_core::error::{Result, UnsupportedCodec};
+pub use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 
 pub mod decode;

@@ -95,8 +95,8 @@ impl BindingRepr {
                 let keys = field_keys(bindings);
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
-                        Encode::<DagCborCodec>::encode(#key, w)?;
-                        Encode::<DagCborCodec>::encode(#binding, w)?;
+                        Encode::encode(#key, DagCborCodec, w)?;
+                        Encode::encode(#binding, DagCborCodec, w)?;
                     }
                 });
                 quote! {
@@ -107,7 +107,7 @@ impl BindingRepr {
             Self::List => {
                 let fields = bindings
                     .iter()
-                    .map(|binding| quote!(Encode::<DagCborCodec>::encode(#binding, w)?;));
+                    .map(|binding| quote!(Encode::encode(#binding, DagCborCodec, w)?;));
                 quote! {
                     write_u64(w, 4, #len)?;
                     #(#fields)*
@@ -124,7 +124,7 @@ impl BindingRepr {
                 let fields = keys.into_iter().map(|(key, binding)| {
                     quote! {
                         read_key(r, #key)?;
-                        let #binding = Decode::<DagCborCodec>::decode(r)?;
+                        let #binding = Decode::decode(DagCborCodec,r)?;
                     }
                 });
                 let construct = variant.construct(|_field, i| {
@@ -138,7 +138,7 @@ impl BindingRepr {
                        _ => return Ok(None),
                     };
                     if len != #len {
-                        return Err(Error::LengthOutOfRange);
+                        return Err(LengthOutOfRange.into());
                     }
                     #(#fields)*
                     return Ok(Some(#construct));
@@ -148,7 +148,7 @@ impl BindingRepr {
                 let fields = variant
                     .bindings()
                     .iter()
-                    .map(|binding| quote!(let #binding = Decode::<DagCborCodec>::decode(r)?;));
+                    .map(|binding| quote!(let #binding = Decode::decode(DagCborCodec,r)?;));
                 let construct = variant.construct(|_field, i| {
                     let binding = &variant.bindings()[i];
                     quote!(#binding)
@@ -160,7 +160,7 @@ impl BindingRepr {
                        _ => return Ok(None),
                     };
                     if len != #len {
-                        return Err(Error::LengthOutOfRange);
+                        return Err(LengthOutOfRange.into());
                     }
                     #(#fields)*
                     return Ok(Some(#construct));
@@ -200,7 +200,7 @@ impl VariantRepr {
                 let name = variant.ast().ident.to_string();
                 quote! {
                     write_u64(w, 5, 1)?;
-                    Encode::<DagCborCodec>::encode(#name, w)?;
+                    Encode::encode(#name, DagCborCodec, w)?;
                     #bindings
                 }
             }
@@ -231,7 +231,7 @@ pub fn encode(s: &Structure) -> TokenStream {
     let body = s.each_variant(|var| var_repr.repr(var));
 
     quote! {
-        fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
+        fn encode<W: Write>(&self, c: DagCborCodec, w: &mut W) -> Result<()> {
             match *self {
                 #body
             }
@@ -249,7 +249,7 @@ pub fn decode(s: &Structure) -> TokenStream {
                 if major != 0xa1 {
                     return Ok(None);
                 }
-                let key: String = Decode::<DagCborCodec>::decode(r)?;
+                let key: String = Decode::decode(DagCborCodec,r)?;
                 #(#variants)*
                 Err(TypeError::new(TypeErrorType::Key(key), TypeErrorType::Null).into())
             }
