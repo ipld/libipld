@@ -2,10 +2,9 @@
 /// Construct an `Ipld` from a literal.
 ///
 /// ```edition2018
-/// # use libipld_core::multihash::Code;
-/// # use libipld_macro::{ipld, Ipld};
+/// # use libipld_macro::ipld;
 /// #
-/// let value: Ipld<Code> = ipld!({
+/// let value = ipld!({
 ///     "code": 200,
 ///     "success": true,
 ///     "payload": {
@@ -25,13 +24,12 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use libipld_core::multihash::Code;
-/// # use libipld_macro::{ipld, Ipld};
+/// # use libipld_macro::ipld;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
 ///
-/// let value: Ipld<Code> = ipld!({
+/// let value = ipld!({
 ///     "code": code,
 ///     "success": code == 200,
 ///     "payload": {
@@ -43,10 +41,9 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use libipld_core::multihash::Code;
-/// # use libipld_macro::{ipld, Ipld};
+/// # use libipld_macro::ipld;
 /// #
-/// let value: Ipld<Code> = ipld!([
+/// let value = ipld!([
 ///     "notice",
 ///     "the",
 ///     "trailing",
@@ -295,11 +292,8 @@ macro_rules! ipld_unexpected {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::CidGeneric;
-    use libipld_core::multihash::{Code, Sha2_256};
-
-    type Cid = CidGeneric<u64, Code>;
-    type Ipld = super::Ipld<Code>;
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
 
     #[test]
     fn test_macro() {
@@ -317,6 +311,10 @@ mod tests {
             "numbers": [1, 2, 3],
             "a": a,
         });
-        let _: Ipld = ipld!(Cid::new_v1(0, Sha2_256::digest(b"cid")));
+        let mh = Multihash::new(SHA2_256, &b"cid"[..])
+            .unwrap()
+            .to_raw()
+            .unwrap();
+        let _: Ipld = ipld!(Cid::new_v1(0, mh));
     }
 }
