@@ -115,14 +115,14 @@ impl InnerStore {
 
 /// A memory backed store
 #[derive(Clone, Default)]
-pub struct MemStore<M: MultihashDigest> {
-    _marker: PhantomData<M>,
+pub struct MemStore<C: Codec, M: MultihashDigest> {
+    _marker: PhantomData<(C, M)>,
     inner: Arc<RwLock<InnerStore>>,
     #[allow(clippy::type_complexity)]
     aliases: Arc<RwLock<HashMap<Box<[u8]>, Cid>>>,
 }
 
-impl<M: MultihashDigest> MemStore<M> {
+impl<C: Codec, M: MultihashDigest> MemStore<C, M> {
     /// Create a new empty `MemStore`
     pub fn new() -> Self {
         Self {
@@ -133,16 +133,17 @@ impl<M: MultihashDigest> MemStore<M> {
     }
 }
 
-impl<M: MultihashDigest> ReadonlyStore for MemStore<M> {
+impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
+    type Codec = C;
     type Multihash = M;
 
-    fn get<'a, C: Codec>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
+    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
         Box::pin(async move { self.inner.read().await.get(cid) })
     }
 }
 
-impl<M: MultihashDigest> Store for MemStore<M> {
-    fn insert<'a, C: Codec>(
+impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
+    fn insert<'a>(
         &'a self,
         block: &'a Block<C, M>,
         _visibility: Visibility,
@@ -150,7 +151,7 @@ impl<M: MultihashDigest> Store for MemStore<M> {
         Box::pin(async move { self.inner.write().await.insert(block) })
     }
 
-    fn insert_batch<'a, C: Codec>(
+    fn insert_batch<'a>(
         &'a self,
         batch: &'a [Block<C, M>],
         _visibility: Visibility,
@@ -167,7 +168,7 @@ impl<M: MultihashDigest> Store for MemStore<M> {
     }
 }
 
-impl<M: MultihashDigest> AliasStore for MemStore<M> {
+impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M> {
     fn alias<'a>(
         &'a self,
         alias: &'a [u8],
@@ -207,7 +208,7 @@ mod tests {
     use crate::store::{Store, Visibility};
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
-        let block = match store.get::<DagCborCodec>(cid.clone()).await {
+        let block = match store.get(cid.clone()).await {
             Ok(block) => block,
             Err(e) if e.downcast_ref::<BlockNotFound>().is_some() => return None,
             Err(e) => Err(e).unwrap(),
@@ -216,14 +217,14 @@ mod tests {
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let block = Block::<DagCborCodec, S::Multihash>::encode(DAG_CBOR, SHA2_256, ipld).unwrap();
+        let block = Block::<S::Codec, S::Multihash>::encode_ipld(DAG_CBOR, SHA2_256, ipld).unwrap();
         store.insert(&block, Visibility::Public).await.unwrap();
         block.cid
     }
 
     #[async_std::test]
     async fn test_gc() {
-        let store = MemStore::<Multihash>::new();
+        let store = MemStore::<DagCborCodec, Multihash>::new();
         let a = insert(&store, &ipld!({ "a": [] })).await;
         let b = insert(&store, &ipld!({ "b": [&a] })).await;
         store.unpin(&a).await.unwrap();
@@ -243,7 +244,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_gc_2() {
-        let store = MemStore::<Multihash>::new();
+        let store = MemStore::<DagCborCodec, Multihash>::new();
         let a = insert(&store, &ipld!({ "a": [] })).await;
         let b = insert(&store, &ipld!({ "b": [&a] })).await;
         store.unpin(&a).await.unwrap();

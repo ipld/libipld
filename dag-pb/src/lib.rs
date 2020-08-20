@@ -16,6 +16,10 @@ mod codec;
 pub struct DagPbCodec;
 
 impl Codec for DagPbCodec {
+    fn encode_ipld(&self, ipld: &Ipld) -> Result<Box<[u8]>> {
+        self.encode(ipld)
+    }
+
     fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
         Ipld::decode(*self, &mut bytes)
     }
