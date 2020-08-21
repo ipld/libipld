@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 
 /// Codec trait.
 pub trait Codec:
-    Copy + Unpin + Send + Sync + 'static + Sized + TryFrom<u64, Error = UnsupportedCodec>
+    Copy + Unpin + Send + Sync + 'static + Sized + TryFrom<u64, Error = UnsupportedCodec> + Into<u64>
 {
     /// Encodes an encodable type.
     fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Box<[u8]>> {
@@ -66,6 +66,12 @@ mod tests {
 
         fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
             Ipld::decode(*self, &mut bytes)
+        }
+    }
+
+    impl From<CodecImpl> for u64 {
+        fn from(_: CodecImpl) -> Self {
+            0
         }
     }
 

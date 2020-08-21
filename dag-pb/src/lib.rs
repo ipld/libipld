@@ -25,6 +25,12 @@ impl Codec for DagPbCodec {
     }
 }
 
+impl From<DagPbCodec> for u64 {
+    fn from(_: DagPbCodec) -> Self {
+        libipld_core::cid::DAG_PROTOBUF
+    }
+}
+
 impl TryFrom<u64> for DagPbCodec {
     type Error = UnsupportedCodec;
 

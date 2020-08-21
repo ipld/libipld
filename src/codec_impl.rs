@@ -73,9 +73,23 @@ impl From<DagCborCodec> for Multicodec {
 }
 
 #[cfg(feature = "dag-cbor")]
+impl From<Multicodec> for DagCborCodec {
+    fn from(_: Multicodec) -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "dag-json")]
 impl From<DagJsonCodec> for Multicodec {
     fn from(_: DagJsonCodec) -> Self {
         Self::DagJson
+    }
+}
+
+#[cfg(feature = "dag-json")]
+impl From<Multicodec> for DagJsonCodec {
+    fn from(_: Multicodec) -> Self {
+        Self
     }
 }
 
@@ -83,6 +97,13 @@ impl From<DagJsonCodec> for Multicodec {
 impl From<DagPbCodec> for Multicodec {
     fn from(_: DagPbCodec) -> Self {
         Self::DagPb
+    }
+}
+
+#[cfg(feature = "dag-pb")]
+impl From<Multicodec> for DagPbCodec {
+    fn from(_: Multicodec) -> Self {
+        Self
     }
 }
 
@@ -163,7 +184,8 @@ mod tests {
     #[test]
     fn dag_json_encode() {
         let data = Ipld::Bool(true);
-        let result = String::from_utf8(Multicodec::DagJson.encode(&data).unwrap().to_vec()).unwrap();
+        let result =
+            String::from_utf8(Multicodec::DagJson.encode(&data).unwrap().to_vec()).unwrap();
         assert_eq!(result, "true");
     }
 

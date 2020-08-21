@@ -1,7 +1,7 @@
 //! Block validation
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
+use crate::error::{InvalidMultihash, Result, UnsupportedCodec, UnsupportedMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use core::marker::PhantomData;
@@ -68,9 +68,9 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     }
 
     /// Encode a block.`
-    pub fn encode<T: Encode<C> + ?Sized>(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
-        let data = C::try_from(ccode)?.encode(payload)?;
-        let cid = create_cid::<M>(ccode, hcode, &data)?;
+    pub fn encode<T: Encode<C> + ?Sized>(codec: C, hcode: u64, payload: &T) -> Result<Self> {
+        let data = codec.encode(payload)?;
+        let cid = create_cid::<M>(codec.into(), hcode, &data)?;
         Ok(Self {
             _marker: PhantomData,
             cid,
@@ -80,9 +80,9 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     }
 
     /// Encode ipld.
-    pub fn encode_ipld(ccode: u64, hcode: u64, ipld: &Ipld) -> Result<Self> {
-        let data = C::try_from(ccode)?.encode_ipld(ipld)?;
-        let cid = create_cid::<M>(ccode, hcode, &data)?;
+    pub fn encode_ipld(codec: C, hcode: u64, ipld: &Ipld) -> Result<Self> {
+        let data = codec.encode_ipld(ipld)?;
+        let cid = create_cid::<M>(codec.into(), hcode, &data)?;
         Ok(Self {
             _marker: PhantomData,
             cid,
@@ -103,16 +103,37 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         C::try_from(self.cid.codec())?.decode_ipld(&self.data)
     }
 
-    /// Convert block.
-    pub fn into_codec<C2: Codec>(self) -> Result<Block<C2, M>>
+    /// Convert from block.
+    pub fn try_from_block<C2: Codec>(block: Block<C2, M>) -> Result<Self>
     where
-        C2: From<C> + Into<u64>,
+        C2: Into<C>,
     {
-        let c1 = C::try_from(self.cid.codec())?;
-        let c2 = C2::from(c1).into();
+        let c2 = block.cid.codec();
+        let c1 = Into::<C>::into(C2::try_from(c2)?).into();
+        if c1 != c2 {
+            return Err(UnsupportedCodec(c1).into());
+        }
+        Ok(Self {
+            _marker: PhantomData,
+            cid: block.cid,
+            data: block.data,
+            vis: block.vis,
+        })
+    }
+
+    /// Convert nto block.
+    pub fn try_into_block<C2: Codec>(self) -> Result<Block<C2, M>>
+    where
+        C2: From<C>,
+    {
+        let c1 = self.cid.codec();
+        let c2 = C2::from(C::try_from(c1)?).into();
+        if c1 != c2 {
+            return Err(UnsupportedCodec(c2).into());
+        }
         Ok(Block {
             _marker: PhantomData,
-            cid: Cid::new_v1(c2, self.cid.hash().clone()),
+            cid: self.cid,
             data: self.data,
             vis: self.vis,
         })
@@ -122,8 +143,8 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cid::{DAG_CBOR, DAG_JSON, DAG_PROTOBUF, RAW};
     use crate::cbor::DagCborCodec;
+    use crate::cid::DAG_CBOR;
     use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::multihash::{Multihash, SHA2_256};
@@ -133,10 +154,10 @@ mod tests {
 
     #[test]
     fn test_references() {
-        let b1 = IpldBlock::encode(RAW, SHA2_256, &ipld!(&b"cid1"[..])).unwrap();
-        let b2 = IpldBlock::encode(DAG_JSON, SHA2_256, &ipld!("cid2")).unwrap();
+        let b1 = IpldBlock::encode(Multicodec::Raw, SHA2_256, &ipld!(&b"cid1"[..])).unwrap();
+        let b2 = IpldBlock::encode(Multicodec::DagJson, SHA2_256, &ipld!("cid2")).unwrap();
         let b3 = IpldBlock::encode(
-            DAG_PROTOBUF,
+            Multicodec::DagPb,
             SHA2_256,
             &ipld!({
                 "Data": &b"data"[..],
@@ -150,7 +171,7 @@ mod tests {
             "cid2": { "other": true, "cid2": { "cid2": &b2.cid }},
             "cid3": [[ &b3.cid, &b1.cid ]],
         });
-        let block = IpldBlock::encode(DAG_CBOR, SHA2_256, &payload).unwrap();
+        let block = IpldBlock::encode(Multicodec::DagCbor, SHA2_256, &payload).unwrap();
         let payload2 = block.decode().unwrap();
         assert_eq!(payload, payload2);
 
@@ -163,8 +184,8 @@ mod tests {
 
     #[test]
     fn test_transmute() {
-        let b1 = CborBlock::encode(0, SHA2_256, &42).unwrap();
-        let b2: IpldBlock = b1.into_codec().unwrap();
+        let b1 = CborBlock::encode(DagCborCodec, SHA2_256, &42).unwrap();
+        let b2 = IpldBlock::try_from_block(b1).unwrap();
         assert_eq!(b2.cid.codec(), DAG_CBOR);
     }
 }

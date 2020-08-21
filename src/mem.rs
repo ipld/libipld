@@ -188,7 +188,6 @@ mod tests {
     use super::*;
     use crate::block::Block;
     use crate::cbor::DagCborCodec;
-    use crate::cid::DAG_CBOR;
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::{Multihash, SHA2_256};
@@ -203,8 +202,12 @@ mod tests {
         Some(block.decode_ipld().unwrap())
     }
 
-    async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let block = Block::<S::Codec, S::Multihash>::encode_ipld(DAG_CBOR, SHA2_256, ipld).unwrap();
+    async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid
+    where
+        S::Codec: From<DagCborCodec>,
+    {
+        let block = Block::<DagCborCodec, _>::encode_ipld(DagCborCodec, SHA2_256, ipld).unwrap();
+        let block = Block::try_from_block(block).unwrap();
         store.insert(&block).await.unwrap();
         block.cid
     }

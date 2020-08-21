@@ -19,6 +19,12 @@ impl Codec for RawCodec {
     }
 }
 
+impl From<RawCodec> for u64 {
+    fn from(_: RawCodec) -> Self {
+        crate::cid::RAW
+    }
+}
+
 impl TryFrom<u64> for RawCodec {
     type Error = UnsupportedCodec;
 

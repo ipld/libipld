@@ -26,6 +26,12 @@ impl Codec for DagJsonCodec {
     }
 }
 
+impl From<DagJsonCodec> for u64 {
+    fn from(_: DagJsonCodec) -> Self {
+        libipld_core::cid::DAG_JSON
+    }
+}
+
 impl TryFrom<u64> for DagJsonCodec {
     type Error = UnsupportedCodec;
 
