@@ -242,6 +242,7 @@ macro_rules! derive_cache {
     };
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,3 +266,4 @@ mod tests {
         assert_eq!(res, 42);
     }
 }
+*/

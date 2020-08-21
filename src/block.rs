@@ -94,7 +94,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     /// Decodes a block.
     pub fn decode<T: Decode<C>>(&self) -> Result<T> {
         verify_cid::<M>(&self.cid, &self.data)?;
-        C::try_from(self.cid.codec())?.decode(&mut &self.data[..])
+        C::try_from(self.cid.codec())?.decode(&self.data)
     }
 
     /// Decodes to ipld.
