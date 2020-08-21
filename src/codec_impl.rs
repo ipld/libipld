@@ -45,6 +45,47 @@ impl TryFrom<u64> for Multicodec {
     }
 }
 
+impl From<Multicodec> for u64 {
+    fn from(mc: Multicodec) -> Self {
+        match mc {
+            Multicodec::Raw => crate::cid::RAW,
+            #[cfg(feature = "dag-cbor")]
+            Multicodec::DagCbor => crate::cid::DAG_CBOR,
+            #[cfg(feature = "dag-json")]
+            Multicodec::DagJson => crate::cid::DAG_JSON,
+            #[cfg(feature = "dag-pb")]
+            Multicodec::DagPb => crate::cid::DAG_PROTOBUF,
+        }
+    }
+}
+
+impl From<RawCodec> for Multicodec {
+    fn from(_: RawCodec) -> Self {
+        Self::Raw
+    }
+}
+
+#[cfg(feature = "dag-cbor")]
+impl From<DagCborCodec> for Multicodec {
+    fn from(_: DagCborCodec) -> Self {
+        Self::DagCbor
+    }
+}
+
+#[cfg(feature = "dag-cbor")]
+impl From<DagJsonCodec> for Multicodec {
+    fn from(_: DagJsonCodec) -> Self {
+        Self::DagJson
+    }
+}
+
+#[cfg(feature = "dag-pb")]
+impl From<DagPbCodec> for Multicodec {
+    fn from(_: DagPbCodec) -> Self {
+        Self::DagPb
+    }
+}
+
 impl Codec for Multicodec {
     fn encode_ipld(&self, ipld: &Ipld) -> Result<Box<[u8]>> {
         self.encode(ipld)

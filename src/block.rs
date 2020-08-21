@@ -68,7 +68,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     }
 
     /// Encode a block.`
-    pub fn encode<T: Encode<C>>(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
+    pub fn encode<T: Encode<C> + ?Sized>(ccode: u64, hcode: u64, payload: &T) -> Result<Self> {
         let data = C::try_from(ccode)?.encode(payload)?;
         let cid = create_cid::<M>(ccode, hcode, &data)?;
         Ok(Self {
@@ -102,17 +102,34 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         verify_cid::<M>(&self.cid, &self.data)?;
         C::try_from(self.cid.codec())?.decode_ipld(&self.data)
     }
+
+    /// Convert block.
+    pub fn into_codec<C2: Codec>(self) -> Result<Block<C2, M>>
+    where
+        C2: From<C> + Into<u64>,
+    {
+        let c1 = C::try_from(self.cid.codec())?;
+        let c2 = C2::from(c1).into();
+        Ok(Block {
+            _marker: PhantomData,
+            cid: Cid::new_v1(c2, self.cid.hash().clone()),
+            data: self.data,
+            vis: self.vis,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cid::{DAG_CBOR, DAG_JSON, DAG_PROTOBUF, RAW};
+    use crate::cbor::DagCborCodec;
     use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::multihash::{Multihash, SHA2_256};
 
     type IpldBlock = Block<Multicodec, Multihash>;
+    type CborBlock = Block<DagCborCodec, Multihash>;
 
     #[test]
     fn test_references() {
@@ -142,5 +159,12 @@ mod tests {
         assert!(refs.contains(&b1.cid));
         assert!(refs.contains(&b2.cid));
         assert!(refs.contains(&b3.cid));
+    }
+
+    #[test]
+    fn test_transmute() {
+        let b1 = CborBlock::encode(0, SHA2_256, &42).unwrap();
+        let b2: IpldBlock = b1.into_codec().unwrap();
+        assert_eq!(b2.cid.codec(), DAG_CBOR);
     }
 }
