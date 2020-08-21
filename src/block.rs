@@ -14,6 +14,17 @@ pub struct Block<C, M> {
     pub cid: Cid,
     /// Binary data.
     pub data: Box<[u8]>,
+    /// Visibility.
+    vis: Visibility,
+}
+
+/// Visibility of a block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Visibility {
+    /// Block is not announced on the network.
+    Private,
+    /// Block is announced on the network.
+    Public,
 }
 
 // TODO: move to tiny_cid
@@ -42,7 +53,18 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
             _marker: PhantomData,
             cid,
             data,
+            vis: Visibility::Public,
         }
+    }
+
+    /// Returns the blocks visibility.
+    pub fn visibility(&self) -> Visibility {
+        self.vis
+    }
+
+    /// Sets the blocks visibility.
+    pub fn set_visibility(&mut self, vis: Visibility) {
+        self.vis = vis;
     }
 
     /// Encode a block.`
@@ -53,6 +75,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
             _marker: PhantomData,
             cid,
             data,
+            vis: Visibility::Public,
         })
     }
 
@@ -64,6 +87,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
             _marker: PhantomData,
             cid,
             data,
+            vis: Visibility::Public,
         })
     }
 

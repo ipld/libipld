@@ -3,6 +3,7 @@
 #![deny(warnings)]
 
 pub mod block;
+pub mod cache;
 pub mod codec_impl;
 pub mod mem;
 pub mod path;

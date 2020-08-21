@@ -1,4 +1,5 @@
 //! Path
+use crate::cid::Cid;
 
 /// Represents a path in an ipld dag.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -53,6 +54,33 @@ impl ToString for Path {
         }
         path.pop();
         path
+    }
+}
+
+/// Path in a dag.
+#[derive(Clone, Debug, PartialEq, Hash)]
+pub struct DagPath<'a>(&'a Cid, Path);
+
+impl<'a> DagPath<'a> {
+    /// Create a new dag path.
+    pub fn new<T: Into<Path>>(cid: &'a Cid, path: T) -> Self {
+        Self(cid, path.into())
+    }
+
+    /// Returns the root of the path.
+    pub fn root(&self) -> &Cid {
+        self.0
+    }
+
+    /// Returns the ipld path.
+    pub fn path(&self) -> &Path {
+        &self.1
+    }
+}
+
+impl<'a> From<&'a Cid> for DagPath<'a> {
+    fn from(cid: &'a Cid) -> Self {
+        Self(cid, Default::default())
     }
 }
 

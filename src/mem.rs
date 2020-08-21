@@ -4,7 +4,7 @@ use crate::cid::Cid;
 use crate::codec::Codec;
 use crate::error::{BlockNotFound, EmptyBatch, Result};
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
+use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult};
 use async_std::sync::{Arc, RwLock};
 use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
@@ -143,19 +143,11 @@ impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
 }
 
 impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
-    fn insert<'a>(
-        &'a self,
-        block: &'a Block<C, M>,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
+    fn insert<'a>(&'a self, block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.insert(block) })
     }
 
-    fn insert_batch<'a>(
-        &'a self,
-        batch: &'a [Block<C, M>],
-        _visibility: Visibility,
-    ) -> StoreResult<'a, Cid> {
+    fn insert_batch<'a>(&'a self, batch: &'a [Block<C, M>]) -> StoreResult<'a, Cid> {
         Box::pin(async move { self.inner.write().await.insert_batch(batch) })
     }
 
@@ -169,17 +161,12 @@ impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
 }
 
 impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M> {
-    fn alias<'a>(
-        &'a self,
-        alias: &'a [u8],
-        cid: &'a Cid,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
+    fn alias<'a>(&'a self, alias: &'a [u8], block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move {
             self.aliases
                 .write()
                 .await
-                .insert(alias.to_vec().into_boxed_slice(), cid.clone());
+                .insert(alias.to_vec().into_boxed_slice(), block.cid.clone());
             Ok(())
         })
     }
@@ -205,7 +192,7 @@ mod tests {
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::{Multihash, SHA2_256};
-    use crate::store::{Store, Visibility};
+    use crate::store::Store;
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
         let block = match store.get(cid.clone()).await {
@@ -218,7 +205,7 @@ mod tests {
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
         let block = Block::<S::Codec, S::Multihash>::encode_ipld(DAG_CBOR, SHA2_256, ipld).unwrap();
-        store.insert(&block, Visibility::Public).await.unwrap();
+        store.insert(&block).await.unwrap();
         block.cid
     }
 

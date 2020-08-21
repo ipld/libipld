@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 
 /// Codec trait.
 pub trait Codec:
-    Copy + Send + Sync + 'static + Sized + TryFrom<u64, Error = UnsupportedCodec>
+    Copy + Unpin + Send + Sync + 'static + Sized + TryFrom<u64, Error = UnsupportedCodec>
 {
     /// Encodes an encodable type.
     fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Box<[u8]>> {
