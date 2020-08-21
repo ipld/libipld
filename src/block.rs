@@ -108,11 +108,11 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
 mod tests {
     use super::*;
     use crate::cid::{DAG_CBOR, DAG_JSON, DAG_PROTOBUF, RAW};
-    use crate::codec_impl::IpldCodec;
+    use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::multihash::{Multihash, SHA2_256};
 
-    type IpldBlock = Block<IpldCodec, Multihash>;
+    type IpldBlock = Block<Multicodec, Multihash>;
 
     #[test]
     fn test_references() {

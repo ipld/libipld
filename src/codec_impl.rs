@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 
 /// Default codecs.
 #[derive(Clone, Copy, Debug)]
-pub enum IpldCodec {
+pub enum Multicodec {
     /// Raw codec.
     Raw,
     /// Cbor codec.
@@ -28,7 +28,7 @@ pub enum IpldCodec {
     DagPb,
 }
 
-impl TryFrom<u64> for IpldCodec {
+impl TryFrom<u64> for Multicodec {
     type Error = UnsupportedCodec;
 
     fn try_from(ccode: u64) -> core::result::Result<Self, Self::Error> {
@@ -45,7 +45,7 @@ impl TryFrom<u64> for IpldCodec {
     }
 }
 
-impl Codec for IpldCodec {
+impl Codec for Multicodec {
     fn encode_ipld(&self, ipld: &Ipld) -> Result<Box<[u8]>> {
         self.encode(ipld)
     }
@@ -55,31 +55,31 @@ impl Codec for IpldCodec {
     }
 }
 
-impl Encode<IpldCodec> for Ipld {
-    fn encode<W: Write>(&self, c: IpldCodec, w: &mut W) -> Result<()> {
+impl Encode<Multicodec> for Ipld {
+    fn encode<W: Write>(&self, c: Multicodec, w: &mut W) -> Result<()> {
         match c {
-            IpldCodec::Raw => self.encode(RawCodec, w)?,
+            Multicodec::Raw => self.encode(RawCodec, w)?,
             #[cfg(feature = "dag-cbor")]
-            IpldCodec::DagCbor => self.encode(DagCborCodec, w)?,
+            Multicodec::DagCbor => self.encode(DagCborCodec, w)?,
             #[cfg(feature = "dag-json")]
-            IpldCodec::DagJson => self.encode(DagJsonCodec, w)?,
+            Multicodec::DagJson => self.encode(DagJsonCodec, w)?,
             #[cfg(feature = "dag-pb")]
-            IpldCodec::DagPb => self.encode(DagPbCodec, w)?,
+            Multicodec::DagPb => self.encode(DagPbCodec, w)?,
         };
         Ok(())
     }
 }
 
-impl Decode<IpldCodec> for Ipld {
-    fn decode<R: Read>(c: IpldCodec, r: &mut R) -> Result<Self> {
+impl Decode<Multicodec> for Ipld {
+    fn decode<R: Read>(c: Multicodec, r: &mut R) -> Result<Self> {
         Ok(match c {
-            IpldCodec::Raw => Self::decode(RawCodec, r)?,
+            Multicodec::Raw => Self::decode(RawCodec, r)?,
             #[cfg(feature = "dag-cbor")]
-            IpldCodec::DagCbor => Self::decode(DagCborCodec, r)?,
+            Multicodec::DagCbor => Self::decode(DagCborCodec, r)?,
             #[cfg(feature = "dag-json")]
-            IpldCodec::DagJson => Self::decode(DagJsonCodec, r)?,
+            Multicodec::DagJson => Self::decode(DagJsonCodec, r)?,
             #[cfg(feature = "dag-pb")]
-            IpldCodec::DagPb => Self::decode(DagPbCodec, r)?,
+            Multicodec::DagPb => Self::decode(DagPbCodec, r)?,
         })
     }
 }
@@ -91,14 +91,14 @@ mod tests {
     #[test]
     fn raw_encode() {
         let data = Ipld::Bytes([0x22, 0x33, 0x44].to_vec());
-        let result = IpldCodec::Raw.encode(&data).unwrap();
+        let result = Multicodec::Raw.encode(&data).unwrap();
         assert_eq!(result, vec![0x22, 0x33, 0x44].into_boxed_slice());
     }
 
     #[test]
     fn raw_decode() {
         let data = [0x22, 0x33, 0x44];
-        let result: Ipld = IpldCodec::Raw.decode(&data).unwrap();
+        let result: Ipld = Multicodec::Raw.decode(&data).unwrap();
         assert_eq!(result, Ipld::Bytes(data.to_vec()));
     }
 
@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn dag_cbor_encode() {
         let data = Ipld::Bytes([0x22, 0x33, 0x44].to_vec());
-        let result = IpldCodec::DagCbor.encode(&data).unwrap();
+        let result = Multicodec::DagCbor.encode(&data).unwrap();
         assert_eq!(result, vec![0x43, 0x22, 0x33, 0x44].into_boxed_slice());
     }
 
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn dag_cbor_decode() {
         let data = [0x43, 0x22, 0x33, 0x44];
-        let result: Ipld = IpldCodec::DagCbor.decode(&data).unwrap();
+        let result: Ipld = Multicodec::DagCbor.decode(&data).unwrap();
         assert_eq!(result, Ipld::Bytes(vec![0x22, 0x33, 0x44]));
     }
 
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn dag_json_encode() {
         let data = Ipld::Bool(true);
-        let result = String::from_utf8(IpldCodec::DagJson.encode(&data).unwrap().to_vec()).unwrap();
+        let result = String::from_utf8(Multicodec::DagJson.encode(&data).unwrap().to_vec()).unwrap();
         assert_eq!(result, "true");
     }
 
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn dag_json_decode() {
         let data = b"true";
-        let result: Ipld = IpldCodec::DagJson.decode(data).unwrap();
+        let result: Ipld = Multicodec::DagJson.decode(data).unwrap();
         assert_eq!(result, Ipld::Bool(true));
     }
 
@@ -142,7 +142,7 @@ mod tests {
         data_map.insert("Links".to_string(), Ipld::List(vec![]));
 
         let data = Ipld::Map(data_map);
-        let result = IpldCodec::DagPb.encode(&data).unwrap();
+        let result = Multicodec::DagPb.encode(&data).unwrap();
         assert_eq!(
             result,
             vec![0x0a, 0x04, 0x64, 0x61, 0x74, 0x61].into_boxed_slice()
@@ -158,7 +158,7 @@ mod tests {
         let expected = Ipld::Map(data_map);
 
         let data = [0x0a, 0x04, 0x64, 0x61, 0x74, 0x61];
-        let result: Ipld = IpldCodec::DagPb.decode(&data).unwrap();
+        let result: Ipld = Multicodec::DagPb.decode(&data).unwrap();
         assert_eq!(result, expected);
     }
 }
