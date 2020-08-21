@@ -33,8 +33,7 @@ fn invalid_cid_prefix() {
     let result: Result<Ipld, _> = DagCborCodec.decode(&input);
 
     let err = result.unwrap_err();
-    if let Some(_) = err.downcast_ref::<InvalidCidPrefix>() {
-    } else {
+    if err.downcast_ref::<InvalidCidPrefix>().is_none() {
         panic!("unexpected error: {:?}", err);
     }
 }
@@ -46,8 +45,7 @@ fn zero_length_cid() {
     let result: Result<Ipld, _> = DagCborCodec.decode(&input);
 
     let err = result.unwrap_err();
-    if let Some(_) = err.downcast_ref::<LengthOutOfRange>() {
-    } else {
+    if err.downcast_ref::<LengthOutOfRange>().is_none() {
         panic!("unexpected error: {:?}", err);
     }
 }
