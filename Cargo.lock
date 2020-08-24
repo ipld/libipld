@@ -1600,8 +1600,6 @@ dependencies = [
 [[package]]
 name = "tiny-cid"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a31818c2b5d7a20fa9e05bdf1a414c24e969ce5f338cce3bed266f23d108ec40"
 dependencies = [
  "multibase",
  "tiny-multihash",
@@ -1620,8 +1618,6 @@ dependencies = [
 [[package]]
 name = "tiny-multihash"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6bfece37e24447c212bccb8583243e5010d3ddf65ab697281adf1536f759c12"
 dependencies = [
  "blake2b_simd",
  "blake2s_simd",
@@ -1638,8 +1634,6 @@ dependencies = [
 [[package]]
 name = "tiny-multihash-derive"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e02de60eda8ff6764af2fa0ba8b59c924ef5723c66f3c10f33e4c68d6be1d58c"
 dependencies = [
  "proc-macro-crate",
  "proc-macro-error",

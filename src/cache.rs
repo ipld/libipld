@@ -80,8 +80,7 @@ where
             return Ok(value);
         }
         let block = self.config.store.get(cid.clone()).await?;
-        let block = Block::try_from_block(block)?;
-        let value: T = block.decode()?;
+        let value: T = block.decode::<C, _>()?;
         self.cache.lock().await.cache_set(block.cid, value.clone());
         Ok(value)
     }
@@ -117,7 +116,6 @@ where
     pub fn insert(&mut self, value: T) -> Result<Cid> {
         let mut block = Block::encode(self.codec, self.hash, &value)?;
         block.set_visibility(self.vis);
-        let block = Block::try_from_block(block)?;
         let cid = block.cid.clone();
         self.batch.push(block);
         self.cache.push((cid.clone(), value));
@@ -186,7 +184,6 @@ where
     async fn insert(&self, value: T) -> Result<Cid> {
         let mut block = Block::encode(self.config.codec, self.config.hash, &value)?;
         block.set_visibility(self.config.visibility);
-        let block = Block::try_from_block(block)?;
         self.config.store.insert(&block).await?;
         self.cache.lock().await.cache_set(block.cid.clone(), value);
         Ok(block.cid)

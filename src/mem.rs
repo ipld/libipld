@@ -206,8 +206,7 @@ mod tests {
     where
         S::Codec: From<DagCborCodec>,
     {
-        let block = Block::<DagCborCodec, _>::encode_ipld(DagCborCodec, SHA2_256, ipld).unwrap();
-        let block = Block::try_from_block(block).unwrap();
+        let block = Block::encode(DagCborCodec, SHA2_256, ipld).unwrap();
         store.insert(&block).await.unwrap();
         block.cid
     }

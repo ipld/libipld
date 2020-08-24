@@ -27,9 +27,6 @@ pub trait Codec:
         T::decode(*self, &mut bytes)
     }
 
-    /// Encodes ipld.
-    fn encode_ipld(&self, ipld: &Ipld) -> Result<Box<[u8]>>;
-
     /// Decode ipld.
     fn decode_ipld(&self, bytes: &[u8]) -> Result<Ipld>;
 }
@@ -60,10 +57,6 @@ mod tests {
     struct CodecImpl;
 
     impl Codec for CodecImpl {
-        fn encode_ipld(&self, ipld: &Ipld) -> Result<Box<[u8]>> {
-            self.encode(ipld)
-        }
-
         fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
             Ipld::decode(*self, &mut bytes)
         }
