@@ -2,11 +2,12 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
+use core::convert::TryFrom;
+use libipld_core::codec::{Codec, Decode, Encode};
+use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
-use std::convert::TryFrom;
 use std::io::{Read, Write};
 
 mod codec;
@@ -16,42 +17,48 @@ mod codec;
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {
-    const CODE: IpldCodec = IpldCodec::DagJson;
-
-    type Error = Error;
-}
-
-impl<C, H> Encode<DagJsonCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    fn encode<W: Write>(&self, w: &mut W) -> Result<(), Error> {
-        codec::encode(self, w)
+    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
+        Ipld::decode(*self, &mut bytes)
     }
 }
 
-impl<C, H> Decode<DagJsonCodec> for Ipld<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    fn decode<R: Read>(r: &mut R) -> Result<Self, Error> {
-        codec::decode(r)
+impl From<DagJsonCodec> for u64 {
+    fn from(_: DagJsonCodec) -> Self {
+        libipld_core::cid::DAG_JSON
+    }
+}
+
+impl TryFrom<u64> for DagJsonCodec {
+    type Error = UnsupportedCodec;
+
+    fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
+        Ok(Self)
+    }
+}
+
+impl Encode<DagJsonCodec> for Ipld {
+    fn encode<W: Write>(&self, _: DagJsonCodec, w: &mut W) -> Result<()> {
+        Ok(codec::encode(self, w)?)
+    }
+}
+
+impl Decode<DagJsonCodec> for Ipld {
+    fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
+        Ok(codec::decode(r)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::codec::Cid;
-    use libipld_core::multihash::Sha2_256;
+    use libipld_core::cid::{Cid, RAW};
+    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
     use std::collections::BTreeMap;
 
     #[test]
     fn encode_struct() {
-        let digest = Sha2_256::digest(b"block");
-        let cid = Cid::new_v1(IpldCodec::Raw, digest);
+        let digest = Multihash::new(SHA2_256, &b"block"[..]).unwrap();
+        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }
@@ -60,7 +67,7 @@ mod tests {
         map.insert("details".to_string(), Ipld::Link(cid.clone()));
         let contact = Ipld::Map(map);
 
-        let contact_encoded = DagJsonCodec::encode(&contact).unwrap();
+        let contact_encoded = DagJsonCodec.encode(&contact).unwrap();
         println!("encoded: {:02x?}", contact_encoded);
         println!(
             "encoded string {}",
@@ -75,7 +82,7 @@ mod tests {
             )
         );
 
-        let contact_decoded: Ipld = DagJsonCodec::decode(&contact_encoded).unwrap();
+        let contact_decoded: Ipld = DagJsonCodec.decode(&contact_encoded).unwrap();
         assert_eq!(contact_decoded, contact);
     }
 }

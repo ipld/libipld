@@ -2,20 +2,37 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use libipld_core::codec::{Codec, Decode, Encode, IpldCodec};
-use thiserror::Error;
+use core::convert::TryFrom;
+use libipld_core::codec::{Codec, Decode, Encode};
+pub use libipld_core::error::{Result, UnsupportedCodec};
+use libipld_core::ipld::Ipld;
 
 pub mod decode;
 pub mod encode;
+pub mod error;
 
 /// CBOR codec.
 #[derive(Clone, Copy, Debug)]
 pub struct DagCborCodec;
 
 impl Codec for DagCborCodec {
-    const CODE: IpldCodec = IpldCodec::DagCbor;
+    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
+        Ipld::decode(*self, &mut bytes)
+    }
+}
 
-    type Error = Error;
+impl From<DagCborCodec> for u64 {
+    fn from(_: DagCborCodec) -> Self {
+        libipld_core::cid::DAG_CBOR
+    }
+}
+
+impl TryFrom<u64> for DagCborCodec {
+    type Error = UnsupportedCodec;
+
+    fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
+        Ok(Self)
+    }
 }
 
 /// Marker trait for types supporting the `DagCborCodec`.
@@ -23,57 +40,22 @@ pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryRead
 
 impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCbor for T {}
 
-/// CBOR error.
-#[derive(Debug, Error)]
-pub enum Error {
-    /// Number larger than u64.
-    #[error("Number larger than u64.")]
-    NumberOutOfRange,
-    /// Length larger than usize or too small, for example zero length cid field.
-    #[error("Length out of range.")]
-    LengthOutOfRange,
-    /// Unexpected cbor code.
-    #[error("Unexpected cbor code.")]
-    UnexpectedCode,
-    /// Unknown cbor tag.
-    #[error("Unkown cbor tag.")]
-    UnknownTag,
-    /// Unexpected key.
-    #[error("Wrong key.")]
-    UnexpectedKey,
-    /// Unexpected eof.
-    #[error("Unexpected end of file.")]
-    UnexpectedEof,
-    /// Io error.
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
-    /// Utf8 error.
-    #[error("{0}")]
-    Utf8(#[from] std::str::Utf8Error),
-    /// The byte before Cid was not multibase identity prefix.
-    #[error("Invalid Cid prefix: {0}")]
-    InvalidCidPrefix(u8),
-    /// Cid error.
-    #[error("{0}")]
-    Cid(#[from] libipld_core::cid::Error),
-    /// Ipld type error.
-    #[error("{0}")]
-    TypeError(#[from] libipld_core::error::TypeError),
-}
-
-/// CBOR result.
-pub type Result<T> = core::result::Result<T, Error>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::codec::Cid;
-    use libipld_core::multihash::Sha2_256;
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
     use libipld_macro::ipld;
 
     #[test]
     fn test_encode_decode_cbor() {
-        let cid = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid"));
+        let cid = Cid::new_v1(
+            0,
+            Multihash::new(SHA2_256, &b"cid"[..])
+                .unwrap()
+                .to_raw()
+                .unwrap(),
+        );
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],
@@ -81,8 +63,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = DagCborCodec::encode(&ipld).unwrap();
-        let ipld2 = DagCborCodec::decode(&bytes).unwrap();
+        let bytes = DagCborCodec.encode(&ipld).unwrap();
+        let ipld2 = DagCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 }

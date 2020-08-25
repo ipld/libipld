@@ -3,10 +3,11 @@
 #![deny(warnings)]
 
 pub mod block;
-pub mod encode_decode;
-pub mod error;
+pub mod cache;
+pub mod codec_impl;
 pub mod mem;
 pub mod path;
+pub mod prelude;
 pub mod store;
 
 #[cfg(feature = "dag-cbor")]
@@ -20,5 +21,9 @@ pub use libipld_macro::*;
 #[cfg(feature = "dag-pb")]
 pub use libipld_pb as pb;
 
-/// The maximum block size is 1MiB.
-pub const MAX_BLOCK_SIZE: usize = 1_048_576;
+pub use block::{Block, Visibility};
+pub use cid::Cid;
+pub use codec_impl::Multicodec;
+pub use ipld::Ipld;
+pub use multihash::Multihash;
+pub use path::{DagPath, Path};

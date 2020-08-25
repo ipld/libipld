@@ -1,7 +1,37 @@
 //! `Ipld` error definitions.
 use crate::ipld::{Ipld, IpldIndex};
-use std::convert::TryFrom;
+pub use anyhow::{Error, Result};
 use thiserror::Error;
+
+/// Block exceeds 1MiB.
+#[derive(Debug, Error)]
+#[error("Block size {0} exceeds 1MiB.")]
+pub struct BlockTooLarge(pub usize);
+
+/// The codec is unsupported.
+#[derive(Debug, Error)]
+#[error("Unsupported codec {0:?}.")]
+pub struct UnsupportedCodec(pub u64);
+
+/// The multihash is unsupported.
+#[derive(Debug, Error)]
+#[error("Unsupported multihash {0:?}.")]
+pub struct UnsupportedMultihash(pub u64);
+
+/// Hash does not match the CID.
+#[derive(Debug, Error)]
+#[error("Hash of data does not match the CID.")]
+pub struct InvalidMultihash(pub Vec<u8>);
+
+/// The block wasn't found. The supplied string is a CID.
+#[derive(Debug, Error)]
+#[error("Failed to retrive block {0}.")]
+pub struct BlockNotFound(pub String);
+
+/// The batch was empty.
+#[derive(Debug, Error)]
+#[error("Tried to insert an empty batch.")]
+pub struct EmptyBatch;
 
 /// Type error.
 #[derive(Debug, Error)]
@@ -50,12 +80,8 @@ pub enum TypeErrorType {
     Index(usize),
 }
 
-impl<C, H> From<&Ipld<C, H>> for TypeErrorType
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    fn from(ipld: &Ipld<C, H>) -> Self {
+impl From<&Ipld> for TypeErrorType {
+    fn from(ipld: &Ipld) -> Self {
         match ipld {
             Ipld::Null => Self::Null,
             Ipld::Bool(_) => Self::Bool,

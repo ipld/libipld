@@ -1,140 +1,151 @@
 //! Block validation
-use crate::cid::CidGeneric;
-use crate::codec::{Codec, Decode, Encode, IpldCodec};
-use crate::encode_decode::EncodeDecodeIpld;
-use crate::error::{Error, Result};
+use crate::cid::Cid;
+use crate::codec::{Codec, Decode, Encode};
+use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
-use crate::multihash::{Code as HCode, MultihashDigest, Multihasher};
-use crate::MAX_BLOCK_SIZE;
-use std::collections::HashSet;
-use std::convert::TryFrom;
+use crate::multihash::MultihashDigest;
+use core::marker::PhantomData;
 
 /// Block
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Block<C = IpldCodec, H = HCode>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
+pub struct Block<C, M> {
+    _marker: PhantomData<(C, M)>,
     /// Content identifier.
-    pub cid: CidGeneric<C, H>,
+    pub cid: Cid,
     /// Binary data.
     pub data: Box<[u8]>,
+    /// Visibility.
+    vis: Visibility,
 }
 
-/// Encode a block.`
-pub fn encode<C, H, O, M, E>(e: &E) -> Result<Block<C, H>>
-where
-    O: Codec<C>,
-    M: Multihasher<H>,
-    E: Encode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    let mut data = Vec::new();
-    e.encode(&mut data)
-        .map_err(|e| Error::CodecError(Box::new(e)))?;
-    if data.len() > MAX_BLOCK_SIZE {
-        return Err(Error::BlockTooLarge(data.len()));
-    }
-    let hash = M::digest(&data);
-    let cid = CidGeneric::<C, H>::new_v1(O::CODE, hash);
-    Ok(Block {
-        cid,
-        data: data.into_boxed_slice(),
-    })
+/// Visibility of a block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Visibility {
+    /// Block is not announced on the network.
+    Private,
+    /// Block is announced on the network.
+    Public,
 }
 
-/// Raw decode.
-///
-/// Useful for nested encodings when for example the data is encrypted.
-pub fn raw_decode<C, H, O, D>(codec: C, mut data: &[u8]) -> Result<D>
-where
-    O: Codec<C>,
-    D: Decode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    if codec != O::CODE {
-        return Err(Error::UnsupportedCodec(codec.into()));
-    }
-    D::decode(&mut data).map_err(|e| Error::CodecError(Box::new(e)))
+// TODO: move to tiny_cid
+fn create_cid<M: MultihashDigest>(ccode: u64, hcode: u64, payload: &[u8]) -> Result<Cid> {
+    let digest = M::new(hcode, payload)
+        .map_err(|_| UnsupportedMultihash(hcode))?
+        .to_raw()
+        .map_err(|_| UnsupportedMultihash(hcode))?;
+    Ok(Cid::new_v1(ccode, digest))
 }
 
-/// Decodes a block.
-pub fn decode<C, H, O, D>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<D>
-where
-    O: Codec<C>,
-    D: Decode<O, C>,
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
-    if data.len() > MAX_BLOCK_SIZE {
-        return Err(Error::BlockTooLarge(data.len()));
+// TODO: move to tiny_cid
+fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
+    let hcode = cid.hash().code();
+    let mh = M::new(hcode, payload).map_err(|_| UnsupportedMultihash(hcode))?;
+    if mh.digest() != cid.hash().digest() {
+        return Err(InvalidMultihash(mh.to_bytes()).into());
     }
-    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
-    if hash.as_ref() != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_vec()));
-    }
-    raw_decode::<C, H, O, D>(cid.codec(), data)
+    Ok(())
 }
 
-/// Decode block to ipld.
-pub fn decode_ipld<C, H>(cid: &CidGeneric<C, H>, data: &[u8]) -> Result<Ipld<C, H>>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + PartialEq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + PartialEq,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
-    if data.len() > MAX_BLOCK_SIZE {
-        return Err(Error::BlockTooLarge(data.len()));
-    }
-    let hash = Box::<dyn MultihashDigest<H>>::from(cid.hash().algorithm()).digest(&data);
-    if hash.as_ref() != cid.hash() {
-        return Err(Error::InvalidHash(hash.to_vec()));
-    }
-    cid.codec()
-        .decode(data)
-        .map_err(|e| Error::CodecError(Box::new(e)))
-}
-
-/// Returns the references in an ipld block.
-pub fn references<C, H>(ipld: &Ipld<C, H>) -> HashSet<CidGeneric<C, H>>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
-{
-    let mut set: HashSet<CidGeneric<C, H>> = Default::default();
-    for ipld in ipld.iter() {
-        if let Ipld::Link(cid) = ipld {
-            set.insert(cid.to_owned());
+impl<C: Codec, M: MultihashDigest> Block<C, M> {
+    /// Creates a new block.
+    pub fn new(cid: Cid, data: Box<[u8]>) -> Self {
+        Self {
+            _marker: PhantomData,
+            cid,
+            data,
+            vis: Visibility::Public,
         }
     }
-    set
+
+    /// Returns the blocks visibility.
+    pub fn visibility(&self) -> Visibility {
+        self.vis
+    }
+
+    /// Sets the blocks visibility.
+    pub fn set_visibility(&mut self, vis: Visibility) {
+        self.vis = vis;
+    }
+
+    /// Encode a block.`
+    pub fn encode<CE: Codec, T: Encode<CE> + ?Sized>(
+        codec: CE,
+        hcode: u64,
+        payload: &T,
+    ) -> Result<Self>
+    where
+        CE: Into<C>,
+    {
+        let data = codec.encode(payload)?;
+        let cid = create_cid::<M>(codec.into(), hcode, &data)?;
+        Ok(Self {
+            _marker: PhantomData,
+            cid,
+            data,
+            vis: Visibility::Public,
+        })
+    }
+
+    /// Decodes a block.
+    pub fn decode<CD: Codec, T: Decode<CD>>(&self) -> Result<T>
+    where
+        C: Into<CD>,
+    {
+        verify_cid::<M>(&self.cid, &self.data)?;
+        CD::try_from(self.cid.codec())?.decode(&self.data)
+    }
+
+    /// Decodes to ipld.
+    pub fn decode_ipld(&self) -> Result<Ipld> {
+        verify_cid::<M>(&self.cid, &self.data)?;
+        C::try_from(self.cid.codec())?.decode_ipld(&self.data)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codec::Cid;
+    use crate::cbor::DagCborCodec;
+    use crate::cid::DAG_CBOR;
+    use crate::codec_impl::Multicodec;
     use crate::ipld;
-    use crate::multihash::Sha2_256;
+    use crate::multihash::{Multihash, SHA2_256};
+
+    type IpldBlock = Block<Multicodec, Multihash>;
 
     #[test]
     fn test_references() {
-        let cid1 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid1"));
-        let cid2 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid2"));
-        let cid3 = Cid::new_v1(IpldCodec::Raw, Sha2_256::digest(b"cid3"));
-        let ipld = ipld!({
-            "cid1": &cid1,
-            "cid2": { "other": true, "cid2": { "cid2": &cid2 }},
-            "cid3": [[ &cid3, &cid1 ]],
+        let b1 = IpldBlock::encode(Multicodec::Raw, SHA2_256, &ipld!(&b"cid1"[..])).unwrap();
+        let b2 = IpldBlock::encode(Multicodec::DagJson, SHA2_256, &ipld!("cid2")).unwrap();
+        let b3 = IpldBlock::encode(
+            Multicodec::DagPb,
+            SHA2_256,
+            &ipld!({
+                "Data": &b"data"[..],
+                "Links": Ipld::List(vec![]),
+            }),
+        )
+        .unwrap();
+
+        let payload = ipld!({
+            "cid1": &b1.cid,
+            "cid2": { "other": true, "cid2": { "cid2": &b2.cid }},
+            "cid3": [[ &b3.cid, &b1.cid ]],
         });
-        let refs = references(&ipld);
+        let block = IpldBlock::encode(Multicodec::DagCbor, SHA2_256, &payload).unwrap();
+        let payload2 = block.decode::<Multicodec, _>().unwrap();
+        assert_eq!(payload, payload2);
+
+        let refs = payload2.references();
         assert_eq!(refs.len(), 3);
-        assert!(refs.contains(&cid1));
-        assert!(refs.contains(&cid2));
-        assert!(refs.contains(&cid3));
+        assert!(refs.contains(&b1.cid));
+        assert!(refs.contains(&b2.cid));
+        assert!(refs.contains(&b3.cid));
+    }
+
+    #[test]
+    fn test_transmute() {
+        let b1 = IpldBlock::encode(DagCborCodec, SHA2_256, &42).unwrap();
+        assert_eq!(b1.cid.codec(), DAG_CBOR);
     }
 }

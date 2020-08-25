@@ -8,12 +8,8 @@ description = "Base traits and definitions used by ipld codecs."
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-cid = "0.5.1"
+anyhow = "1.0.32"
 multibase = "0.8.0"
-multihash = "0.11.2"
 thiserror = "1.0.19"
-
-[features]
-dag-cbor = []
-dag-json = []
-dag-pb = []
+tiny-cid = "0.2.0"
+tiny-multihash = "0.4.0"

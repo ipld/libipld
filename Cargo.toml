@@ -1,6 +1,6 @@
 [package]
 name = "libipld"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -9,6 +9,8 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 async-std = { version = "1.5.0", features = ["attributes"] }
+async-trait = "0.1.38"
+cached = { version = "0.18.0", default-features = false }
 libipld-cbor = { version = "0.3.0", path = "dag-cbor", optional = true }
 libipld-cbor-derive = { version = "0.3.0", path = "dag-cbor-derive", optional = true }
 libipld-core = { version = "0.3.0", path = "core" }
@@ -23,10 +25,10 @@ proptest = "0.9.6"
 model = "0.1.2"
 
 [features]
-default = ["dag-cbor", "derive"]
-dag-cbor = ["libipld-cbor", "libipld-core/dag-cbor"]
-dag-json = ["libipld-json", "libipld-core/dag-json"]
-dag-pb = ["libipld-pb", "libipld-core/dag-pb"]
+default = ["all", "derive"]
+dag-cbor = ["libipld-cbor"]
+dag-json = ["libipld-json"]
+dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
 all = ["dag-cbor", "dag-json", "dag-pb", "derive"]
 

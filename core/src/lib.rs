@@ -8,6 +8,9 @@ pub mod error;
 pub mod ipld;
 pub mod raw;
 
-pub use cid;
 pub use multibase;
-pub use multihash;
+pub use tiny_cid as cid;
+pub use tiny_multihash as multihash;
+
+/// The maximum block size is 1MiB.
+pub const MAX_BLOCK_SIZE: usize = 1_048_576;

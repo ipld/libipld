@@ -1,51 +1,38 @@
 //! Reference implementation of the store traits.
 use crate::block::Block;
-use crate::cid::CidGeneric;
-use crate::encode_decode::EncodeDecodeIpld;
-use crate::error::StoreError;
+use crate::cid::Cid;
+use crate::codec::Codec;
+use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult, Visibility};
+use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult};
+use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
+use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 
 #[derive(Default)]
-struct InnerStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    blocks: HashMap<CidGeneric<C, H>, Box<[u8]>>,
-    refs: HashMap<CidGeneric<C, H>, HashSet<CidGeneric<C, H>>>,
-    referers: HashMap<CidGeneric<C, H>, isize>,
-    pins: HashMap<CidGeneric<C, H>, usize>,
+struct InnerStore {
+    blocks: HashMap<Cid, Box<[u8]>>,
+    refs: HashMap<Cid, HashSet<Cid>>,
+    referers: HashMap<Cid, isize>,
+    pins: HashMap<Cid, usize>,
 }
 
-impl<C, H> InnerStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
+impl InnerStore {
     /// Create a new empty `InnerStore`
     pub fn new() -> Self {
-        Self {
-            blocks: HashMap::new(),
-            refs: HashMap::new(),
-            referers: HashMap::new(),
-            pins: HashMap::new(),
-        }
+        Self::default()
     }
 
-    fn get(&self, cid: &CidGeneric<C, H>) -> Result<Box<[u8]>, StoreError> {
-        if let Some(data) = self.blocks.get(cid).cloned() {
-            Ok(data)
+    fn get<C: Codec, M: MultihashDigest>(&self, cid: Cid) -> Result<Block<C, M>> {
+        if let Some(data) = self.blocks.get(&cid).cloned() {
+            Ok(Block::new(cid, data))
         } else {
-            Err(StoreError::BlockNotFound(cid.to_string()))
+            Err(BlockNotFound(cid.to_string()).into())
         }
     }
 
-    fn add_referer(&mut self, cid: &CidGeneric<C, H>, n: isize) {
+    fn add_referer(&mut self, cid: &Cid, n: isize) {
         let (cid, referers) = self
             .referers
             .remove_entry(cid)
@@ -53,37 +40,51 @@ where
         self.referers.insert(cid, referers + n);
     }
 
-    fn insert(&mut self, cid: &CidGeneric<C, H>, data: Box<[u8]>) -> Result<(), StoreError> {
-        self.insert_block(cid, data)?;
-        self.pin(cid);
+    fn insert<C, M>(&mut self, block: &Block<C, M>) -> Result<()>
+    where
+        C: Codec,
+        M: MultihashDigest,
+    {
+        self.insert_block(&block)?;
+        self.pin(&block.cid);
         Ok(())
     }
 
-    fn insert_block(&mut self, cid: &CidGeneric<C, H>, data: Box<[u8]>) -> Result<(), StoreError> {
-        if self.blocks.contains_key(cid) {
+    fn insert_block<C, M>(&mut self, block: &Block<C, M>) -> Result<()>
+    where
+        C: Codec,
+        M: MultihashDigest,
+    {
+        if self.blocks.contains_key(&block.cid) {
             return Ok(());
         }
-        let ipld = crate::block::decode_ipld::<C, H>(cid, &data)
-            .map_err(|e| StoreError::Other(Box::new(e)))?;
-        let refs = crate::block::references(&ipld);
-        for cid in &refs {
-            self.add_referer(&cid, 1);
+        if block.data.len() > MAX_BLOCK_SIZE {
+            return Err(BlockTooLarge(block.data.len()).into());
         }
-        self.refs.insert(cid.clone(), refs);
-        self.blocks.insert(cid.clone(), data);
+        let ipld = block.decode_ipld()?;
+        let refs = ipld.references();
+        for cid in &refs {
+            self.add_referer(cid, 1);
+        }
+        self.refs.insert(block.cid.clone(), refs);
+        self.blocks.insert(block.cid.clone(), block.data.clone());
         Ok(())
     }
 
-    fn insert_batch(&mut self, batch: Vec<Block<C, H>>) -> Result<CidGeneric<C, H>, StoreError> {
+    fn insert_batch<C, M>(&mut self, batch: &[Block<C, M>]) -> Result<Cid>
+    where
+        C: Codec,
+        M: MultihashDigest,
+    {
         let mut last_cid = None;
-        for Block { cid, data } in batch.into_iter() {
-            self.insert_block(&cid, data)?;
-            last_cid = Some(cid);
+        for block in batch {
+            self.insert_block(block)?;
+            last_cid = Some(block.cid.clone());
         }
-        Ok(last_cid.ok_or(StoreError::EmptyBatch)?)
+        Ok(last_cid.ok_or(EmptyBatch)?)
     }
 
-    fn pin(&mut self, cid: &CidGeneric<C, H>) {
+    fn pin(&mut self, cid: &Cid) {
         let (cid, pins) = self
             .pins
             .remove_entry(cid)
@@ -91,7 +92,7 @@ where
         self.pins.insert(cid, pins + 1);
     }
 
-    fn unpin(&mut self, cid: &CidGeneric<C, H>) -> Result<(), StoreError> {
+    fn unpin(&mut self, cid: &Cid) -> Result<()> {
         if let Some((cid, pins)) = self.pins.remove_entry(cid) {
             if pins > 1 {
                 self.pins.insert(cid, pins - 1);
@@ -102,7 +103,7 @@ where
         Ok(())
     }
 
-    fn remove(&mut self, cid: &CidGeneric<C, H>) {
+    fn remove(&mut self, cid: &Cid) {
         let pins = self.pins.get(&cid).cloned().unwrap_or_default();
         let referers = self.referers.get(&cid).cloned().unwrap_or_default();
         if referers < 1 && pins < 1 {
@@ -118,61 +119,40 @@ where
 
 /// A memory backed store
 #[derive(Clone, Default)]
-pub struct MemStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy,
-    H: Into<u64> + TryFrom<u64> + Copy,
-{
-    inner: Arc<RwLock<InnerStore<C, H>>>,
+pub struct MemStore<C: Codec, M: MultihashDigest> {
+    _marker: PhantomData<(C, M)>,
+    inner: Arc<RwLock<InnerStore>>,
     #[allow(clippy::type_complexity)]
-    aliases: Arc<RwLock<HashMap<Box<[u8]>, CidGeneric<C, H>>>>,
+    aliases: Arc<RwLock<HashMap<Box<[u8]>, Cid>>>,
 }
-impl<C, H> MemStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
+
+impl<C: Codec, M: MultihashDigest> MemStore<C, M> {
     /// Create a new empty `MemStore`
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(InnerStore::<C, H>::new())),
+            _marker: PhantomData,
+            inner: Arc::new(RwLock::new(InnerStore::new())),
             aliases: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
-impl<C, H> ReadonlyStore<C, H> for MemStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
-    fn get<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, Box<[u8]>> {
+impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
+    type Codec = C;
+    type Multihash = M;
+    const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
+
+    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
         Box::pin(async move { self.inner.read().await.get(cid) })
     }
 }
 
-impl<C, H> Store<C, H> for MemStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync + EncodeDecodeIpld<H>,
-    H: Into<u64> + TryFrom<u64> + Copy + Eq + Send + Sync,
-    Box<dyn MultihashDigest<H>>: From<H>,
-{
-    fn insert<'a>(
-        &'a self,
-        cid: &'a CidGeneric<C, H>,
-        data: Box<[u8]>,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.inner.write().await.insert(cid, data) })
+impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
+    fn insert<'a>(&'a self, block: &'a Block<C, M>) -> StoreResult<'a, ()> {
+        Box::pin(async move { self.inner.write().await.insert(block) })
     }
 
-    fn insert_batch<'a>(
-        &'a self,
-        batch: Vec<Block<C, H>>,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, CidGeneric<C, H>> {
+    fn insert_batch<'a>(&'a self, batch: &'a [Block<C, M>]) -> StoreResult<'a, Cid> {
         Box::pin(async move { self.inner.write().await.insert_batch(batch) })
     }
 
@@ -180,27 +160,18 @@ where
         Box::pin(async move { Ok(()) })
     }
 
-    fn unpin<'a>(&'a self, cid: &'a CidGeneric<C, H>) -> StoreResult<'a, ()> {
+    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.unpin(cid) })
     }
 }
 
-impl<C, H> AliasStore<C, H> for MemStore<C, H>
-where
-    C: Into<u64> + TryFrom<u64> + Copy + Send + Sync,
-    H: Into<u64> + TryFrom<u64> + Copy + Send + Sync,
-{
-    fn alias<'a>(
-        &'a self,
-        alias: &'a [u8],
-        cid: &'a CidGeneric<C, H>,
-        _visibility: Visibility,
-    ) -> StoreResult<'a, ()> {
+impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M> {
+    fn alias<'a>(&'a self, alias: &'a [u8], block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move {
             self.aliases
                 .write()
                 .await
-                .insert(alias.to_vec().into_boxed_slice(), cid.clone());
+                .insert(alias.to_vec().into_boxed_slice(), block.cid.clone());
             Ok(())
         })
     }
@@ -212,7 +183,7 @@ where
         })
     }
 
-    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<CidGeneric<C, H>>> {
+    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<Cid>> {
         Box::pin(async move { Ok(self.aliases.read().await.get(alias).cloned()) })
     }
 }
@@ -220,33 +191,34 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::{decode, encode, Block};
+    use crate::block::Block;
     use crate::cbor::DagCborCodec;
-    use crate::codec::{Cid, IpldCodec};
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::{Code as HCode, Sha2_256};
-    use crate::store::{Store, Visibility};
+    use crate::multihash::{Multihash, SHA2_256};
+    use crate::store::Store;
 
     async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
-        let bytes = match store.get(cid).await {
-            Ok(bytes) => bytes,
-            Err(StoreError::BlockNotFound { .. }) => return None,
+        let block = match store.get(cid.clone()).await {
+            Ok(block) => block,
+            Err(e) if e.downcast_ref::<BlockNotFound>().is_some() => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(decode::<IpldCodec, HCode, DagCborCodec, Ipld>(cid, &bytes).unwrap())
+        Some(block.decode_ipld().unwrap())
     }
 
-    async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid {
-        let Block { cid, data } =
-            encode::<IpldCodec, HCode, DagCborCodec, Sha2_256, Ipld>(ipld).unwrap();
-        store.insert(&cid, data, Visibility::Public).await.unwrap();
-        cid
+    async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid
+    where
+        S::Codec: From<DagCborCodec>,
+    {
+        let block = Block::encode(DagCborCodec, SHA2_256, ipld).unwrap();
+        store.insert(&block).await.unwrap();
+        block.cid
     }
 
     #[async_std::test]
     async fn test_gc() {
-        let store = MemStore::new();
+        let store = MemStore::<DagCborCodec, Multihash>::new();
         let a = insert(&store, &ipld!({ "a": [] })).await;
         let b = insert(&store, &ipld!({ "b": [&a] })).await;
         store.unpin(&a).await.unwrap();
@@ -266,7 +238,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_gc_2() {
-        let store = MemStore::new();
+        let store = MemStore::<DagCborCodec, Multihash>::new();
         let a = insert(&store, &ipld!({ "a": [] })).await;
         let b = insert(&store, &ipld!({ "b": [&a] })).await;
         store.unpin(&a).await.unwrap();
