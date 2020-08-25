@@ -13,7 +13,7 @@ use core::convert::TryFrom;
 use std::io::{Read, Write};
 
 /// Default codecs.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Multicodec {
     /// Raw codec.
     Raw,
