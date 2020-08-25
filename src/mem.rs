@@ -2,9 +2,10 @@
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::Codec;
-use crate::error::{BlockNotFound, EmptyBatch, Result};
+use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
 use crate::multihash::MultihashDigest;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult};
+use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
 use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
@@ -56,6 +57,9 @@ impl InnerStore {
     {
         if self.blocks.contains_key(&block.cid) {
             return Ok(());
+        }
+        if block.data.len() > MAX_BLOCK_SIZE {
+            return Err(BlockTooLarge(block.data.len()).into());
         }
         let ipld = block.decode_ipld()?;
         let refs = ipld.references();
@@ -136,6 +140,7 @@ impl<C: Codec, M: MultihashDigest> MemStore<C, M> {
 impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
     type Codec = C;
     type Multihash = M;
+    const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
 
     fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
         Box::pin(async move { self.inner.read().await.get(cid) })

@@ -1,5 +1,5 @@
 //! `Ipld` codecs.
-use crate::error::{BlockTooLarge, Result, UnsupportedCodec};
+use crate::error::{Result, UnsupportedCodec};
 use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
 use core::convert::TryFrom;
@@ -13,17 +13,11 @@ pub trait Codec:
     fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Box<[u8]>> {
         let mut buf = Vec::with_capacity(MAX_BLOCK_SIZE);
         obj.encode(*self, &mut buf)?;
-        if buf.len() > MAX_BLOCK_SIZE {
-            return Err(BlockTooLarge(buf.len()).into());
-        }
         Ok(buf.into_boxed_slice())
     }
 
     /// Decodes a decodable type.
     fn decode<T: Decode<Self>>(&self, mut bytes: &[u8]) -> Result<T> {
-        if bytes.len() > MAX_BLOCK_SIZE {
-            return Err(BlockTooLarge(bytes.len()).into());
-        }
         T::decode(*self, &mut bytes)
     }
 

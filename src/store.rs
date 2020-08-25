@@ -19,9 +19,13 @@ pub trait ReadonlyStore: Clone + Send + Sync {
     type Multihash: MultihashDigest;
     /// The codec type of the store.
     type Codec: Codec;
+    /// The maximum block size supported by the store.
+    const MAX_BLOCK_SIZE: usize;
 
     /// Returns a block from the store. If the block is not in the store it fetches it from the
     /// network and pins the block. Dropping the future cancels the request.
+    ///
+    /// If the block wasn't found it returns a `BlockNotFound` error.
     fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
 
     /// Returns the ipld representation of a block with cid.
@@ -52,10 +56,15 @@ pub trait ReadonlyStore: Clone + Send + Sync {
 /// Implementable by ipld storage backends.
 pub trait Store: ReadonlyStore {
     /// Inserts and pins block into the store and announces it if it is visible.
+    ///
+    /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
     fn insert<'a>(&'a self, block: &'a Block<Self::Codec, Self::Multihash>) -> StoreResult<'a, ()>;
 
     /// Inserts a batch of blocks atomically into the store and announces them block
     /// if it is visible. The last block is pinned.
+    ///
+    /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
+    /// If the batch is empty it returns an `EmptyBatch` error.
     fn insert_batch<'a>(
         &'a self,
         batch: &'a [Block<Self::Codec, Self::Multihash>],
