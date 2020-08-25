@@ -1,5 +1,3 @@
-#![allow(unused_imports)]
-use libipld::cbor::error::LengthOutOfRange;
 use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;

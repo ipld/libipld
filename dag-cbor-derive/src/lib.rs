@@ -13,6 +13,7 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
         use libipld::cbor::{DagCborCodec, Result};
         use libipld::error::Error;
         use libipld::cbor::encode::write_u64;
+        use libipld::cbor::error::LengthOutOfRange;
         use libipld::cbor::decode::{read, read_u8, read_key, TryReadCbor};
         use libipld::codec::{Encode, Decode};
         use libipld::error::{TypeError, TypeErrorType};
