@@ -75,6 +75,10 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     where
         CE: Into<C>,
     {
+        debug_assert_eq!(
+            Into::<u64>::into(codec),
+            Into::<u64>::into(Into::<C>::into(codec))
+        );
         let data = codec.encode(payload)?;
         let cid = create_cid::<M>(codec.into(), hcode, &data)?;
         Ok(Self {
@@ -108,6 +112,10 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     where
         C: Into<CD>,
     {
+        debug_assert_eq!(
+            Into::<u64>::into(CD::try_from(self.cid.codec()).unwrap()),
+            Into::<u64>::into(C::try_from(self.cid.codec()).unwrap()),
+        );
         verify_cid::<M>(&self.cid, &self.data)?;
         CD::try_from(self.cid.codec())?.decode(&self.data)
     }
