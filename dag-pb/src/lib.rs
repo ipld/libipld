@@ -15,11 +15,7 @@ mod codec;
 #[derive(Clone, Copy, Debug)]
 pub struct DagPbCodec;
 
-impl Codec for DagPbCodec {
-    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-        Ipld::decode(*self, &mut bytes)
-    }
-}
+impl Codec for DagPbCodec {}
 
 impl From<DagPbCodec> for u64 {
     fn from(_: DagPbCodec) -> Self {

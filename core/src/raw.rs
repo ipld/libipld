@@ -9,11 +9,7 @@ use std::io::{Read, Write};
 #[derive(Clone, Copy, Debug)]
 pub struct RawCodec;
 
-impl Codec for RawCodec {
-    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-        Ipld::decode(*self, &mut bytes)
-    }
-}
+impl Codec for RawCodec {}
 
 impl From<RawCodec> for u64 {
     fn from(_: RawCodec) -> Self {

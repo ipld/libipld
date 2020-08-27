@@ -5,7 +5,6 @@
 use core::convert::TryFrom;
 use libipld_core::codec::{Codec, Decode, Encode};
 pub use libipld_core::error::{Result, UnsupportedCodec};
-use libipld_core::ipld::Ipld;
 
 pub mod decode;
 pub mod encode;
@@ -15,11 +14,7 @@ pub mod error;
 #[derive(Clone, Copy, Debug)]
 pub struct DagCborCodec;
 
-impl Codec for DagCborCodec {
-    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-        Ipld::decode(*self, &mut bytes)
-    }
-}
+impl Codec for DagCborCodec {}
 
 impl From<DagCborCodec> for u64 {
     fn from(_: DagCborCodec) -> Self {

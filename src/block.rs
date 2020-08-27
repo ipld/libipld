@@ -2,7 +2,6 @@
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
-use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use core::marker::PhantomData;
 
@@ -87,18 +86,30 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     }
 
     /// Decodes a block.
+    ///
+    /// # Example
+    ///
+    /// Decoding to [`Ipld`]:
+    ///
+    /// ```
+    /// use libipld::block::Block;
+    /// use libipld::cbor::DagCborCodec;
+    /// use libipld::codec_impl::Multicodec;
+    /// use libipld::ipld::Ipld;
+    /// use libipld::multihash::{Multihash, SHA2_256};
+    ///
+    /// let block =
+    ///     Block::<Multicodec, Multihash>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
+    /// let ipld = block.decode::<DagCborCodec, Ipld>().unwrap();
+    ///
+    /// assert_eq!(ipld, Ipld::String("Hello World!".to_string()));
+    /// ```
     pub fn decode<CD: Codec, T: Decode<CD>>(&self) -> Result<T>
     where
         C: Into<CD>,
     {
         verify_cid::<M>(&self.cid, &self.data)?;
         CD::try_from(self.cid.codec())?.decode(&self.data)
-    }
-
-    /// Decodes to ipld.
-    pub fn decode_ipld(&self) -> Result<Ipld> {
-        verify_cid::<M>(&self.cid, &self.data)?;
-        C::try_from(self.cid.codec())?.decode_ipld(&self.data)
     }
 }
 
@@ -109,6 +120,7 @@ mod tests {
     use crate::cid::DAG_CBOR;
     use crate::codec_impl::Multicodec;
     use crate::ipld;
+    use crate::ipld::Ipld;
     use crate::multihash::{Multihash, SHA2_256};
 
     type IpldBlock = Block<Multicodec, Multihash>;
