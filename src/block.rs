@@ -71,10 +71,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         codec: CE,
         hcode: u64,
         payload: &T,
-    ) -> Result<Self>
-    where
-        CE: Into<C>,
-    {
+    ) -> Result<Self> {
         let data = codec.encode(payload)?;
         let cid = create_cid::<M>(codec.into(), hcode, &data)?;
         Ok(Self {
@@ -104,10 +101,7 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     ///
     /// assert_eq!(ipld, Ipld::String("Hello World!".to_string()));
     /// ```
-    pub fn decode<CD: Codec, T: Decode<CD>>(&self) -> Result<T>
-    where
-        C: Into<CD>,
-    {
+    pub fn decode<CD: Codec, T: Decode<CD>>(&self) -> Result<T> {
         verify_cid::<M>(&self.cid, &self.data)?;
         CD::try_from(self.cid.codec())?.decode(&self.data)
     }
