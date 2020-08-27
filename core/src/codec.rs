@@ -1,6 +1,5 @@
 //! `Ipld` codecs.
 use crate::error::{Result, UnsupportedCodec};
-use crate::ipld::Ipld;
 use crate::MAX_BLOCK_SIZE;
 use core::convert::TryFrom;
 use std::io::{Read, Write};
@@ -20,9 +19,6 @@ pub trait Codec:
     fn decode<T: Decode<Self>>(&self, mut bytes: &[u8]) -> Result<T> {
         T::decode(*self, &mut bytes)
     }
-
-    /// Decode ipld.
-    fn decode_ipld(&self, bytes: &[u8]) -> Result<Ipld>;
 }
 
 /// Encode trait.
@@ -50,11 +46,7 @@ mod tests {
     #[derive(Clone, Copy, Debug)]
     struct CodecImpl;
 
-    impl Codec for CodecImpl {
-        fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-            Ipld::decode(*self, &mut bytes)
-        }
-    }
+    impl Codec for CodecImpl {}
 
     impl From<CodecImpl> for u64 {
         fn from(_: CodecImpl) -> Self {

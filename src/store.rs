@@ -1,7 +1,7 @@
 //! Store traits.
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::Codec;
+use crate::codec::{Codec, Decode};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
@@ -29,15 +29,21 @@ pub trait ReadonlyStore: Clone + Send + Sync {
     fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
 
     /// Returns the ipld representation of a block with cid.
-    fn get_ipld<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Ipld> {
+    fn get_ipld<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Ipld>
+    where
+        Ipld: Decode<Self::Codec>,
+    {
         Box::pin(async move {
             let block = self.get(cid.clone()).await?;
-            block.decode_ipld()
+            block.decode::<Self::Codec, Ipld>()
         })
     }
 
     /// Resolves a path recursively and returns the ipld.
-    fn get_path<'a>(&'a self, path: &'a DagPath<'a>) -> StoreResult<'a, Ipld> {
+    fn get_path<'a>(&'a self, path: &'a DagPath<'a>) -> StoreResult<'a, Ipld>
+    where
+        Ipld: Decode<Self::Codec>,
+    {
         Box::pin(async move {
             let mut root = self.get_ipld(path.root()).await?;
             let mut ipld = &root;

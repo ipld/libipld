@@ -16,11 +16,7 @@ mod codec;
 #[derive(Clone, Copy, Debug)]
 pub struct DagJsonCodec;
 
-impl Codec for DagJsonCodec {
-    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-        Ipld::decode(*self, &mut bytes)
-    }
-}
+impl Codec for DagJsonCodec {}
 
 impl From<DagJsonCodec> for u64 {
     fn from(_: DagJsonCodec) -> Self {

@@ -1,8 +1,9 @@
 //! Reference implementation of the store traits.
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::Codec;
+use crate::codec::{Codec, Decode};
 use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
+use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult};
 use crate::MAX_BLOCK_SIZE;
@@ -44,6 +45,7 @@ impl InnerStore {
     where
         C: Codec,
         M: MultihashDigest,
+        Ipld: Decode<C>,
     {
         self.insert_block(&block)?;
         self.pin(&block.cid);
@@ -54,6 +56,7 @@ impl InnerStore {
     where
         C: Codec,
         M: MultihashDigest,
+        Ipld: Decode<C>,
     {
         if self.blocks.contains_key(&block.cid) {
             return Ok(());
@@ -61,7 +64,7 @@ impl InnerStore {
         if block.data.len() > MAX_BLOCK_SIZE {
             return Err(BlockTooLarge(block.data.len()).into());
         }
-        let ipld = block.decode_ipld()?;
+        let ipld = block.decode::<_, Ipld>()?;
         let refs = ipld.references();
         for cid in &refs {
             self.add_referer(cid, 1);
@@ -75,6 +78,7 @@ impl InnerStore {
     where
         C: Codec,
         M: MultihashDigest,
+        Ipld: Decode<C>,
     {
         let mut last_cid = None;
         for block in batch {
@@ -147,7 +151,10 @@ impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
     }
 }
 
-impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
+impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M>
+where
+    Ipld: Decode<C>,
+{
     fn insert<'a>(&'a self, block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.insert(block) })
     }
@@ -165,7 +172,10 @@ impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M> {
     }
 }
 
-impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M> {
+impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M>
+where
+    Ipld: Decode<C>,
+{
     fn alias<'a>(&'a self, alias: &'a [u8], block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move {
             self.aliases
@@ -198,13 +208,17 @@ mod tests {
     use crate::multihash::{Multihash, SHA2_256};
     use crate::store::Store;
 
-    async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld> {
+    async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld>
+    where
+        Ipld: Decode<S::Codec>,
+    {
         let block = match store.get(cid.clone()).await {
             Ok(block) => block,
             Err(e) if e.downcast_ref::<BlockNotFound>().is_some() => return None,
             Err(e) => Err(e).unwrap(),
         };
-        Some(block.decode_ipld().unwrap())
+        let ipld = block.decode::<_, Ipld>().unwrap();
+        Some(ipld)
     }
 
     async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid

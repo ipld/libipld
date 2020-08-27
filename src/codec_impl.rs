@@ -107,11 +107,7 @@ impl From<Multicodec> for DagPbCodec {
     }
 }
 
-impl Codec for Multicodec {
-    fn decode_ipld(&self, mut bytes: &[u8]) -> Result<Ipld> {
-        Ipld::decode(*self, &mut bytes)
-    }
-}
+impl Codec for Multicodec {}
 
 impl Encode<Multicodec> for Ipld {
     fn encode<W: Write>(&self, c: Multicodec, w: &mut W) -> Result<()> {
