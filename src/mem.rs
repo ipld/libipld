@@ -11,6 +11,14 @@ use async_std::sync::{Arc, RwLock};
 use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
 
+/// Block metadata.
+pub struct Metadata {
+    /// Number of times the block is pinned.
+    pub pins: usize,
+    /// Number of referers keeping the block from being gced.
+    pub referers: isize,
+}
+
 #[derive(Default)]
 struct InnerStore {
     blocks: HashMap<Cid, Box<[u8]>>,
@@ -111,13 +119,24 @@ impl InnerStore {
         let pins = self.pins.get(&cid).cloned().unwrap_or_default();
         let referers = self.referers.get(&cid).cloned().unwrap_or_default();
         if referers < 1 && pins < 1 {
-            self.blocks.remove(&cid);
-            let refs = self.refs.remove(&cid).unwrap();
-            for cid in &refs {
-                self.add_referer(cid, -1);
-                self.remove(cid);
+            if self.blocks.remove(&cid).is_some() {
+                let refs = self.refs.remove(&cid).unwrap();
+                for cid in &refs {
+                    self.add_referer(cid, -1);
+                    self.remove(cid);
+                }
             }
         }
+    }
+
+    fn blocks(&self) -> Vec<Cid> {
+        self.blocks.iter().map(|(k, _)| k.clone()).collect()
+    }
+
+    fn metadata(&self, cid: &Cid) -> Metadata {
+        let pins = self.pins.get(&cid).cloned().unwrap_or_default();
+        let referers = self.referers.get(&cid).cloned().unwrap_or_default();
+        Metadata { pins, referers }
     }
 }
 
@@ -138,6 +157,16 @@ impl<C: Codec, M: MultihashDigest> MemStore<C, M> {
             inner: Arc::new(RwLock::new(InnerStore::new())),
             aliases: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Returns a vec of all cid's in the store.
+    pub async fn blocks(&self) -> Vec<Cid> {
+        self.inner.read().await.blocks()
+    }
+
+    /// Returns metadata about a cid.
+    pub async fn metadata(&self, cid: &Cid) -> Metadata {
+        self.inner.read().await.metadata(cid)
     }
 }
 
