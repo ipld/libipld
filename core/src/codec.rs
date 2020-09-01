@@ -21,14 +21,26 @@ pub trait Codec:
 }
 
 /// Encode trait.
+///
+/// This trait is generic over a codec, so that different codecs can be implemented for the same
+/// type.
 pub trait Encode<C: Codec> {
     /// Encodes into a `impl Write`.
+    ///
+    /// It takes a specific codec as parameter, so that the [`Encode`] can be generic over an enum
+    /// that contains multiple codecs.
     fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<()>;
 }
 
 /// Decode trait.
+///
+/// This trait is generic over a codec, so that different codecs can be implemented for the same
+/// type.
 pub trait Decode<C: Codec>: Sized {
     /// Decode from an `impl Read`.
+    ///
+    /// It takes a specific codec as parameter, so that the [`Decode`] can be generic over an enum
+    /// that contains multiple codecs.
     fn decode<R: Read>(c: C, r: &mut R) -> Result<Self>;
 }
 
