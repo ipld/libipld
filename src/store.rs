@@ -8,13 +8,56 @@ use crate::multihash::MultihashDigest;
 use crate::path::DagPath;
 use core::future::Future;
 use core::pin::Pin;
-use std::path::Path;
 
 /// Result type of store methods.
 pub type StoreResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
-/// Implementable by ipld storage providers.
-pub trait ReadonlyStore: Clone + Send + Sync {
+/// The status of a block.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Status {
+    pinned: usize,
+    referenced: usize,
+}
+
+impl Status {
+    /// Creates a new status.
+    pub fn new(pinned: usize, referenced: usize) -> Self {
+        Self { pinned, referenced }
+    }
+
+    /// Returns the number of times the block is pinned.
+    pub fn pinned(&self) -> usize {
+        self.pinned
+    }
+
+    /// Returns the number of references to the block.
+    pub fn referenced(&self) -> usize {
+        self.referenced
+    }
+
+    /// The block is pinned at least once.
+    pub fn is_pinned(&self) -> bool {
+        self.pinned > 0
+    }
+
+    /// The block is referenced at least once.
+    pub fn is_referenced(&self) -> bool {
+        self.referenced > 0
+    }
+
+    /// The block is not going to be garbage collected.
+    pub fn is_live(&self) -> bool {
+        self.is_pinned() || self.is_referenced()
+    }
+
+    /// The block is going to be garbage collected.
+    pub fn is_dead(&self) -> bool {
+        self.pinned == 0 && self.referenced == 0
+    }
+}
+
+/// Implementable by ipld stores.
+pub trait Store: Clone + Send + Sync {
     /// The multihash type of the store.
     type Multihash: MultihashDigest;
     /// The codec type of the store.
@@ -22,8 +65,17 @@ pub trait ReadonlyStore: Clone + Send + Sync {
     /// The maximum block size supported by the store.
     const MAX_BLOCK_SIZE: usize;
 
-    /// Returns a block from the store. If the block is not in the store it fetches it from the
-    /// network and pins the block. Dropping the future cancels the request.
+    /// Increases the pin count on a cid.
+    ///
+    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
+    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
+
+    /// Decreases the pin count of a cid.
+    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
+
+    /// Returns a block from the store. If the store supports networking and the block is not
+    /// in the store it fetches it from the network. Dropping the future cancels the request.
+    /// This will not pin the block.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
     fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
@@ -57,19 +109,28 @@ pub trait ReadonlyStore: Clone + Send + Sync {
             Ok(ipld.clone())
         })
     }
-}
 
-/// Implementable by ipld storage backends.
-pub trait Store: ReadonlyStore {
-    /// Inserts and pins block into the store and announces it if it is visible.
+    /// Recursively gets a block and all it's references. Pins the root.
+    ///
+    /// If a block wasn't found it returns a `BlockNotFound` error without pinning the
+    /// root.
+    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
+
+    /// Returns the status of a block.
+    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status>;
+
+    /// Inserts and pins block into the store and if the store supports networking, it announces
+    /// the block on the network.
     ///
     /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
+    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
     fn insert<'a>(&'a self, block: &'a Block<Self::Codec, Self::Multihash>) -> StoreResult<'a, ()>;
 
-    /// Inserts a batch of blocks atomically into the store and announces them block
-    /// if it is visible. The last block is pinned.
+    /// Inserts a batch of blocks atomically into the store and pins the last block. If the store
+    /// supports networking, it announces all the blocks on the network.
     ///
     /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
+    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
     /// If the batch is empty it returns an `EmptyBatch` error.
     fn insert_batch<'a>(
         &'a self,
@@ -78,18 +139,6 @@ pub trait Store: ReadonlyStore {
 
     /// Flushes the write buffer.
     fn flush(&self) -> StoreResult<'_, ()>;
-
-    /// Decreases the ref count on a cid.
-    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
-}
-
-/// Implemented by ipld storage backends that support multiple users.
-pub trait MultiUserStore: Store {
-    /// Pin a block.
-    ///
-    /// This creates a symlink chain from root -> path -> block. The block is unpinned by
-    /// breaking the symlink chain.
-    fn pin<'a>(&'a self, cid: &'a Cid, path: &'a Path) -> StoreResult<'a, ()>;
 }
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary

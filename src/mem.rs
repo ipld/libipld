@@ -5,25 +5,17 @@ use crate::codec::{Codec, Decode};
 use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, ReadonlyStore, Store, StoreResult};
+use crate::store::{AliasStore, Status, Store, StoreResult};
 use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
 use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
 
-/// Block metadata.
-pub struct Metadata {
-    /// Number of times the block is pinned.
-    pub pins: usize,
-    /// Number of referers keeping the block from being gced.
-    pub referers: isize,
-}
-
 #[derive(Default)]
 struct InnerStore {
     blocks: HashMap<Cid, Box<[u8]>>,
     refs: HashMap<Cid, HashSet<Cid>>,
-    referers: HashMap<Cid, isize>,
+    referers: HashMap<Cid, usize>,
     pins: HashMap<Cid, usize>,
 }
 
@@ -41,12 +33,18 @@ impl InnerStore {
         }
     }
 
+    fn sync<C: Codec, M: MultihashDigest>(&mut self, cid: Cid) -> Result<Block<C, M>> {
+        let block = self.get::<C, M>(cid)?;
+        self.pin(&block.cid);
+        Ok(block)
+    }
+
     fn add_referer(&mut self, cid: &Cid, n: isize) {
         let (cid, referers) = self
             .referers
             .remove_entry(cid)
             .unwrap_or_else(|| (cid.clone(), 0));
-        self.referers.insert(cid, referers + n);
+        self.referers.insert(cid, (referers as isize + n) as usize);
     }
 
     fn insert<C, M>(&mut self, block: &Block<C, M>) -> Result<()>
@@ -136,10 +134,10 @@ impl InnerStore {
         self.blocks.iter().map(|(k, _)| k.clone()).collect()
     }
 
-    fn metadata(&self, cid: &Cid) -> Metadata {
-        let pins = self.pins.get(&cid).cloned().unwrap_or_default();
-        let referers = self.referers.get(&cid).cloned().unwrap_or_default();
-        Metadata { pins, referers }
+    fn status(&self, cid: &Cid) -> Status {
+        let pinned = self.pins.get(&cid).cloned().unwrap_or_default();
+        let referenced = self.referers.get(&cid).cloned().unwrap_or_default();
+        Status::new(pinned, referenced)
     }
 }
 
@@ -166,27 +164,36 @@ impl<C: Codec, M: MultihashDigest> MemStore<C, M> {
     pub async fn blocks(&self) -> Vec<Cid> {
         self.inner.read().await.blocks()
     }
-
-    /// Returns metadata about a cid.
-    pub async fn metadata(&self, cid: &Cid) -> Metadata {
-        self.inner.read().await.metadata(cid)
-    }
-}
-
-impl<C: Codec, M: MultihashDigest> ReadonlyStore for MemStore<C, M> {
-    type Codec = C;
-    type Multihash = M;
-    const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
-
-    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
-        Box::pin(async move { self.inner.read().await.get(cid) })
-    }
 }
 
 impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M>
 where
     Ipld: Decode<C>,
 {
+    type Codec = C;
+    type Multihash = M;
+    const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
+
+    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
+        Box::pin(async move { Ok(self.inner.write().await.pin(cid)) })
+    }
+
+    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
+        Box::pin(async move { self.inner.write().await.unpin(cid) })
+    }
+
+    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
+        Box::pin(async move { self.inner.read().await.get(cid) })
+    }
+
+    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
+        Box::pin(async move { self.inner.write().await.sync(cid) })
+    }
+
+    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status> {
+        Box::pin(async move { Ok(self.inner.read().await.status(cid)) })
+    }
+
     fn insert<'a>(&'a self, block: &'a Block<C, M>) -> StoreResult<'a, ()> {
         Box::pin(async move { self.inner.write().await.insert(block) })
     }
@@ -197,10 +204,6 @@ where
 
     fn flush(&self) -> StoreResult<'_, ()> {
         Box::pin(async move { Ok(()) })
-    }
-
-    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.inner.write().await.unpin(cid) })
     }
 }
 
@@ -240,7 +243,7 @@ mod tests {
     use crate::multihash::{Multihash, SHA2_256};
     use crate::store::Store;
 
-    async fn get<S: ReadonlyStore>(store: &S, cid: &Cid) -> Option<Ipld>
+    async fn get<S: Store>(store: &S, cid: &Cid) -> Option<Ipld>
     where
         Ipld: Decode<S::Codec>,
     {
