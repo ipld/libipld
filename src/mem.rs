@@ -101,11 +101,13 @@ impl InnerStore {
             .pins
             .remove_entry(cid)
             .unwrap_or_else(|| (cid.clone(), 0));
+        log::debug!("pinning {}: {}", cid.short(), pins + 1);
         self.pins.insert(cid, pins + 1);
     }
 
     fn unpin(&mut self, cid: &Cid) -> Result<()> {
         if let Some((cid, pins)) = self.pins.remove_entry(cid) {
+            log::debug!("unpinning {}: {}", cid.short(), pins - 1);
             if pins > 1 {
                 self.pins.insert(cid, pins - 1);
             } else {
@@ -116,6 +118,7 @@ impl InnerStore {
     }
 
     fn remove(&mut self, cid: &Cid) {
+        log::debug!("garbage collecting {}", cid.short());
         let pins = self.pins.get(&cid).cloned().unwrap_or_default();
         let referers = self.referers.get(&cid).cloned().unwrap_or_default();
         if referers < 1 && pins < 1 {
