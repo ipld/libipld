@@ -67,15 +67,21 @@ pub trait Store: Clone + Send + Sync {
 
     /// Increases the pin count on a cid.
     ///
-    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
-    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
+    /// If the block isn't in the store it will return a `BlockNotFound` error.
+    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
+        Box::pin(async move { Err(BlockNotFound(cid.to_string())).into() })
+    }
 
     /// Decreases the pin count of a cid.
-    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()>;
+    ///
+    /// If the block isn't in the store it will return a `BlockNotFound` error.
+    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
+        Box::pin(async move { Err(BlockNotFound(cid.to_string())).into() })
+    }
 
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network. Dropping the future cancels the request.
-    /// This will not pin the block.
+    /// This will not insert the block into the store.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
     fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
@@ -110,27 +116,50 @@ pub trait Store: Clone + Send + Sync {
         })
     }
 
-    /// Recursively gets a block and all it's references. Pins the root.
+    /// Recursively gets a block and all it's references, inserts them into the store and
+    /// pins the root.
     ///
-    /// If a block wasn't found it returns a `BlockNotFound` error without pinning the
-    /// root.
-    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
+    /// If a block wasn't found it returns a `BlockNotFound` error without inserting any blocks
+    /// or pinning the root.
+    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>> {
+        let mut visited = HashSet::new();
+        let mut blocks = vec![];
+        let mut stack = vec![cid];
+        while let Some(cid) = stack.pop() {
+            if visited.contains(&cid) {
+                continue;
+            }
+            let block = self.get(cid).await?;
+            for r in block.references()? {
+                stack.push(r);
+            }
+            visited.insert(block.cid.clone());
+            blocks.push(block);
+        }
+        blocks.reverse();
+        let cid = self.insert_batch(&blocks).await?;
+        self.get(cid).await
+    }
 
     /// Returns the status of a block.
-    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status>;
+    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status> {
+        Box::pin(async move { Ok(Status::new(0, 0)) })
+    }
 
     /// Inserts and pins block into the store and if the store supports networking, it announces
     /// the block on the network.
     ///
     /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
-    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
-    fn insert<'a>(&'a self, block: &'a Block<Self::Codec, Self::Multihash>) -> StoreResult<'a, ()>;
+    /// If a block has dangling references it will return a `BlockNotFound` error.
+    fn insert<'a>(&'a self, block: &'a Block<Self::Codec, Self::Multihash>) -> StoreResult<'a, ()> {
+        self.insert_batch(std::slice::from_ref(block))
+    }
 
     /// Inserts a batch of blocks atomically into the store and pins the last block. If the store
     /// supports networking, it announces all the blocks on the network.
     ///
-    /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
-    /// If a block has dangling references it will return a `ReferenceNotInStore` error.
+    /// If a block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
+    /// If a block has dangling references it will return a `BlockNotFound` error.
     /// If the batch is empty it returns an `EmptyBatch` error.
     fn insert_batch<'a>(
         &'a self,
@@ -138,7 +167,9 @@ pub trait Store: Clone + Send + Sync {
     ) -> StoreResult<'a, Cid>;
 
     /// Flushes the write buffer.
-    fn flush(&self) -> StoreResult<'_, ()>;
+    fn flush(&self) -> StoreResult<'_, ()> {
+        Box::pin(async move { Ok(()) })
+    }
 }
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary

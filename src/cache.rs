@@ -229,7 +229,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_cache() {
-        let store = MemStore::<Multicodec, Multihash>::new();
+        let store = MemStore::<Multicodec, Multihash>::default();
         let config = CacheConfig::new(store, DagCborCodec);
         let client = OffchainClient {
             number: IpldCache::new(config),
