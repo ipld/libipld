@@ -33,11 +33,6 @@ pub struct BlockNotFound(pub String);
 #[error("Tried to insert an empty batch.")]
 pub struct EmptyBatch;
 
-/// Block has a dangling reference.
-#[derive(Debug, Error)]
-#[error("Reference not in store")]
-pub struct ReferenceNotInStore;
-
 /// Type error.
 #[derive(Debug, Error)]
 #[error("Expected {expected:?} but found {found:?}")]
