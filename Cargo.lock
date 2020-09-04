@@ -1545,6 +1545,8 @@ dependencies = [
 [[package]]
 name = "tiny-cid"
 version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b635d214a0d951465523fd67ad11faf8838ad927b5a85f021142d4349d89f00"
 dependencies = [
  "multibase",
  "tiny-multihash",

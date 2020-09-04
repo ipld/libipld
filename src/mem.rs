@@ -264,11 +264,13 @@ where
     Ipld: Decode<C>,
 {
     async fn alias(&self, alias: &[u8], cid: &Cid) -> Result<()> {
-        Ok(self.global.alias(alias, cid).await)
+        self.global.alias(alias, cid).await;
+        Ok(())
     }
 
     async fn unalias(&self, alias: &[u8]) -> Result<()> {
-        Ok(self.global.unalias(alias).await)
+        self.global.unalias(alias).await;
+        Ok(())
     }
 
     async fn resolve(&self, alias: &[u8]) -> Result<Option<Cid>> {
