@@ -6,14 +6,11 @@ use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::path::DagPath;
-use core::future::Future;
-use core::pin::Pin;
-
-/// Result type of store methods.
-pub type StoreResult<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
+use async_trait::async_trait;
+use std::collections::HashSet;
 
 /// The status of a block.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Status {
     pinned: usize,
     referenced: usize,
@@ -57,6 +54,7 @@ impl Status {
 }
 
 /// Implementable by ipld stores.
+#[async_trait]
 pub trait Store: Clone + Send + Sync {
     /// The multihash type of the store.
     type Multihash: MultihashDigest;
@@ -68,52 +66,35 @@ pub trait Store: Clone + Send + Sync {
     /// Increases the pin count on a cid.
     ///
     /// If the block isn't in the store it will return a `BlockNotFound` error.
-    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
-        Box::pin(async move { Err(BlockNotFound(cid.to_string())).into() })
-    }
+    async fn pin(&self, cid: &Cid) -> Result<()>;
 
     /// Decreases the pin count of a cid.
     ///
     /// If the block isn't in the store it will return a `BlockNotFound` error.
-    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
-        Box::pin(async move { Err(BlockNotFound(cid.to_string())).into() })
-    }
+    async fn unpin(&self, cid: &Cid) -> Result<()>;
 
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network. Dropping the future cancels the request.
     /// This will not insert the block into the store.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
-    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>>;
-
-    /// Returns the ipld representation of a block with cid.
-    fn get_ipld<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Ipld>
-    where
-        Ipld: Decode<Self::Codec>,
-    {
-        Box::pin(async move {
-            let block = self.get(cid.clone()).await?;
-            block.decode::<Self::Codec, Ipld>()
-        })
-    }
+    async fn get(&self, cid: Cid) -> Result<Block<Self::Codec, Self::Multihash>>;
 
     /// Resolves a path recursively and returns the ipld.
-    fn get_path<'a>(&'a self, path: &'a DagPath<'a>) -> StoreResult<'a, Ipld>
+    async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
     where
         Ipld: Decode<Self::Codec>,
     {
-        Box::pin(async move {
-            let mut root = self.get_ipld(path.root()).await?;
-            let mut ipld = &root;
-            for segment in path.path().iter() {
-                ipld = ipld.get(segment)?;
-                if let Ipld::Link(cid) = ipld {
-                    root = self.get_ipld(cid).await?;
-                    ipld = &root;
-                }
+        let mut root = self.get(path.root().clone()).await?.ipld()?;
+        let mut ipld = &root;
+        for segment in path.path().iter() {
+            ipld = ipld.get(segment)?;
+            if let Ipld::Link(cid) = ipld {
+                root = self.get(cid.clone()).await?.ipld()?;
+                ipld = &root;
             }
-            Ok(ipld.clone())
-        })
+        }
+        Ok(ipld.clone())
     }
 
     /// Recursively gets a block and all it's references, inserts them into the store and
@@ -121,7 +102,10 @@ pub trait Store: Clone + Send + Sync {
     ///
     /// If a block wasn't found it returns a `BlockNotFound` error without inserting any blocks
     /// or pinning the root.
-    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<Self::Codec, Self::Multihash>> {
+    async fn sync(&self, cid: Cid) -> Result<Block<Self::Codec, Self::Multihash>>
+    where
+        Ipld: Decode<Self::Codec>,
+    {
         let mut visited = HashSet::new();
         let mut blocks = vec![];
         let mut stack = vec![cid];
@@ -142,17 +126,15 @@ pub trait Store: Clone + Send + Sync {
     }
 
     /// Returns the status of a block.
-    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status> {
-        Box::pin(async move { Ok(Status::new(0, 0)) })
-    }
+    async fn status(&self, cid: &Cid) -> Result<Option<Status>>;
 
     /// Inserts and pins block into the store and if the store supports networking, it announces
     /// the block on the network.
     ///
     /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
     /// If a block has dangling references it will return a `BlockNotFound` error.
-    fn insert<'a>(&'a self, block: &'a Block<Self::Codec, Self::Multihash>) -> StoreResult<'a, ()> {
-        self.insert_batch(std::slice::from_ref(block))
+    async fn insert(&self, block: &Block<Self::Codec, Self::Multihash>) -> Result<Cid> {
+        self.insert_batch(std::slice::from_ref(block)).await
     }
 
     /// Inserts a batch of blocks atomically into the store and pins the last block. If the store
@@ -161,30 +143,24 @@ pub trait Store: Clone + Send + Sync {
     /// If a block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
     /// If a block has dangling references it will return a `BlockNotFound` error.
     /// If the batch is empty it returns an `EmptyBatch` error.
-    fn insert_batch<'a>(
-        &'a self,
-        batch: &'a [Block<Self::Codec, Self::Multihash>],
-    ) -> StoreResult<'a, Cid>;
+    async fn insert_batch(&self, batch: &[Block<Self::Codec, Self::Multihash>]) -> Result<Cid>;
 
     /// Flushes the write buffer.
-    fn flush(&self) -> StoreResult<'_, ()> {
-        Box::pin(async move { Ok(()) })
+    async fn flush(&self) -> Result<()> {
+        Ok(())
     }
 }
 
 /// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
 /// byte strings.
+#[async_trait]
 pub trait AliasStore: Store {
     /// Creates an alias for a `Cid` with announces the alias on the public network.
-    fn alias<'a>(
-        &'a self,
-        alias: &'a [u8],
-        block: &'a Block<Self::Codec, Self::Multihash>,
-    ) -> StoreResult<'a, ()>;
+    async fn alias(&self, alias: &[u8], cid: &Cid) -> Result<()>;
 
     /// Removes an alias for a `Cid`.
-    fn unalias<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, ()>;
+    async fn unalias(&self, alias: &[u8]) -> Result<()>;
 
     /// Resolves an alias for a `Cid`.
-    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<Cid>>;
+    async fn resolve(&self, alias: &[u8]) -> Result<Option<Cid>>;
 }

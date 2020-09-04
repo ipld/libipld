@@ -142,11 +142,7 @@ where
     }
 
     fn create_batch_with_capacity(&self, capacity: usize) -> Batch<S, C, T> {
-        Batch::new(
-            self.config.codec,
-            self.config.hash,
-            capacity,
-        )
+        Batch::new(self.config.codec, self.config.hash, capacity)
     }
 
     async fn insert_batch(&self, batch: Batch<S, C, T>) -> Result<Cid> {

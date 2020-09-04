@@ -5,9 +5,10 @@ use crate::codec::{Codec, Decode};
 use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, Status, Store, StoreResult};
+use crate::store::{AliasStore, Status, Store};
 use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
+use async_trait::async_trait;
 use core::marker::PhantomData;
 use std::collections::{HashMap, HashSet};
 
@@ -45,14 +46,17 @@ impl<C: Codec, M: MultihashDigest> GlobalStore<C, M> {
     }
 
     async fn insert(&self, block: &Block<C, M>) {
-        self.blocks.write().await.insert(block.cid.clone(), block.data.clone());
+        self.blocks
+            .write()
+            .await
+            .insert(block.cid.clone(), block.data.clone());
     }
 
-    async fn alias(&self, alias: &[u8], block: &Block<C, M>) {
+    async fn alias(&self, alias: &[u8], cid: &Cid) {
         self.aliases
             .write()
             .await
-            .insert(alias.to_vec().into_boxed_slice(), block.cid.clone());
+            .insert(alias.to_vec().into_boxed_slice(), cid.clone());
     }
 
     async fn unalias(&self, alias: &[u8]) {
@@ -121,35 +125,13 @@ where
         }
     }
 
-    async fn sync(&mut self, cid: Cid) -> Result<Block<C, M>> {
-        let mut visited = HashSet::new();
-        let mut blocks = vec![];
-        let mut stack = vec![cid];
-        while let Some(cid) = stack.pop() {
-            if visited.contains(&cid) {
-                continue;
-            }
-            let block = self.get(cid).await?;
-            for r in block.references()? {
-                stack.push(r);
-            }
-            visited.insert(block.cid.clone());
-            blocks.push(block);
-        }
-        blocks.reverse();
-        let cid = self.insert_batch(&blocks).await?;
-        self.get(cid).await
+    async fn status(&self, cid: &Cid) -> Option<Status> {
+        self.blocks
+            .get(&cid)
+            .map(|info| Status::new(info.pinned, info.referenced))
     }
 
-    async fn status(&self, cid: &Cid) -> Status {
-        if let Some(info) = self.blocks.get(&cid) {
-            Status::new(info.pinned, info.referenced)
-        } else {
-            Status::new(0, 0)
-        }
-    }
-
-    async fn insert_block(&mut self, block: &Block<C, M>) -> Result<()> {
+    async fn _insert(&mut self, block: &Block<C, M>) -> Result<()> {
         if self.blocks.contains_key(&block.cid) {
             return Ok(());
         }
@@ -177,16 +159,10 @@ where
         Ok(())
     }
 
-    async fn insert(&mut self, block: &Block<C, M>) -> Result<()> {
-        self.insert_block(&block).await?;
-        self.pin(&block.cid).await?;
-        Ok(())
-    }
-
     async fn insert_batch(&mut self, batch: &[Block<C, M>]) -> Result<Cid> {
         let root = batch.last().ok_or(EmptyBatch)?.cid.clone();
         for block in batch {
-            self.insert_block(block).await?;
+            self._insert(block).await?;
         }
         self.pin(&root).await?;
         Ok(root)
@@ -252,6 +228,7 @@ where
     }
 }
 
+#[async_trait]
 impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M>
 where
     Ipld: Decode<C>,
@@ -260,53 +237,42 @@ where
     type Multihash = M;
     const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
 
-    fn pin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.local.write().await.pin(cid).await })
+    async fn pin(&self, cid: &Cid) -> Result<()> {
+        self.local.write().await.pin(cid).await
     }
 
-    fn unpin<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.local.write().await.unpin(cid).await })
+    async fn unpin(&self, cid: &Cid) -> Result<()> {
+        self.local.write().await.unpin(cid).await
     }
 
-    fn get<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
-        Box::pin(async move { self.local.read().await.get(cid).await })
+    async fn get(&self, cid: Cid) -> Result<Block<C, M>> {
+        self.local.read().await.get(cid).await
     }
 
-    fn sync<'a>(&'a self, cid: Cid) -> StoreResult<'a, Block<C, M>> {
-        Box::pin(async move { self.local.write().await.sync(cid).await })
+    async fn insert_batch(&self, batch: &[Block<C, M>]) -> Result<Cid> {
+        self.local.write().await.insert_batch(batch).await
     }
 
-    fn status<'a>(&'a self, cid: &'a Cid) -> StoreResult<'a, Status> {
-        Box::pin(async move { Ok(self.local.read().await.status(cid).await) })
-    }
-
-    fn insert<'a>(&'a self, block: &'a Block<C, M>) -> StoreResult<'a, ()> {
-        Box::pin(async move { self.local.write().await.insert(block).await })
-    }
-
-    fn insert_batch<'a>(&'a self, batch: &'a [Block<C, M>]) -> StoreResult<'a, Cid> {
-        Box::pin(async move { self.local.write().await.insert_batch(batch).await })
-    }
-
-    fn flush(&self) -> StoreResult<'_, ()> {
-        Box::pin(async move { Ok(()) })
+    async fn status(&self, cid: &Cid) -> Result<Option<Status>> {
+        Ok(self.local.read().await.status(cid).await)
     }
 }
 
+#[async_trait]
 impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M>
 where
     Ipld: Decode<C>,
 {
-    fn alias<'a>(&'a self, alias: &'a [u8], block: &'a Block<C, M>) -> StoreResult<'a, ()> {
-        Box::pin(async move { Ok(self.global.alias(alias, block).await) })
+    async fn alias(&self, alias: &[u8], cid: &Cid) -> Result<()> {
+        Ok(self.global.alias(alias, cid).await)
     }
 
-    fn unalias<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, ()> {
-        Box::pin(async move { Ok(self.global.unalias(alias).await) })
+    async fn unalias(&self, alias: &[u8]) -> Result<()> {
+        Ok(self.global.unalias(alias).await)
     }
 
-    fn resolve<'a>(&'a self, alias: &'a [u8]) -> StoreResult<'a, Option<Cid>> {
-        Box::pin(async move { Ok(self.global.resolve(alias).await) })
+    async fn resolve(&self, alias: &[u8]) -> Result<Option<Cid>> {
+        Ok(self.global.resolve(alias).await)
     }
 }
 
@@ -315,93 +281,135 @@ mod tests {
     use super::*;
     use crate::block::Block;
     use crate::cbor::DagCborCodec;
+    use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::{Multihash, SHA2_256};
     use crate::store::Store;
 
-    async fn get_local<S: Store>(store: &S, cid: &Cid) -> Option<Ipld>
-    where
-        Ipld: Decode<S::Codec>,
-    {
-        if store.status(cid).await.unwrap().is_live() {
-            get(store, cid).await
-        } else {
-            None
-        }
-    }
-
-    async fn get<S: Store>(store: &S, cid: &Cid) -> Option<Ipld>
-    where
-        Ipld: Decode<S::Codec>,
-    {
-        let block = match store.get(cid.clone()).await {
-            Ok(block) => block,
-            Err(e) if e.downcast_ref::<BlockNotFound>().is_some() => return None,
-            Err(e) => Err(e).unwrap(),
-        };
-        let ipld = block.decode::<_, Ipld>().unwrap();
-        Some(ipld)
-    }
-
-    async fn insert<S: Store>(store: &S, ipld: &Ipld) -> Cid
-    where
-        S::Codec: From<DagCborCodec>,
-    {
-        let block = Block::encode(DagCborCodec, SHA2_256, ipld).unwrap();
-        store.insert(&block).await.unwrap();
-        block.cid
+    fn create_block(ipld: &Ipld) -> Block<Multicodec, Multihash> {
+        Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
     }
 
     #[async_std::test]
-    async fn test_gc() {
-        let store = MemStore::<DagCborCodec, Multihash>::default();
-        let a = insert(&store, &ipld!({ "a": [] })).await;
-        let b = insert(&store, &ipld!({ "b": [&a] })).await;
-        store.unpin(&a).await.unwrap();
-        let c = insert(&store, &ipld!({ "c": [&a] })).await;
-        assert!(get_local(&store, &a).await.is_some());
-        assert!(get_local(&store, &b).await.is_some());
-        assert!(get_local(&store, &c).await.is_some());
-        store.unpin(&b).await.unwrap();
-        assert!(get_local(&store, &a).await.is_some());
-        assert!(get_local(&store, &b).await.is_none());
-        assert!(get_local(&store, &c).await.is_some());
-        store.unpin(&c).await.unwrap();
-        assert!(get_local(&store, &a).await.is_none());
-        assert!(get_local(&store, &b).await.is_none());
-        assert!(get_local(&store, &c).await.is_none());
+    async fn test_gc() -> Result<()> {
+        let store = MemStore::<Multicodec, Multihash>::default();
+        let a = store.insert(&create_block(&ipld!({ "a": [] }))).await?;
+        let b = store.insert(&create_block(&ipld!({ "b": [&a] }))).await?;
+        store.unpin(&a).await?;
+        let c = store.insert(&create_block(&ipld!({ "c": [&a] }))).await?;
+        assert!(store.status(&a).await?.is_some());
+        assert!(store.status(&b).await?.is_some());
+        assert!(store.status(&c).await?.is_some());
+        store.unpin(&b).await?;
+        assert!(store.status(&a).await?.is_some());
+        assert!(store.status(&b).await?.is_none());
+        assert!(store.status(&c).await?.is_some());
+        store.unpin(&c).await?;
+        assert!(store.status(&a).await?.is_none());
+        assert!(store.status(&b).await?.is_none());
+        assert!(store.status(&c).await?.is_none());
+        Ok(())
     }
 
     #[async_std::test]
-    async fn test_gc_2() {
-        let store = MemStore::<DagCborCodec, Multihash>::default();
-        let a = insert(&store, &ipld!({ "a": [] })).await;
-        let b = insert(&store, &ipld!({ "b": [&a] })).await;
-        store.unpin(&a).await.unwrap();
-        let c = insert(&store, &ipld!({ "b": [&a] })).await;
-        assert!(get_local(&store, &a).await.is_some());
-        assert!(get_local(&store, &b).await.is_some());
-        assert!(get_local(&store, &c).await.is_some());
-        store.unpin(&b).await.unwrap();
-        assert!(get_local(&store, &a).await.is_some());
-        assert!(get_local(&store, &b).await.is_some());
-        assert!(get_local(&store, &c).await.is_some());
-        store.unpin(&c).await.unwrap();
-        assert!(get_local(&store, &a).await.is_none());
-        assert!(get_local(&store, &b).await.is_none());
-        assert!(get_local(&store, &c).await.is_none());
+    async fn test_gc_2() -> Result<()> {
+        let store = MemStore::<Multicodec, Multihash>::default();
+        let a = store.insert(&create_block(&ipld!({ "a": [] }))).await?;
+        let b = store.insert(&create_block(&ipld!({ "b": [&a] }))).await?;
+        store.unpin(&a).await?;
+        let c = store.insert(&create_block(&ipld!({ "b": [&a] }))).await?;
+        assert!(store.status(&a).await?.is_some());
+        assert!(store.status(&b).await?.is_some());
+        assert!(store.status(&c).await?.is_some());
+        store.unpin(&b).await?;
+        assert!(store.status(&a).await?.is_some());
+        assert!(store.status(&b).await?.is_some());
+        assert!(store.status(&c).await?.is_some());
+        store.unpin(&c).await?;
+        assert!(store.status(&a).await?.is_none());
+        assert!(store.status(&b).await?.is_none());
+        assert!(store.status(&c).await?.is_none());
+        Ok(())
     }
 
     #[async_std::test]
-    async fn test_sync() {
-        let global = Arc::new(GlobalStore::<DagCborCodec, Multihash>::default());
+    async fn test_sync() -> Result<()> {
+        let global = Arc::new(GlobalStore::<Multicodec, Multihash>::default());
         let local1 = MemStore::new(global.clone());
         let local2 = MemStore::new(global.clone());
-        let a = insert(&local1, &ipld!({ "a": [] })).await;
-        let b = insert(&local1, &ipld!({ "b": [&a] })).await;
-        local2.sync(b.clone()).await.unwrap();
-        assert!(get_local(&local2, &a).await.is_some());
-        assert!(get_local(&local2, &b).await.is_some());
+        let a1 = create_block(&ipld!({ "a": 0 }));
+        let b1 = create_block(&ipld!({ "b": 0 }));
+        let c1 = create_block(&ipld!({ "c": [&a1.cid, &b1.cid] }));
+        let b2 = create_block(&ipld!({ "b": 1 }));
+        let c2 = create_block(&ipld!({ "c": [&a1.cid, &b2.cid] }));
+
+        // insert alias
+        let root1 = local1
+            .insert_batch(&[a1.clone(), b1.clone(), c1.clone()])
+            .await?;
+        local1.alias(b"root", &root1).await?;
+
+        assert!(local1.status(&a1.cid).await?.is_some());
+        assert!(local1.status(&b1.cid).await?.is_some());
+        assert!(local1.status(&c1.cid).await?.is_some());
+        assert!(local1.status(&b2.cid).await?.is_none());
+        assert!(local1.status(&c2.cid).await?.is_none());
+
+        // resolve sync
+        let root1p = local2.resolve(b"root").await?.unwrap();
+        assert_eq!(root1, root1p);
+        let c1p = local2.sync(root1p).await?;
+        assert_eq!(c1, c1p);
+
+        assert!(local2.status(&a1.cid).await?.is_some());
+        assert!(local2.status(&b1.cid).await?.is_some());
+        assert!(local2.status(&c1.cid).await?.is_some());
+        assert!(local2.status(&b2.cid).await?.is_none());
+        assert!(local2.status(&c2.cid).await?.is_none());
+
+        // insert alias unpin
+        let root2 = local2.insert_batch(&[b2.clone(), c2.clone()]).await?;
+        local2.alias(b"root", &root2).await?;
+        local2.unpin(&root1).await?;
+
+        assert!(local2.status(&a1.cid).await?.is_some());
+        assert!(local2.status(&b1.cid).await?.is_none());
+        assert!(local2.status(&c1.cid).await?.is_none());
+        assert!(local2.status(&b2.cid).await?.is_some());
+        assert!(local2.status(&c2.cid).await?.is_some());
+
+        // resolve sync unpin
+        let root2p = local1.resolve(b"root").await?.unwrap();
+        assert_eq!(root2, root2p);
+        let c2p = local1.sync(root2p).await?;
+        assert_eq!(c2, c2p);
+        local1.unpin(&c1.cid).await?;
+
+        assert!(local1.status(&a1.cid).await?.is_some());
+        assert!(local1.status(&b1.cid).await?.is_none());
+        assert!(local1.status(&c1.cid).await?.is_none());
+        assert!(local1.status(&b2.cid).await?.is_some());
+        assert!(local1.status(&c2.cid).await?.is_some());
+
+        // unpin
+        local1.unpin(&c2.cid).await?;
+
+        assert!(local1.status(&a1.cid).await?.is_none());
+        assert!(local1.status(&b1.cid).await?.is_none());
+        assert!(local1.status(&c1.cid).await?.is_none());
+        assert!(local1.status(&b2.cid).await?.is_none());
+        assert!(local1.status(&c2.cid).await?.is_none());
+
+        // unpin
+        local2.unpin(&c2.cid).await?;
+
+        assert!(local2.status(&a1.cid).await?.is_none());
+        assert!(local2.status(&b1.cid).await?.is_none());
+        assert!(local2.status(&c1.cid).await?.is_none());
+        assert!(local2.status(&b2.cid).await?.is_none());
+        assert!(local2.status(&c2.cid).await?.is_none());
+
+        Ok(())
     }
 }

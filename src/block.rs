@@ -1,8 +1,8 @@
 //! Block validation
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
-use crate::ipld::Ipld;
 use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
+use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use core::marker::PhantomData;
 use std::collections::HashSet;
@@ -99,13 +99,20 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         CD::try_from(self.cid.codec())?.decode(&self.data)
     }
 
+    /// Returns the decoded ipld.
+    pub fn ipld(&self) -> Result<Ipld>
+    where
+        Ipld: Decode<C>,
+    {
+        self.decode::<C, Ipld>()
+    }
+
     /// Returns the references.
     pub fn references(&self) -> Result<HashSet<Cid>>
     where
         Ipld: Decode<C>,
     {
-        let ipld = self.decode::<C, Ipld>()?;
-        Ok(ipld.references())
+        Ok(self.ipld()?.references())
     }
 }
 

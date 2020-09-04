@@ -53,6 +53,3 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
-
-[patch.crates-io]
-tiny-cid = { path = "../tiny-cid" }
