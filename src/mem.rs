@@ -2,61 +2,98 @@
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode};
-use crate::error::{BlockNotFound, BlockTooLarge, EmptyBatch, Result};
+use crate::error::{BlockNotFound, BlockTooLarge, Result};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, Status, Store};
+use crate::store::{AliasStore, Op, Status, Store};
 use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
-use core::marker::PhantomData;
+use core::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 
-struct BlockInfo {
-    data: Box<[u8]>,
+#[derive(Debug)]
+struct BlockInfo<C, H> {
+    block: Block<C, H>,
     refs: HashSet<Cid>,
-    referenced: usize,
-    pinned: usize,
+    status: Status,
+}
+
+impl<C, H> core::hash::Hash for BlockInfo<C, H> {
+    fn hash<SH: core::hash::Hasher>(&self, hasher: &mut SH) {
+        self.block.cid().hash(hasher)
+    }
+}
+impl<C, H> PartialEq for BlockInfo<C, H> {
+    fn eq(&self, other: &Self) -> bool {
+        self.block.cid() == other.block.cid()
+    }
+}
+
+impl<C, H> Eq for BlockInfo<C, H> {}
+
+impl<C, H> Borrow<Cid> for BlockInfo<C, H> {
+    fn borrow(&self) -> &Cid {
+        self.block.borrow()
+    }
+}
+
+impl<C, H> BlockInfo<C, H> {
+    pub fn new(block: Block<C, H>) -> Result<Self> {
+        if block.data.len() > MAX_BLOCK_SIZE {
+            return Err(BlockTooLarge(block.data.len()).into());
+        }
+        let refs = block.ipld()?.references();
+        Self {
+            block,
+            refs,
+            status: Default::default(),
+        }
+    }
+}
+
+enum MicroOp<C, H> {
+    Insert(BlockInfo<C, H>),
+    Pin(Cid),
+    Unpin(Cid),
 }
 
 /// Models a network for testing.
-pub struct GlobalStore<C, M> {
-    _marker: PhantomData<(C, M)>,
-    blocks: RwLock<HashMap<Cid, Box<[u8]>>>,
-    aliases: RwLock<HashMap<Box<[u8]>, Cid>>,
+pub struct GlobalStore<C, H> {
+    blocks: RwLock<HashSet<Block<C, H>>>,
+    aliases: RwLock<HashMap<Vec<u8>, Cid>>,
 }
 
-impl<C, M> Default for GlobalStore<C, M> {
+impl<C, H> Default for GlobalStore<C, H> {
     fn default() -> Self {
         Self {
-            _marker: Default::default(),
             blocks: Default::default(),
             aliases: Default::default(),
         }
     }
 }
 
-impl<C: Codec, M: MultihashDigest> GlobalStore<C, M> {
-    async fn get(&self, cid: Cid) -> Result<Block<C, M>> {
-        if let Some(data) = self.blocks.read().await.get(&cid).cloned() {
-            Ok(Block::new(cid, data))
+impl<C: Codec, H: MultihashDigest> GlobalStore<C, H> {
+    async fn get(&self, cid: &Cid) -> Result<Block<C, H>> {
+        if let Some(block) = self.blocks.read().await.get(cid) {
+            Ok(block.clone())
         } else {
             Err(BlockNotFound(cid.to_string()).into())
         }
     }
 
-    async fn insert(&self, block: &Block<C, M>) {
+    async fn insert(&self, block: Block<C, H>) {
         self.blocks
             .write()
             .await
-            .insert(block.cid.clone(), block.data.clone());
+            .insert(block);
     }
 
     async fn alias(&self, alias: &[u8], cid: &Cid) {
         self.aliases
             .write()
             .await
-            .insert(alias.to_vec().into_boxed_slice(), cid.clone());
+            .insert(alias.to_vec(), cid.clone());
     }
 
     async fn unalias(&self, alias: &[u8]) {
@@ -68,12 +105,12 @@ impl<C: Codec, M: MultihashDigest> GlobalStore<C, M> {
     }
 }
 
-struct LocalStore<C, M> {
-    global: Arc<GlobalStore<C, M>>,
-    blocks: HashMap<Cid, BlockInfo>,
+struct LocalStore<C, H> {
+    global: Arc<GlobalStore<C, H>>,
+    blocks: HashSet<BlockInfo<C, H>>,
 }
 
-impl<C, M> Default for LocalStore<C, M> {
+impl<C, H> Default for LocalStore<C, H> {
     fn default() -> Self {
         Self {
             global: Default::default(),
@@ -82,126 +119,128 @@ impl<C, M> Default for LocalStore<C, M> {
     }
 }
 
-impl<C: Codec, M: MultihashDigest> LocalStore<C, M>
+impl<C: Codec, H: MultihashDigest> LocalStore<C, H>
 where
     Ipld: Decode<C>,
 {
     /// Create a new empty `InnerStore`
-    fn new(global: Arc<GlobalStore<C, M>>) -> Self {
+    fn new(global: Arc<GlobalStore<C, H>>) -> Self {
         Self {
             global,
             ..Default::default()
         }
     }
 
-    async fn pin(&mut self, cid: &Cid) -> Result<()> {
-        if let Some(info) = self.blocks.get_mut(cid) {
-            info.pinned += 1;
-        } else {
-            return Err(BlockNotFound(cid.to_string()).into());
-        }
-        Ok(())
-    }
-
-    async fn unpin(&mut self, cid: &Cid) -> Result<()> {
-        if let Some(info) = self.blocks.get_mut(cid) {
-            if info.pinned > 0 {
-                info.pinned -= 1;
-            }
-            if info.pinned == 0 {
-                self.remove(cid);
-            }
-        } else {
-            return Err(BlockNotFound(cid.to_string()).into());
-        }
-        Ok(())
-    }
-
-    async fn get(&self, cid: Cid) -> Result<Block<C, M>> {
+    async fn get(&self, cid: &Cid) -> Result<Block<C, H>> {
         if let Some(info) = self.blocks.get(&cid) {
-            Ok(Block::new(cid, info.data.clone()))
+            Ok(info.block.clone())
         } else {
             self.global.get(cid).await
         }
     }
 
-    async fn status(&self, cid: &Cid) -> Option<Status> {
+    fn status(&self, cid: &Cid) -> Option<Status> {
         self.blocks
             .get(&cid)
-            .map(|info| Status::new(info.pinned, info.referenced))
+            .map(|info| info.status)
     }
 
-    async fn _insert(&mut self, block: &Block<C, M>) -> Result<()> {
-        if self.blocks.contains_key(&block.cid) {
-            return Ok(());
-        }
-        if block.data.len() > MAX_BLOCK_SIZE {
-            return Err(BlockTooLarge(block.data.len()).into());
-        }
-        let refs = block.references()?;
-        for cid in &refs {
-            if !self.blocks.contains_key(cid) {
-                return Err(BlockNotFound(cid.to_string()).into());
+    fn blocks(&self) -> Vec<Cid> {
+        self.blocks.iter().map(|(k, _)| k.clone()).collect()
+    }
+
+    fn verify_transaction<I: IntoIterator<Item = Op<C, H>>>(&self, ops: I) -> Result<Vec<MicroOp<C, H>>> {
+        let mut touched = HashSet::with_capacity(ops.len());
+        let mut micro_ops = Vec::new();
+        for op in ops {
+            match op {
+                Op::Insert(block) => {
+                    if self.status(block.cid()).is_some() {
+                        continue;
+                    }
+                    let info = BlockInfo::new(block)?;
+                    for cid in &block.refs {
+                        if !touched.contains(cid) && self.status(cid).is_none() {
+                            return Err(BlockNotFound(cid.to_string()).into());
+                        }
+                        touched.insert(cid.clone());
+                    }
+                    touched.insert(info.block.cid().clone());
+                    micro_ops.push(MicroOp::Insert(info));
+                }
+                Op::Pin(cid) => {
+                    if !touched.contains(&cid) && self.status(&cid).is_none() {
+                        return Err(BlockNotFound(cid.to_string()).into());
+                    }
+                    touched.insert(cid.clone());
+                    micro_ops.push(MicroOp::Pin(cid));
+                }
+                Op::Unpin(cid) => {
+                    if !touched.contains(&cid) && self.status(&cid).is_none() {
+                        return Err(BlockNotFound(cid.to_string()).into());
+                    }
+                    touched.insert(cid.clone());
+                    micro_ops.push(MicroOp::Unpin(cid));
+                }
             }
         }
-        for cid in &refs {
-            let mut info = self.blocks.get_mut(cid).unwrap();
-            info.referenced += 1;
-        }
-        let info = BlockInfo {
-            data: block.data.clone(),
-            refs,
-            referenced: 0,
-            pinned: 0,
-        };
-        self.blocks.insert(block.cid.clone(), info);
-        self.global.insert(block).await;
-        Ok(())
+        Ok(micro_ops)
     }
 
-    async fn insert_batch(&mut self, batch: &[Block<C, M>]) -> Result<Cid> {
-        let root = batch.last().ok_or(EmptyBatch)?.cid.clone();
-        for block in batch {
-            self._insert(block).await?;
+    async fn commit<I: IntoIterator<Item = Op<C, H>>>(&mut self, tx: I) -> Result<()> {
+        let micro_ops = self.verify_transaction(tx)?;
+        let mut dead = Vec::new();
+        for op in micro_ops {
+            match op {
+                MicroOp::Insert(info) => {
+                    self.global.insert(info.block.clone()).await;
+                    self.blocks.insert(info);
+                }
+                MicroOp::Pin(cid) => self.blocks.get_mut(&cid).unwrap().status.pin(),
+                MicroOp::Unpin(cid) => {
+                    let status = &mut self.blocks.get_mut(&cid).unwrap().status;
+                    status.unpin();
+                    if status.is_dead() {
+                        dead.push(cid);
+                    }
+                }
+                MicroOp::Reference(cid) => self.blocks.get_mut(&cid).unwrap().status.reference(),
+            }
         }
-        self.pin(&root).await?;
-        Ok(root)
+        for cid in dead {
+            self.remove(cid);
+        }
     }
 
     fn remove_block(&mut self, cid: &Cid) -> HashSet<Cid> {
         let info = self.blocks.remove(cid).unwrap();
         for cid in &info.refs {
             if let Some(info) = self.blocks.get_mut(&cid) {
-                info.referenced -= 1;
+                info.status.unreference();
             }
         }
         info.refs
     }
 
     fn remove(&mut self, cid: &Cid) {
-        if let Some(info) = self.blocks.get(cid) {
-            if info.pinned < 1 && info.referenced < 1 {
-                let refs = self.remove_block(cid);
-                for cid in refs {
-                    self.remove(&cid);
+        if let Some(status) = self.status(cid) {
+            if status.is_dead() {
+                for cid in self.remove_block(cid) {
+                    self.remove(cid);
                 }
             }
         }
-    }
-
-    fn blocks(&self) -> Vec<Cid> {
-        self.blocks.iter().map(|(k, _)| k.clone()).collect()
     }
 }
 
 /// A memory backed store
 #[derive(Clone)]
-pub struct MemStore<C, M> {
-    global: Arc<GlobalStore<C, M>>,
-    local: Arc<RwLock<LocalStore<C, M>>>,
+pub struct MemStore<C, H> {
+    global: Arc<GlobalStore<C, H>>,
+    local: Arc<RwLock<LocalStore<C, H>>>,
 }
 
-impl<C, M> Default for MemStore<C, M> {
+impl<C, H> Default for MemStore<C, H> {
     fn default() -> Self {
         Self {
             global: Default::default(),
@@ -210,12 +249,12 @@ impl<C, M> Default for MemStore<C, M> {
     }
 }
 
-impl<C: Codec, M: MultihashDigest> MemStore<C, M>
+impl<C: Codec, H: MultihashDigest> MemStore<C, H>
 where
     Ipld: Decode<C>,
 {
     /// Create a new empty `MemStore`
-    pub fn new(global: Arc<GlobalStore<C, M>>) -> Self {
+    pub fn new(global: Arc<GlobalStore<C, H>>) -> Self {
         Self {
             global: global.clone(),
             local: Arc::new(RwLock::new(LocalStore::new(global))),
@@ -229,28 +268,20 @@ where
 }
 
 #[async_trait]
-impl<C: Codec, M: MultihashDigest> Store for MemStore<C, M>
+impl<C: Codec, H: MultihashDigest> Store for MemStore<C, H>
 where
     Ipld: Decode<C>,
 {
     type Codec = C;
-    type Multihash = M;
+    type Multihash = H;
     const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
 
-    async fn pin(&self, cid: &Cid) -> Result<()> {
-        self.local.write().await.pin(cid).await
-    }
-
-    async fn unpin(&self, cid: &Cid) -> Result<()> {
-        self.local.write().await.unpin(cid).await
-    }
-
-    async fn get(&self, cid: Cid) -> Result<Block<C, M>> {
+    async fn get(&self, cid: Cid) -> Result<Block<C, H>> {
         self.local.read().await.get(cid).await
     }
 
-    async fn insert_batch(&self, batch: &[Block<C, M>]) -> Result<Cid> {
-        self.local.write().await.insert_batch(batch).await
+    async fn commit<I: IntoIterator<Item = Op<C, H>>>(&self, tx: I) -> Result<()> {
+        self.local.write().await.commit(tx).await
     }
 
     async fn status(&self, cid: &Cid) -> Result<Option<Status>> {
@@ -259,7 +290,7 @@ where
 }
 
 #[async_trait]
-impl<C: Codec, M: MultihashDigest> AliasStore for MemStore<C, M>
+impl<C: Codec, H: MultihashDigest> AliasStore for MemStore<C, H>
 where
     Ipld: Decode<C>,
 {

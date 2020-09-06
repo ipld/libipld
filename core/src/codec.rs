@@ -9,10 +9,10 @@ pub trait Codec:
     Copy + Unpin + Send + Sync + 'static + Sized + TryFrom<u64, Error = UnsupportedCodec> + Into<u64>
 {
     /// Encodes an encodable type.
-    fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Box<[u8]>> {
+    fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Vec<u8>> {
         let mut buf = Vec::with_capacity(MAX_BLOCK_SIZE);
         obj.encode(*self, &mut buf)?;
-        Ok(buf.into_boxed_slice())
+        Ok(buf)
     }
 
     /// Decodes a decodable type.

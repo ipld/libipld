@@ -4,17 +4,59 @@ use crate::codec::{Codec, Decode, Encode};
 use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
+use core::borrow::Borrow;
 use core::marker::PhantomData;
+use core::ops::Deref;
 use std::collections::HashSet;
 
 /// Block
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Block<C, M> {
     _marker: PhantomData<(C, M)>,
     /// Content identifier.
-    pub cid: Cid,
+    cid: Cid,
     /// Binary data.
-    pub data: Box<[u8]>,
+    data: Vec<u8>,
+}
+
+impl<C, M> Deref for Block<C, M> {
+    type Target = Cid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cid
+    }
+}
+
+impl<C, H> core::hash::Hash for Block<C, H> {
+    fn hash<SH: core::hash::Hasher>(&self, hasher: &mut SH) {
+        core::hash::Hash::hash(&self.cid, hasher)
+    }
+}
+
+impl<C, H> PartialEq for Block<C, H> {
+    fn eq(&self, other: &Self) -> bool {
+        self.cid == other.cid
+    }
+}
+
+impl<C, H> Eq for Block<C, H> {}
+
+impl<C, M> Borrow<Cid> for Block<C, M> {
+    fn borrow(&self) -> &Cid {
+        &self.cid
+    }
+}
+
+impl<C, M> AsRef<Cid> for Block<C, M> {
+    fn as_ref(&self) -> &Cid {
+        &self.cid
+    }
+}
+
+impl<C, M> AsRef<[u8]> for Block<C, M> {
+    fn as_ref(&self) -> &[u8] {
+        &self.data
+    }
 }
 
 // TODO: move to tiny_cid
@@ -37,13 +79,30 @@ fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
 }
 
 impl<C: Codec, M: MultihashDigest> Block<C, M> {
-    /// Creates a new block.
-    pub fn new(cid: Cid, data: Box<[u8]>) -> Self {
+    /// Creates a new block. Returns an error if the hash doesn't match
+    /// the data.
+    pub fn new(cid: Cid, data: Vec<u8>) -> Result<Self> {
+        verify_cid::<M>(&cid, &data)?;
+        Ok(Self::new_unchecked(cid, data))
+    }
+
+    /// Creates a new block without verifying the cid.
+    pub fn new_unchecked(cid: Cid, data: Vec<u8>) -> Self {
         Self {
             _marker: PhantomData,
             cid,
             data,
         }
+    }
+
+    /// Returns a the cid.
+    pub fn cid(&self) -> &Cid {
+        &self.cid
+    }
+
+    /// Destructs the block returning it's cid and data.
+    pub fn destruct(self) -> (Cid, Vec<u8>) {
+        (self.cid, self.data)
     }
 
     /// Encode a block.`

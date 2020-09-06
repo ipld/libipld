@@ -28,11 +28,6 @@ pub struct InvalidMultihash(pub Vec<u8>);
 #[error("Failed to retrive block {0}.")]
 pub struct BlockNotFound(pub String);
 
-/// The batch was empty.
-#[derive(Debug, Error)]
-#[error("Tried to insert an empty batch.")]
-pub struct EmptyBatch;
-
 /// Type error.
 #[derive(Debug, Error)]
 #[error("Expected {expected:?} but found {found:?}")]

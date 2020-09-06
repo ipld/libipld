@@ -1,7 +1,7 @@
 //! Store traits.
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::{Codec, Decode};
+use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
@@ -12,23 +12,23 @@ use std::collections::HashSet;
 /// The status of a block.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Status {
-    pinned: usize,
-    referenced: usize,
+    pinned: u32,
+    referenced: u32,
 }
 
 impl Status {
     /// Creates a new status.
-    pub fn new(pinned: usize, referenced: usize) -> Self {
+    pub fn new(pinned: u32, referenced: u32) -> Self {
         Self { pinned, referenced }
     }
 
     /// Returns the number of times the block is pinned.
-    pub fn pinned(&self) -> usize {
+    pub fn pinned(&self) -> u32 {
         self.pinned
     }
 
     /// Returns the number of references to the block.
-    pub fn referenced(&self) -> usize {
+    pub fn referenced(&self) -> u32 {
         self.referenced
     }
 
@@ -49,7 +49,108 @@ impl Status {
 
     /// The block is going to be garbage collected.
     pub fn is_dead(&self) -> bool {
-        self.pinned == 0 && self.referenced == 0
+        self.pinned < 1 && self.referenced < 1
+    }
+
+    /// Pin.
+    pub fn pin(&mut self) {
+        self.pinned += 1;
+    }
+
+    /// Unpin.
+    pub fn unpin(&mut self) {
+        if self.is_pinned() {
+            self.pinned -= 1;
+        }
+    }
+
+    /// Reference.
+    pub fn reference(&mut self) {
+        self.referenced += 1;
+    }
+
+    /// Unreference.
+    pub fn unreference(&mut self) {
+        if self.is_referenced() {
+            self.referenced -= 1;
+        }
+    }
+}
+
+/// Store operations.
+pub enum Op<C: Codec, H: MultihashDigest> {
+    /// Insert a block.
+    Insert(Block<C, H>),
+    /// Pin a block.
+    Pin(Cid),
+    /// Unpin a block.
+    Unpin(Cid),
+}
+
+/// An atomic store transaction.
+pub struct Transaction<C: Codec, H: MultihashDigest> {
+    ops: Vec<Op<C, H>>,
+}
+
+impl<C: Codec, H: MultihashDigest> Transaction<C, H> {
+    /// Creates a new transaction.
+    pub fn new() -> Self {
+        Self { ops: Vec::new() }
+    }
+
+    /// Creates a transaction with capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { ops: Vec::with_capacity(capacity) }
+    }
+
+    /// Increases the pin count of a block.
+    pub fn pin(&mut self, cid: Cid) {
+        self.ops.push(Op::Pin(cid));
+    }
+
+    /// Decreases the pin count of a block.
+    pub fn unpin(&mut self, cid: Cid) {
+        self.ops.push(Op::Unpin(cid));
+    }
+
+    /// Update a block.
+    ///
+    /// Pins the new block and unpins the old one.
+    pub fn update(&mut self, old: Option<Cid>, new: Cid) {
+        self.pin(new);
+        if let Some(old) = old {
+            self.unpin(old);
+        }
+    }
+
+    /// Inserts a block.
+    pub fn insert(&mut self, block: Block<C, H>) {
+        self.ops.push(Op::Insert(block));
+    }
+
+    /// Encodes a type into a block and inserts it.
+    pub fn encode<CE: Codec, T: Encode<CE> + ?Sized>(
+        &mut self,
+        codec: CE,
+        hash: u64,
+        value: &T,
+    ) -> Result<Cid>
+    where
+        CE: Into<C>,
+    {
+        let block = Block::<C, H>::encode(codec, hash, value)?;
+        let cid = block.cid().clone();
+        self.insert(block);
+        Ok(cid)
+    }
+}
+
+impl<C: Codec, H: MultihashDigest> IntoIterator for Transaction<C, H> {
+    type Item = Op<C, H>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.ops.into_iter()
     }
 }
 
@@ -63,22 +164,18 @@ pub trait Store: Clone + Send + Sync {
     /// The maximum block size supported by the store.
     const MAX_BLOCK_SIZE: usize;
 
-    /// Increases the pin count on a cid.
-    ///
-    /// If the block isn't in the store it will return a `BlockNotFound` error.
-    async fn pin(&self, cid: &Cid) -> Result<()>;
-
-    /// Decreases the pin count of a cid.
-    ///
-    /// If the block isn't in the store it will return a `BlockNotFound` error.
-    async fn unpin(&self, cid: &Cid) -> Result<()>;
-
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network. Dropping the future cancels the request.
     /// This will not insert the block into the store.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
     async fn get(&self, cid: Cid) -> Result<Block<Self::Codec, Self::Multihash>>;
+
+    /// Commits a transaction to the store.
+    async fn commit<I: IntoIterator<Item = Op<Self::Codec, Self::Multihash>>>(&self, tx: I) -> Result<()>;
+
+    /// Returns the status of a block.
+    async fn status(&self, cid: &Cid) -> Result<Option<Status>>;
 
     /// Resolves a path recursively and returns the ipld.
     async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
@@ -102,48 +199,29 @@ pub trait Store: Clone + Send + Sync {
     ///
     /// If a block wasn't found it returns a `BlockNotFound` error without inserting any blocks
     /// or pinning the root.
-    async fn sync(&self, cid: Cid) -> Result<Block<Self::Codec, Self::Multihash>>
+    async fn sync(&self, old: Option<Cid>, new: Cid) -> Result<()>
     where
         Ipld: Decode<Self::Codec>,
     {
         let mut visited = HashSet::new();
-        let mut blocks = vec![];
-        let mut stack = vec![cid];
+        let mut tx = Transaction::new();
+        let mut stack = vec![new.clone()];
         while let Some(cid) = stack.pop() {
             if visited.contains(&cid) {
                 continue;
             }
-            let block = self.get(cid).await?;
-            for r in block.references()? {
-                stack.push(r);
+            visited.insert(cid.clone());
+            if self.status(&cid).await?.is_none() {
+                let block = self.get(cid).await?;
+                for r in block.references()? {
+                    stack.push(r);
+                }
+                tx.insert(block);
             }
-            visited.insert(block.cid.clone());
-            blocks.push(block);
         }
-        blocks.reverse();
-        let cid = self.insert_batch(&blocks).await?;
-        self.get(cid).await
+        tx.update(old, new);
+        self.commit(tx).await
     }
-
-    /// Returns the status of a block.
-    async fn status(&self, cid: &Cid) -> Result<Option<Status>>;
-
-    /// Inserts and pins block into the store and if the store supports networking, it announces
-    /// the block on the network.
-    ///
-    /// If the block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
-    /// If a block has dangling references it will return a `BlockNotFound` error.
-    async fn insert(&self, block: &Block<Self::Codec, Self::Multihash>) -> Result<Cid> {
-        self.insert_batch(std::slice::from_ref(block)).await
-    }
-
-    /// Inserts a batch of blocks atomically into the store and pins the last block. If the store
-    /// supports networking, it announces all the blocks on the network.
-    ///
-    /// If a block is larger than `MAX_BLOCK_SIZE` it returns a `BlockTooLarge` error.
-    /// If a block has dangling references it will return a `BlockNotFound` error.
-    /// If the batch is empty it returns an `EmptyBatch` error.
-    async fn insert_batch(&self, batch: &[Block<Self::Codec, Self::Multihash>]) -> Result<Cid>;
 
     /// Flushes the write buffer.
     async fn flush(&self) -> Result<()> {
