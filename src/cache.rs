@@ -2,25 +2,27 @@
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
-use crate::store::{Store, Transaction as RawTransaction};
+use crate::ipld::Ipld;
+use crate::store::{Store, StoreParams, Transaction as RawTransaction};
 use async_std::sync::Mutex;
 use async_trait::async_trait;
 use cached::stores::SizedCache;
 use cached::Cached;
 
 /// Typed transaction.
-pub struct Transaction<S: Store, C, T> {
+pub struct Transaction<S: StoreParams, C, T> {
     codec: C,
     hash: u64,
-    tx: RawTransaction<S::Codec, S::Multihash>,
+    tx: RawTransaction<S>,
     cache: Vec<(Cid, T)>,
 }
 
 impl<S, C, T> Transaction<S, C, T>
 where
-    S: Store,
-    C: Codec + Into<S::Codec>,
+    S: StoreParams,
+    C: Codec + Into<S::Codecs>,
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
+    Ipld: Decode<S::Codecs>,
 {
     /// Creates a new transaction.
     pub fn new(codec: C, hash: u64) -> Self {
@@ -44,7 +46,7 @@ where
 
     /// Inserts a value into the batch.
     pub fn insert(&mut self, value: T) -> Result<Cid> {
-        let cid = self.tx.encode(self.codec, self.hash, &value)?;
+        let cid = self.tx.create(self.codec, self.hash, &value)?;
         self.cache.push((cid.clone(), value));
         Ok(cid)
     }
@@ -90,9 +92,9 @@ impl<S, C, T> IpldCache<S, C, T> {
 #[async_trait]
 pub trait Cache<S, C, T>
 where
-    S: Store,
-    S::Codec: Into<C>,
-    C: Codec + Into<S::Codec>,
+    S: StoreParams,
+    S::Codecs: Into<C>,
+    C: Codec + Into<S::Codecs>,
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
 {
     /// Creates a transaction.
@@ -109,18 +111,19 @@ where
 }
 
 #[async_trait]
-impl<S, C, T> Cache<S, C, T> for IpldCache<S, C, T>
+impl<S, C, T> Cache<S::Params, C, T> for IpldCache<S, C, T>
 where
     S: Store,
-    S::Codec: Into<C>,
-    C: Codec + Into<S::Codec>,
+    <S::Params as StoreParams>::Codecs: Into<C>,
+    C: Codec + Into<<S::Params as StoreParams>::Codecs>,
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
+    Ipld: Decode<<S::Params as StoreParams>::Codecs>,
 {
-    fn transaction(&self) -> Transaction<S, C, T> {
+    fn transaction(&self) -> Transaction<S::Params, C, T> {
         Transaction::new(self.codec, self.hash)
     }
 
-    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<S, C, T> {
+    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<S::Params, C, T> {
         Transaction::with_capacity(self.codec, self.hash, capacity)
     }
 
@@ -135,7 +138,7 @@ where
         Ok(value)
     }
 
-    async fn commit(&self, transaction: Transaction<S, C, T>) -> Result<()> {
+    async fn commit(&self, transaction: Transaction<S::Params, C, T>) -> Result<()> {
         self.store.commit(transaction.tx).await?;
         let mut cache = self.cache.lock().await;
         for (cid, value) in transaction.cache {
@@ -150,20 +153,21 @@ where
 macro_rules! derive_cache {
     ($struct:tt, $field:ident, $codec:ty, $type:ty) => {
         #[async_trait::async_trait]
-        impl<S> $crate::cache::Cache<S, $codec, $type> for $struct<S>
+        impl<S> $crate::cache::Cache<S::Params, $codec, $type> for $struct<S>
         where
             S: $crate::store::Store,
-            S::Codec: From<$codec> + Into<$codec>,
+            <S::Params as $crate::store::StoreParams>::Codecs: From<$codec> + Into<$codec>,
+            Ipld: $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
-            fn transaction(&self) -> $crate::cache::Transaction<S, $codec, $type> {
+            fn transaction(&self) -> $crate::cache::Transaction<S::Params, $codec, $type> {
                 self.$field.transaction()
             }
 
             fn transaction_with_capacity(
                 &self,
                 capacity: usize,
-            ) -> $crate::cache::Transaction<S, $codec, $type> {
-                self.$field.transaction_with_capacity()
+            ) -> $crate::cache::Transaction<S::Params, $codec, $type> {
+                self.$field.transaction_with_capacity(capacity)
             }
 
             async fn get(&self, cid: &$crate::cid::Cid) -> $crate::error::Result<$type> {
@@ -172,7 +176,7 @@ macro_rules! derive_cache {
 
             async fn commit(
                 &self,
-                tx: $crate::cache::Transaction<S, $codec, $type>,
+                tx: $crate::cache::Transaction<S::Params, $codec, $type>,
             ) -> $crate::error::Result<()> {
                 self.$field.commit(tx).await
             }
@@ -184,24 +188,38 @@ macro_rules! derive_cache {
 mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
-    use crate::codec_impl::Multicodec;
     use crate::mem::MemStore;
-    use crate::multihash::Multihash;
+    use crate::multihash::BLAKE2B_256;
+    use crate::store::DefaultStoreParams;
+    use core::ops::Deref;
 
     struct OffchainClient<S> {
+        store: S,
         number: IpldCache<S, DagCborCodec, u32>,
+    }
+
+    impl<S> Deref for OffchainClient<S> {
+        type Target = S;
+
+        fn deref(&self) -> &Self::Target {
+            &self.store
+        }
     }
 
     derive_cache!(OffchainClient, number, DagCborCodec, u32);
 
     #[async_std::test]
     async fn test_cache() {
-        let store = MemStore::<Multicodec, Multihash>::default();
-        let config = CacheConfig::new(store, DagCborCodec);
+        let store = MemStore::<DefaultStoreParams>::default();
         let client = OffchainClient {
-            number: IpldCache::new(config),
+            store: store.clone(),
+            number: IpldCache::new(store, DagCborCodec, BLAKE2B_256, 1),
         };
-        let cid = client.insert(42).await.unwrap();
+        let mut tx = client.transaction_with_capacity(2);
+        let cid = tx.insert(42).unwrap();
+        tx.pin(cid.clone());
+        client.commit(tx).await.unwrap();
+
         let res = client.get(&cid).await.unwrap();
         assert_eq!(res, 42);
         client.unpin(&cid).await.unwrap();

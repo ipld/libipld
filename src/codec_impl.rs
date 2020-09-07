@@ -146,7 +146,7 @@ mod tests {
     fn raw_encode() {
         let data = Ipld::Bytes([0x22, 0x33, 0x44].to_vec());
         let result = Multicodec::Raw.encode(&data).unwrap();
-        assert_eq!(result, vec![0x22, 0x33, 0x44].into_boxed_slice());
+        assert_eq!(result, vec![0x22, 0x33, 0x44]);
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod tests {
     fn dag_cbor_encode() {
         let data = Ipld::Bytes([0x22, 0x33, 0x44].to_vec());
         let result = Multicodec::DagCbor.encode(&data).unwrap();
-        assert_eq!(result, vec![0x43, 0x22, 0x33, 0x44].into_boxed_slice());
+        assert_eq!(result, vec![0x43, 0x22, 0x33, 0x44]);
     }
 
     #[cfg(feature = "dag-cbor")]
@@ -198,10 +198,7 @@ mod tests {
 
         let data = Ipld::Map(data_map);
         let result = Multicodec::DagPb.encode(&data).unwrap();
-        assert_eq!(
-            result,
-            vec![0x0a, 0x04, 0x64, 0x61, 0x74, 0x61].into_boxed_slice()
-        );
+        assert_eq!(result, vec![0x0a, 0x04, 0x64, 0x61, 0x74, 0x61]);
     }
 
     #[cfg(feature = "dag-pb")]
