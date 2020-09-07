@@ -185,6 +185,12 @@ pub struct Transaction<S: StoreParams> {
     ops: VecDeque<Op<S>>,
 }
 
+impl<S: StoreParams> Default for Transaction<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: StoreParams> Transaction<S> {
     /// Creates a new transaction.
     pub fn new() -> Self {
