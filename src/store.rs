@@ -100,7 +100,19 @@ impl<C: Codec, H: MultihashDigest> Transaction<C, H> {
 
     /// Creates a transaction with capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        Self { ops: Vec::with_capacity(capacity) }
+        Self {
+            ops: Vec::with_capacity(capacity),
+        }
+    }
+
+    /// Is empty.
+    pub fn is_empty(&self) -> bool {
+        self.ops.is_empty()
+    }
+
+    /// Len.
+    pub fn len(&self) -> usize {
+        self.ops.len()
     }
 
     /// Increases the pin count of a block.
@@ -172,7 +184,7 @@ pub trait Store: Clone + Send + Sync {
     async fn get(&self, cid: Cid) -> Result<Block<Self::Codec, Self::Multihash>>;
 
     /// Commits a transaction to the store.
-    async fn commit<I: IntoIterator<Item = Op<Self::Codec, Self::Multihash>>>(&self, tx: I) -> Result<()>;
+    async fn commit(&self, tx: Transaction<Self::Codec, Self::Multihash>) -> Result<()>;
 
     /// Returns the status of a block.
     async fn status(&self, cid: &Cid) -> Result<Option<Status>>;

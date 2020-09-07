@@ -95,9 +95,14 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         }
     }
 
-    /// Returns a the cid.
+    /// Returns the cid.
     pub fn cid(&self) -> &Cid {
         &self.cid
+    }
+
+    /// Returns the payload.
+    pub fn data(&self) -> &[u8] {
+        &self.data
     }
 
     /// Destructs the block returning it's cid and data.

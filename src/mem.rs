@@ -5,7 +5,7 @@ use crate::codec::{Codec, Decode};
 use crate::error::{BlockNotFound, BlockTooLarge, Result};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
-use crate::store::{AliasStore, Op, Status, Store};
+use crate::store::{AliasStore, Op, Status, Store, Transaction};
 use crate::MAX_BLOCK_SIZE;
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
@@ -21,12 +21,13 @@ struct BlockInfo<C, H> {
 
 impl<C, H> core::hash::Hash for BlockInfo<C, H> {
     fn hash<SH: core::hash::Hasher>(&self, hasher: &mut SH) {
-        self.block.cid().hash(hasher)
+        self.block.hash(hasher)
     }
 }
+
 impl<C, H> PartialEq for BlockInfo<C, H> {
     fn eq(&self, other: &Self) -> bool {
-        self.block.cid() == other.block.cid()
+        self.block == other.block
     }
 }
 
@@ -38,17 +39,20 @@ impl<C, H> Borrow<Cid> for BlockInfo<C, H> {
     }
 }
 
-impl<C, H> BlockInfo<C, H> {
+impl<C: Codec, H: MultihashDigest> BlockInfo<C, H>
+where
+    Ipld: Decode<C>,
+{
     pub fn new(block: Block<C, H>) -> Result<Self> {
-        if block.data.len() > MAX_BLOCK_SIZE {
-            return Err(BlockTooLarge(block.data.len()).into());
+        if block.data().len() > MAX_BLOCK_SIZE {
+            return Err(BlockTooLarge(block.data().len()).into());
         }
         let refs = block.ipld()?.references();
-        Self {
+        Ok(Self {
             block,
             refs,
             status: Default::default(),
-        }
+        })
     }
 }
 
@@ -83,10 +87,7 @@ impl<C: Codec, H: MultihashDigest> GlobalStore<C, H> {
     }
 
     async fn insert(&self, block: Block<C, H>) {
-        self.blocks
-            .write()
-            .await
-            .insert(block);
+        self.blocks.write().await.insert(block);
     }
 
     async fn alias(&self, alias: &[u8], cid: &Cid) {
@@ -132,7 +133,7 @@ where
     }
 
     async fn get(&self, cid: &Cid) -> Result<Block<C, H>> {
-        if let Some(info) = self.blocks.get(&cid) {
+        if let Some(info) = self.blocks.get(cid) {
             Ok(info.block.clone())
         } else {
             self.global.get(cid).await
@@ -140,26 +141,27 @@ where
     }
 
     fn status(&self, cid: &Cid) -> Option<Status> {
-        self.blocks
-            .get(&cid)
-            .map(|info| info.status)
+        self.blocks.get(cid).map(|info| info.status)
     }
 
     fn blocks(&self) -> Vec<Cid> {
-        self.blocks.iter().map(|(k, _)| k.clone()).collect()
+        self.blocks
+            .iter()
+            .map(|info| info.block.cid().clone())
+            .collect()
     }
 
-    fn verify_transaction<I: IntoIterator<Item = Op<C, H>>>(&self, ops: I) -> Result<Vec<MicroOp<C, H>>> {
-        let mut touched = HashSet::with_capacity(ops.len());
-        let mut micro_ops = Vec::new();
-        for op in ops {
+    fn verify_transaction(&self, tx: Transaction<C, H>) -> Result<Vec<MicroOp<C, H>>> {
+        let mut touched = HashSet::with_capacity(tx.len());
+        let mut micro_ops = Vec::with_capacity(tx.len());
+        for op in tx {
             match op {
                 Op::Insert(block) => {
                     if self.status(block.cid()).is_some() {
                         continue;
                     }
                     let info = BlockInfo::new(block)?;
-                    for cid in &block.refs {
+                    for cid in &info.refs {
                         if !touched.contains(cid) && self.status(cid).is_none() {
                             return Err(BlockNotFound(cid.to_string()).into());
                         }
@@ -187,36 +189,47 @@ where
         Ok(micro_ops)
     }
 
-    async fn commit<I: IntoIterator<Item = Op<C, H>>>(&mut self, tx: I) -> Result<()> {
+    async fn commit(&mut self, tx: Transaction<C, H>) -> Result<()> {
+        let mut dead = Vec::with_capacity(tx.len());
         let micro_ops = self.verify_transaction(tx)?;
-        let mut dead = Vec::new();
         for op in micro_ops {
             match op {
                 MicroOp::Insert(info) => {
+                    for cid in &info.refs {
+                        let mut info = self.blocks.take(cid).unwrap();
+                        info.status.reference();
+                        self.blocks.insert(info);
+                    }
                     self.global.insert(info.block.clone()).await;
                     self.blocks.insert(info);
                 }
-                MicroOp::Pin(cid) => self.blocks.get_mut(&cid).unwrap().status.pin(),
+                MicroOp::Pin(cid) => {
+                    let mut info = self.blocks.take(&cid).unwrap();
+                    info.status.pin();
+                    self.blocks.insert(info);
+                }
                 MicroOp::Unpin(cid) => {
-                    let status = &mut self.blocks.get_mut(&cid).unwrap().status;
-                    status.unpin();
-                    if status.is_dead() {
+                    let mut info = self.blocks.take(&cid).unwrap();
+                    info.status.unpin();
+                    if info.status.is_dead() {
                         dead.push(cid);
                     }
+                    self.blocks.insert(info);
                 }
-                MicroOp::Reference(cid) => self.blocks.get_mut(&cid).unwrap().status.reference(),
             }
         }
         for cid in dead {
-            self.remove(cid);
+            self.remove(&cid);
         }
+        Ok(())
     }
 
     fn remove_block(&mut self, cid: &Cid) -> HashSet<Cid> {
-        let info = self.blocks.remove(cid).unwrap();
+        let info = self.blocks.take(cid).unwrap();
         for cid in &info.refs {
-            if let Some(info) = self.blocks.get_mut(&cid) {
+            if let Some(mut info) = self.blocks.take(cid) {
                 info.status.unreference();
+                self.blocks.insert(info);
             }
         }
         info.refs
@@ -226,7 +239,7 @@ where
         if let Some(status) = self.status(cid) {
             if status.is_dead() {
                 for cid in self.remove_block(cid) {
-                    self.remove(cid);
+                    self.remove(&cid);
                 }
             }
         }
@@ -277,15 +290,15 @@ where
     const MAX_BLOCK_SIZE: usize = crate::MAX_BLOCK_SIZE;
 
     async fn get(&self, cid: Cid) -> Result<Block<C, H>> {
-        self.local.read().await.get(cid).await
+        self.local.read().await.get(&cid).await
     }
 
-    async fn commit<I: IntoIterator<Item = Op<C, H>>>(&self, tx: I) -> Result<()> {
+    async fn commit(&self, tx: Transaction<C, H>) -> Result<()> {
         self.local.write().await.commit(tx).await
     }
 
     async fn status(&self, cid: &Cid) -> Result<Option<Status>> {
-        Ok(self.local.read().await.status(cid).await)
+        Ok(self.local.read().await.status(cid))
     }
 }
 

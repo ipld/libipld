@@ -77,7 +77,12 @@ impl<S, C, T> IpldCache<S, C, T> {
     /// Creates a new cache of size `size`.
     pub fn new(store: S, codec: C, hash: u64, size: usize) -> Self {
         let cache = Mutex::new(SizedCache::with_size(size));
-        Self { store, codec, hash, cache }
+        Self {
+            store,
+            codec,
+            hash,
+            cache,
+        }
     }
 }
 
