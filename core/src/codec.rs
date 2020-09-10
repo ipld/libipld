@@ -1,6 +1,5 @@
 //! `Ipld` codecs.
 use crate::error::{Result, UnsupportedCodec};
-use crate::MAX_BLOCK_SIZE;
 use core::convert::TryFrom;
 use std::io::{Read, Write};
 
@@ -10,7 +9,7 @@ pub trait Codec:
 {
     /// Encodes an encodable type.
     fn encode<T: Encode<Self> + ?Sized>(&self, obj: &T) -> Result<Vec<u8>> {
-        let mut buf = Vec::with_capacity(MAX_BLOCK_SIZE);
+        let mut buf = Vec::with_capacity(u16::MAX as usize);
         obj.encode(*self, &mut buf)?;
         Ok(buf)
     }
