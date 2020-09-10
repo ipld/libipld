@@ -1,6 +1,6 @@
 [package]
 name = "libipld-cbor"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -9,7 +9,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 byteorder = "1.3.4"
-libipld-core = { version = "0.4.0", path = "../core" }
+libipld-core = { version = "0.5.0", path = "../core" }
 thiserror = "1.0.20"
 
 [dev-dependencies]
