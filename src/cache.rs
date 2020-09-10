@@ -133,7 +133,7 @@ where
         }
         let block = self.store.get(cid.clone()).await?;
         let value: T = block.decode::<C, _>()?;
-        let (cid, _) = block.destruct();
+        let (cid, _) = block.into_inner();
         self.cache.lock().await.cache_set(cid, value.clone());
         Ok(value)
     }

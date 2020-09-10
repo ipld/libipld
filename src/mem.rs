@@ -1,18 +1,159 @@
 //! Reference implementation of the store traits.
+use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::Decode;
 use crate::error::{BlockNotFound, Result};
 use crate::ipld::Ipld;
-use crate::store::{
-    AliasStore, BlockInfo, Op, Status, Store, StoreBlock, StoreParams, Transaction,
-};
+use crate::store::{AliasStore, Op, Store, StoreParams, Transaction};
 use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+
+/// The status of a block.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Status {
+    pinned: u32,
+    referenced: u32,
+}
+
+impl Status {
+    /// Creates a new status.
+    pub fn new(pinned: u32, referenced: u32) -> Self {
+        Self { pinned, referenced }
+    }
+
+    /// Returns the number of times the block is pinned.
+    pub fn pinned(&self) -> u32 {
+        self.pinned
+    }
+
+    /// Returns the number of references to the block.
+    pub fn referenced(&self) -> u32 {
+        self.referenced
+    }
+
+    /// The block is pinned at least once.
+    pub fn is_pinned(&self) -> bool {
+        self.pinned > 0
+    }
+
+    /// The block is referenced at least once.
+    pub fn is_referenced(&self) -> bool {
+        self.referenced > 0
+    }
+
+    /// The block is not going to be garbage collected.
+    pub fn is_live(&self) -> bool {
+        self.is_pinned() || self.is_referenced()
+    }
+
+    /// The block is going to be garbage collected.
+    pub fn is_dead(&self) -> bool {
+        self.pinned < 1 && self.referenced < 1
+    }
+}
+
+/// Block info.
+#[derive(Debug)]
+pub struct BlockInfo<S: StoreParams> {
+    block: Block<S>,
+    refs: HashSet<Cid>,
+    referrers: HashSet<Cid>,
+    pinned: u32,
+}
+
+impl<S: StoreParams> Clone for BlockInfo<S> {
+    fn clone(&self) -> Self {
+        Self {
+            block: self.block.clone(),
+            refs: self.refs.clone(),
+            referrers: self.referrers.clone(),
+            pinned: self.pinned,
+        }
+    }
+}
+
+impl<S: StoreParams> core::hash::Hash for BlockInfo<S> {
+    fn hash<H: core::hash::Hasher>(&self, hasher: &mut H) {
+        self.block.hash(hasher)
+    }
+}
+
+impl<S: StoreParams> PartialEq for BlockInfo<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.block == other.block
+    }
+}
+
+impl<S: StoreParams> Eq for BlockInfo<S> {}
+
+impl<S: StoreParams> Borrow<Cid> for BlockInfo<S> {
+    fn borrow(&self) -> &Cid {
+        self.block.borrow()
+    }
+}
+
+impl<S: StoreParams> BlockInfo<S> {
+    /// Creates a new `BlockInfo`.
+    pub fn new(block: Block<S>, refs: HashSet<Cid>) -> Self {
+        Self {
+            block,
+            refs,
+            referrers: Default::default(),
+            pinned: 0,
+        }
+    }
+
+    /// Block.
+    pub fn block(&self) -> &Block<S> {
+        &self.block
+    }
+
+    /// Refs.
+    pub fn refs(&self) -> impl Iterator<Item = &Cid> {
+        self.refs.iter()
+    }
+
+    /// Referrers.
+    pub fn referrers(&self) -> impl Iterator<Item = &Cid> {
+        self.referrers.iter()
+    }
+
+    /// Pin.
+    pub fn pin(&mut self) {
+        self.pinned += 1;
+    }
+
+    /// Unpin.
+    pub fn unpin(&mut self) {
+        self.pinned -= 1;
+    }
+
+    /// Add referrer.
+    pub fn reference(&mut self, cid: Cid) {
+        self.referrers.insert(cid);
+    }
+
+    /// Remove referrer.
+    pub fn unreference(&mut self, cid: &Cid) {
+        self.referrers.remove(cid);
+    }
+
+    /// Returns the status of a block.
+    pub fn status(&self) -> Status {
+        Status::new(self.pinned, self.referrers.len() as u32)
+    }
+
+    /// Remove returns the list of references.
+    pub fn remove(self) -> HashSet<Cid> {
+        self.refs
+    }
+}
 
 /// Models a network for testing.
 pub struct GlobalStore<S: StoreParams> {
-    blocks: RwLock<HashSet<StoreBlock<S>>>,
+    blocks: RwLock<HashSet<Block<S>>>,
     aliases: RwLock<HashMap<Vec<u8>, Cid>>,
 }
 
@@ -26,7 +167,7 @@ impl<S: StoreParams> Default for GlobalStore<S> {
 }
 
 impl<S: StoreParams> GlobalStore<S> {
-    async fn get(&self, cid: &Cid) -> Result<StoreBlock<S>> {
+    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
         if let Some(block) = self.blocks.read().await.get(cid) {
             Ok(block.clone())
         } else {
@@ -34,7 +175,7 @@ impl<S: StoreParams> GlobalStore<S> {
         }
     }
 
-    async fn insert(&self, block: StoreBlock<S>) {
+    async fn insert(&self, block: Block<S>) {
         self.blocks.write().await.insert(block);
     }
 
@@ -79,16 +220,12 @@ where
         }
     }
 
-    async fn get(&self, cid: &Cid) -> Result<StoreBlock<S>> {
+    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
         if let Some(info) = self.blocks.get(cid) {
             Ok(info.block().clone())
         } else {
             self.global.get(cid).await
         }
-    }
-
-    fn status(&self, cid: &Cid) -> Option<Status> {
-        self.blocks.get(cid).map(|info| info.status())
     }
 
     fn blocks(&self) -> Vec<Cid> {
@@ -98,20 +235,28 @@ where
             .collect()
     }
 
+    fn info<'a>(&'a self, cid: &'a Cid) -> Option<&'a BlockInfo<S>> {
+        self.blocks.get(cid)
+    }
+
+    fn status(&self, cid: &Cid) -> Option<Status> {
+        self.info(cid).map(|info| info.status())
+    }
+
     fn verify_transaction(&self, tx: &Transaction<S>) -> Result<()> {
         let mut inserts = HashSet::with_capacity(tx.len());
         for op in tx {
             match op {
-                Op::Insert(info) => {
-                    if self.status(info.block().cid()).is_some() {
+                Op::Insert(block, refs) => {
+                    if self.status(block.cid()).is_some() {
                         continue;
                     }
-                    for cid in info.refs() {
+                    for cid in refs {
                         if !inserts.contains(cid) && self.status(cid).is_none() {
                             return Err(BlockNotFound(cid.to_string()).into());
                         }
                     }
-                    inserts.insert(info.block().cid());
+                    inserts.insert(block.cid());
                 }
                 Op::Pin(cid) => {
                     if !inserts.contains(&cid) && self.status(&cid).is_none() {
@@ -133,14 +278,14 @@ where
         self.verify_transaction(&tx)?;
         for op in tx {
             match op {
-                Op::Insert(info) => {
-                    for cid in info.refs() {
+                Op::Insert(block, refs) => {
+                    for cid in &refs {
                         let mut info2 = self.blocks.take(cid).unwrap();
-                        info2.reference(info.block().cid().clone());
+                        info2.reference(block.cid().clone());
                         self.blocks.insert(info2);
                     }
-                    self.global.insert(info.block().clone()).await;
-                    self.blocks.insert(info);
+                    self.global.insert(block.clone()).await;
+                    self.blocks.insert(BlockInfo::new(block, refs));
                 }
                 Op::Pin(cid) => {
                     let mut info = self.blocks.take(&cid).unwrap();
@@ -217,6 +362,16 @@ where
     pub async fn blocks(&self) -> Vec<Cid> {
         self.local.read().await.blocks()
     }
+
+    /// Returns the status of a block.
+    pub async fn status(&self, cid: &Cid) -> Option<Status> {
+        self.local.read().await.status(cid)
+    }
+
+    /// Returns the block info.
+    pub async fn info<'a>(&'a self, cid: &'a Cid) -> Option<BlockInfo<S>> {
+        self.local.read().await.info(cid).cloned()
+    }
 }
 
 #[async_trait]
@@ -226,16 +381,12 @@ where
 {
     type Params = S;
 
-    async fn get(&self, cid: Cid) -> Result<StoreBlock<S>> {
+    async fn get(&self, cid: Cid) -> Result<Block<S>> {
         self.local.read().await.get(&cid).await
     }
 
     async fn commit(&self, tx: Transaction<S>) -> Result<()> {
         self.local.write().await.commit(tx).await
-    }
-
-    async fn status(&self, cid: &Cid) -> Result<Option<Status>> {
-        Ok(self.local.read().await.status(cid))
     }
 }
 
@@ -264,13 +415,12 @@ mod tests {
     use super::*;
     use crate::block::Block;
     use crate::cbor::DagCborCodec;
-    use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::{Multihash, SHA2_256};
+    use crate::multihash::SHA2_256;
     use crate::store::{DefaultStoreParams, Store};
 
-    fn create_block(ipld: &Ipld) -> Block<Multicodec, Multihash> {
+    fn create_block(ipld: &Ipld) -> Block<DefaultStoreParams> {
         Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
     }
 
@@ -288,19 +438,19 @@ mod tests {
         tx.pin(b.cid().clone());
         tx.pin(c.cid().clone());
         store.commit(tx).await.unwrap();
-        assert_eq!(store.status(a.cid()).await?, Some(Status::new(0, 2)));
-        assert_eq!(store.status(b.cid()).await?, Some(Status::new(1, 0)));
-        assert_eq!(store.status(c.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 2)));
+        assert_eq!(store.status(b.cid()).await, Some(Status::new(1, 0)));
+        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
 
         store.unpin(b.cid()).await?;
-        assert_eq!(store.status(a.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await?, None);
-        assert_eq!(store.status(c.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(store.status(b.cid()).await, None);
+        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
 
         store.unpin(c.cid()).await?;
-        assert_eq!(store.status(a.cid()).await?, None);
-        assert_eq!(store.status(b.cid()).await?, None);
-        assert_eq!(store.status(c.cid()).await?, None);
+        assert_eq!(store.status(a.cid()).await, None);
+        assert_eq!(store.status(b.cid()).await, None);
+        assert_eq!(store.status(c.cid()).await, None);
 
         Ok(())
     }
@@ -319,19 +469,19 @@ mod tests {
         tx.pin(b.cid().clone());
         tx.pin(c.cid().clone());
         store.commit(tx).await?;
-        assert_eq!(store.status(a.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await?, Some(Status::new(2, 0)));
-        assert_eq!(store.status(c.cid()).await?, Some(Status::new(2, 0)));
+        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(store.status(b.cid()).await, Some(Status::new(2, 0)));
+        assert_eq!(store.status(c.cid()).await, Some(Status::new(2, 0)));
 
         store.unpin(b.cid()).await?;
-        assert_eq!(store.status(a.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await?, Some(Status::new(1, 0)));
-        assert_eq!(store.status(c.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(store.status(b.cid()).await, Some(Status::new(1, 0)));
+        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
 
         store.unpin(c.cid()).await?;
-        assert_eq!(store.status(a.cid()).await?, None);
-        assert_eq!(store.status(b.cid()).await?, None);
-        assert_eq!(store.status(c.cid()).await?, None);
+        assert_eq!(store.status(a.cid()).await, None);
+        assert_eq!(store.status(b.cid()).await, None);
+        assert_eq!(store.status(c.cid()).await, None);
 
         Ok(())
     }
@@ -353,14 +503,14 @@ mod tests {
         tx.insert(c1.clone())?;
         tx.pin(c1.cid().clone());
         local1.commit(tx).await?;
-        assert_eq!(local1.status(a1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(b1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(c1.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local1.status(b1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local1.status(c1.cid()).await, Some(Status::new(1, 0)));
 
         local2.sync(None, c1.cid().clone()).await?;
-        assert_eq!(local2.status(a1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(b1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(c1.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local2.status(b1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local2.status(c1.cid()).await, Some(Status::new(1, 0)));
 
         let mut tx = Transaction::with_capacity(4);
         tx.insert(b2.clone())?;
@@ -368,34 +518,34 @@ mod tests {
         tx.pin(c2.cid().clone());
         tx.unpin(c1.cid().clone());
         local2.commit(tx).await?;
-        assert_eq!(local2.status(a1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(b1.cid()).await?, None);
-        assert_eq!(local2.status(c1.cid()).await?, None);
-        assert_eq!(local2.status(b2.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(c2.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local2.status(b1.cid()).await, None);
+        assert_eq!(local2.status(c1.cid()).await, None);
+        assert_eq!(local2.status(b2.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local2.status(c2.cid()).await, Some(Status::new(1, 0)));
 
         local1
             .sync(Some(c1.cid().clone()), c2.cid().clone())
             .await?;
-        assert_eq!(local1.status(a1.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(b1.cid()).await?, None);
-        assert_eq!(local1.status(c1.cid()).await?, None);
-        assert_eq!(local1.status(b2.cid()).await?, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(c2.cid()).await?, Some(Status::new(1, 0)));
+        assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local1.status(b1.cid()).await, None);
+        assert_eq!(local1.status(c1.cid()).await, None);
+        assert_eq!(local1.status(b2.cid()).await, Some(Status::new(0, 1)));
+        assert_eq!(local1.status(c2.cid()).await, Some(Status::new(1, 0)));
 
         let mut tx = Transaction::with_capacity(1);
         tx.unpin(c2.cid().clone());
         local1.commit(tx).await?;
-        assert_eq!(local1.status(a1.cid()).await?, None);
-        assert_eq!(local1.status(b2.cid()).await?, None);
-        assert_eq!(local1.status(c2.cid()).await?, None);
+        assert_eq!(local1.status(a1.cid()).await, None);
+        assert_eq!(local1.status(b2.cid()).await, None);
+        assert_eq!(local1.status(c2.cid()).await, None);
 
         let mut tx = Transaction::with_capacity(1);
         tx.unpin(c2.cid().clone());
         local2.commit(tx).await?;
-        assert_eq!(local2.status(a1.cid()).await?, None);
-        assert_eq!(local2.status(b2.cid()).await?, None);
-        assert_eq!(local2.status(c2.cid()).await?, None);
+        assert_eq!(local2.status(a1.cid()).await, None);
+        assert_eq!(local2.status(b2.cid()).await, None);
+        assert_eq!(local2.status(c2.cid()).await, None);
 
         Ok(())
     }

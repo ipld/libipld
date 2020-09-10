@@ -1,25 +1,27 @@
 //! Block validation
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
-use crate::error::{InvalidMultihash, Result, UnsupportedMultihash};
+use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
+use crate::store::StoreParams;
 use core::borrow::Borrow;
+use core::convert::TryFrom;
 use core::marker::PhantomData;
 use core::ops::Deref;
 use std::collections::HashSet;
 
 /// Block
 #[derive(Clone, Debug)]
-pub struct Block<C, M> {
-    _marker: PhantomData<(C, M)>,
+pub struct Block<S> {
+    _marker: PhantomData<S>,
     /// Content identifier.
     cid: Cid,
     /// Binary data.
     data: Vec<u8>,
 }
 
-impl<C, M> Deref for Block<C, M> {
+impl<S> Deref for Block<S> {
     type Target = Cid;
 
     fn deref(&self) -> &Self::Target {
@@ -27,33 +29,33 @@ impl<C, M> Deref for Block<C, M> {
     }
 }
 
-impl<C, H> core::hash::Hash for Block<C, H> {
+impl<S> core::hash::Hash for Block<S> {
     fn hash<SH: core::hash::Hasher>(&self, hasher: &mut SH) {
         core::hash::Hash::hash(&self.cid, hasher)
     }
 }
 
-impl<C, H> PartialEq for Block<C, H> {
+impl<S> PartialEq for Block<S> {
     fn eq(&self, other: &Self) -> bool {
         self.cid == other.cid
     }
 }
 
-impl<C, H> Eq for Block<C, H> {}
+impl<S> Eq for Block<S> {}
 
-impl<C, M> Borrow<Cid> for Block<C, M> {
+impl<S> Borrow<Cid> for Block<S> {
     fn borrow(&self) -> &Cid {
         &self.cid
     }
 }
 
-impl<C, M> AsRef<Cid> for Block<C, M> {
+impl<S> AsRef<Cid> for Block<S> {
     fn as_ref(&self) -> &Cid {
         &self.cid
     }
 }
 
-impl<C, M> AsRef<[u8]> for Block<C, M> {
+impl<S> AsRef<[u8]> for Block<S> {
     fn as_ref(&self) -> &[u8] {
         &self.data
     }
@@ -78,11 +80,11 @@ fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
     Ok(())
 }
 
-impl<C: Codec, M: MultihashDigest> Block<C, M> {
+impl<S: StoreParams> Block<S> {
     /// Creates a new block. Returns an error if the hash doesn't match
     /// the data.
     pub fn new(cid: Cid, data: Vec<u8>) -> Result<Self> {
-        verify_cid::<M>(&cid, &data)?;
+        verify_cid::<S::Hashes>(&cid, &data)?;
         Ok(Self::new_unchecked(cid, data))
     }
 
@@ -105,8 +107,8 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         &self.data
     }
 
-    /// Destructs the block returning it's cid and data.
-    pub fn destruct(self) -> (Cid, Vec<u8>) {
+    /// Returns the inner cid and data.
+    pub fn into_inner(self) -> (Cid, Vec<u8>) {
         (self.cid, self.data)
     }
 
@@ -117,14 +119,17 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
         payload: &T,
     ) -> Result<Self>
     where
-        CE: Into<C>,
+        CE: Into<S::Codecs>,
     {
         debug_assert_eq!(
             Into::<u64>::into(codec),
-            Into::<u64>::into(Into::<C>::into(codec))
+            Into::<u64>::into(Into::<S::Codecs>::into(codec))
         );
         let data = codec.encode(payload)?;
-        let cid = create_cid::<M>(codec.into(), hcode, &data)?;
+        if data.len() > S::MAX_BLOCK_SIZE {
+            return Err(BlockTooLarge(data.len()).into());
+        }
+        let cid = create_cid::<S::Hashes>(codec.into(), hcode, &data)?;
         Ok(Self {
             _marker: PhantomData,
             cid,
@@ -144,37 +149,38 @@ impl<C: Codec, M: MultihashDigest> Block<C, M> {
     /// use libipld::codec_impl::Multicodec;
     /// use libipld::ipld::Ipld;
     /// use libipld::multihash::{Multihash, SHA2_256};
+    /// use libipld::store::DefaultStoreParams;
     ///
     /// let block =
-    ///     Block::<Multicodec, Multihash>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
+    ///     Block::<DefaultStoreParams>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
     /// let ipld = block.decode::<DagCborCodec, Ipld>().unwrap();
     ///
     /// assert_eq!(ipld, Ipld::String("Hello World!".to_string()));
     /// ```
     pub fn decode<CD: Codec, T: Decode<CD>>(&self) -> Result<T>
     where
-        C: Into<CD>,
+        S::Codecs: Into<CD>,
     {
         debug_assert_eq!(
             Into::<u64>::into(CD::try_from(self.cid.codec()).unwrap()),
-            Into::<u64>::into(C::try_from(self.cid.codec()).unwrap()),
+            Into::<u64>::into(S::Codecs::try_from(self.cid.codec()).unwrap()),
         );
-        verify_cid::<M>(&self.cid, &self.data)?;
+        verify_cid::<S::Hashes>(&self.cid, &self.data)?;
         CD::try_from(self.cid.codec())?.decode(&self.data)
     }
 
     /// Returns the decoded ipld.
     pub fn ipld(&self) -> Result<Ipld>
     where
-        Ipld: Decode<C>,
+        Ipld: Decode<S::Codecs>,
     {
-        self.decode::<C, Ipld>()
+        self.decode::<S::Codecs, Ipld>()
     }
 
     /// Returns the references.
     pub fn references(&self) -> Result<HashSet<Cid>>
     where
-        Ipld: Decode<C>,
+        Ipld: Decode<S::Codecs>,
     {
         Ok(self.ipld()?.references())
     }
@@ -188,9 +194,10 @@ mod tests {
     use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::{Multihash, SHA2_256};
+    use crate::multihash::SHA2_256;
+    use crate::store::DefaultStoreParams;
 
-    type IpldBlock = Block<Multicodec, Multihash>;
+    type IpldBlock = Block<DefaultStoreParams>;
 
     #[test]
     fn test_references() {
