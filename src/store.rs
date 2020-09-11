@@ -175,10 +175,20 @@ pub trait Store: Clone + Send + Sync {
     /// This will not insert the block into the store.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
-    async fn get(&self, cid: Cid) -> Result<Block<Self::Params>>;
+    async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
     /// Commits a transaction to the store.
     async fn commit(&self, tx: Transaction<Self::Params>) -> Result<()>;
+
+    /// Inserts a block into the store.
+    async fn insert(&self, block: Block<Self::Params>) -> Result<()>
+    where
+        Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
+    {
+        let mut tx = Transaction::with_capacity(1);
+        tx.insert(block)?;
+        self.commit(tx).await
+    }
 
     /// Unpins a block from the store.
     async fn unpin(&self, cid: &Cid) -> Result<()> {
@@ -192,12 +202,12 @@ pub trait Store: Clone + Send + Sync {
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
-        let mut root = self.get(path.root().clone()).await?.ipld()?;
+        let mut root = self.get(path.root()).await?.ipld()?;
         let mut ipld = &root;
         for segment in path.path().iter() {
             ipld = ipld.get(segment)?;
             if let Ipld::Link(cid) = ipld {
-                root = self.get(cid.clone()).await?.ipld()?;
+                root = self.get(cid).await?.ipld()?;
                 ipld = &root;
             }
         }
@@ -219,12 +229,12 @@ pub trait Store: Clone + Send + Sync {
             if visited.contains(&cid) {
                 continue;
             }
-            visited.insert(cid.clone());
-            let block = self.get(cid).await?;
+            let block = self.get(&cid).await?;
             for r in block.references()? {
                 stack.push(r);
             }
             tx.import(block)?;
+            visited.insert(cid);
         }
         tx.update(old, new);
         self.commit(tx).await

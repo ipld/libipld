@@ -381,8 +381,8 @@ where
 {
     type Params = S;
 
-    async fn get(&self, cid: Cid) -> Result<Block<S>> {
-        self.local.read().await.get(&cid).await
+    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
+        self.local.read().await.get(cid).await
     }
 
     async fn commit(&self, tx: Transaction<S>) -> Result<()> {

@@ -12,13 +12,22 @@ use core::ops::Deref;
 use std::collections::HashSet;
 
 /// Block
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Block<S> {
     _marker: PhantomData<S>,
     /// Content identifier.
     cid: Cid,
     /// Binary data.
     data: Vec<u8>,
+}
+
+impl<S> core::fmt::Debug for Block<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.debug_struct("Block")
+            .field("cid", &self.cid)
+            .field("data", &self.data)
+            .finish()
+    }
 }
 
 impl<S> Deref for Block<S> {
