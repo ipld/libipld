@@ -76,19 +76,19 @@ impl<S: StoreParams> Transaction<S> {
     }
 
     /// Increases the pin count of a block.
-    pub fn pin(&mut self, cid: Cid) {
-        self.ops.push_back(Op::Pin(cid));
+    pub fn pin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
+        self.ops.push_back(Op::Pin(cid.clone()));
     }
 
     /// Decreases the pin count of a block.
-    pub fn unpin(&mut self, cid: Cid) {
-        self.ops.push_back(Op::Unpin(cid));
+    pub fn unpin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
+        self.ops.push_back(Op::Unpin(cid.clone()));
     }
 
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update(&mut self, old: Option<Cid>, new: Cid) {
+    pub fn update<'a, 'old: 'a, 'new: 'a>(&'a mut self, old: Option<&'old Cid>, new: &'new Cid) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);
@@ -193,7 +193,7 @@ pub trait Store: Clone + Send + Sync {
     /// Unpins a block from the store.
     async fn unpin(&self, cid: &Cid) -> Result<()> {
         let mut tx = Transaction::with_capacity(1);
-        tx.unpin(cid.clone());
+        tx.unpin(cid);
         self.commit(tx).await
     }
 
@@ -218,7 +218,11 @@ pub trait Store: Clone + Send + Sync {
     /// pins the root and unpins the old root.
     ///
     /// If a block wasn't found it returns a `BlockNotFound` error without modifying the store.
-    async fn sync(&self, old: Option<Cid>, new: Cid) -> Result<()>
+    async fn sync<'a, 'old: 'a, 'new: 'a>(
+        &'a self,
+        old: Option<&'old Cid>,
+        new: &'new Cid,
+    ) -> Result<()>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {

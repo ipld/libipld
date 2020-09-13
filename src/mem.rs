@@ -435,8 +435,8 @@ mod tests {
         tx.insert(a.clone())?;
         tx.insert(b.clone())?;
         tx.insert(c.clone())?;
-        tx.pin(b.cid().clone());
-        tx.pin(c.cid().clone());
+        tx.pin(b.cid());
+        tx.pin(c.cid());
         store.commit(tx).await.unwrap();
         assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 2)));
         assert_eq!(store.status(b.cid()).await, Some(Status::new(1, 0)));
@@ -466,8 +466,8 @@ mod tests {
         tx.insert(a.clone())?;
         tx.insert(b.clone())?;
         tx.insert(c.clone())?;
-        tx.pin(b.cid().clone());
-        tx.pin(c.cid().clone());
+        tx.pin(b.cid());
+        tx.pin(c.cid());
         store.commit(tx).await?;
         assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(store.status(b.cid()).await, Some(Status::new(2, 0)));
@@ -501,13 +501,13 @@ mod tests {
         tx.insert(a1.clone())?;
         tx.insert(b1.clone())?;
         tx.insert(c1.clone())?;
-        tx.pin(c1.cid().clone());
+        tx.pin(c1.cid());
         local1.commit(tx).await?;
         assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local1.status(b1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local1.status(c1.cid()).await, Some(Status::new(1, 0)));
 
-        local2.sync(None, c1.cid().clone()).await?;
+        local2.sync(None, c1.cid()).await?;
         assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local2.status(b1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local2.status(c1.cid()).await, Some(Status::new(1, 0)));
@@ -515,8 +515,8 @@ mod tests {
         let mut tx = Transaction::with_capacity(4);
         tx.insert(b2.clone())?;
         tx.insert(c2.clone())?;
-        tx.pin(c2.cid().clone());
-        tx.unpin(c1.cid().clone());
+        tx.pin(c2.cid());
+        tx.unpin(c1.cid());
         local2.commit(tx).await?;
         assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local2.status(b1.cid()).await, None);
@@ -524,9 +524,7 @@ mod tests {
         assert_eq!(local2.status(b2.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local2.status(c2.cid()).await, Some(Status::new(1, 0)));
 
-        local1
-            .sync(Some(c1.cid().clone()), c2.cid().clone())
-            .await?;
+        local1.sync(Some(c1.cid()), c2.cid()).await?;
         assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
         assert_eq!(local1.status(b1.cid()).await, None);
         assert_eq!(local1.status(c1.cid()).await, None);
@@ -534,14 +532,14 @@ mod tests {
         assert_eq!(local1.status(c2.cid()).await, Some(Status::new(1, 0)));
 
         let mut tx = Transaction::with_capacity(1);
-        tx.unpin(c2.cid().clone());
+        tx.unpin(c2.cid());
         local1.commit(tx).await?;
         assert_eq!(local1.status(a1.cid()).await, None);
         assert_eq!(local1.status(b2.cid()).await, None);
         assert_eq!(local1.status(c2.cid()).await, None);
 
         let mut tx = Transaction::with_capacity(1);
-        tx.unpin(c2.cid().clone());
+        tx.unpin(c2.cid());
         local2.commit(tx).await?;
         assert_eq!(local2.status(a1.cid()).await, None);
         assert_eq!(local2.status(b2.cid()).await, None);

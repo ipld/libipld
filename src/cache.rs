@@ -52,17 +52,17 @@ where
     }
 
     /// Pins a block.
-    pub fn pin(&mut self, cid: Cid) {
+    pub fn pin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
         self.tx.pin(cid);
     }
 
     /// Pins a block.
-    pub fn unpin(&mut self, cid: Cid) {
+    pub fn unpin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
         self.tx.unpin(cid);
     }
 
     /// Updates a block.
-    pub fn update(&mut self, old: Option<Cid>, new: Cid) {
+    pub fn update<'a, 'old: 'a, 'new: 'a>(&'a mut self, old: Option<&'old Cid>, new: &'new Cid) {
         self.tx.update(old, new);
     }
 }
@@ -217,7 +217,7 @@ mod tests {
         };
         let mut tx = client.transaction_with_capacity(2);
         let cid = tx.insert(42).unwrap();
-        tx.pin(cid.clone());
+        tx.pin(&cid);
         client.commit(tx).await.unwrap();
 
         let res = client.get(&cid).await.unwrap();
