@@ -10,14 +10,14 @@ use cached::stores::SizedCache;
 use cached::Cached;
 
 /// Typed transaction.
-pub struct Transaction<S: StoreParams, C, T> {
+pub struct Transaction<'cid, S: StoreParams, C, T> {
     codec: C,
     hash: u64,
-    tx: RawTransaction<S>,
+    tx: RawTransaction<'cid, S>,
     cache: Vec<(Cid, T)>,
 }
 
-impl<S, C, T> Transaction<S, C, T>
+impl<'cid, S, C, T> Transaction<'cid, S, C, T>
 where
     S: StoreParams,
     C: Codec + Into<S::Codecs>,
@@ -52,17 +52,21 @@ where
     }
 
     /// Pins a block.
-    pub fn pin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
+    pub fn pin<'a: 'cid>(&mut self, cid: &'a Cid) {
         self.tx.pin(cid);
     }
 
     /// Pins a block.
-    pub fn unpin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
+    pub fn unpin<'a: 'cid>(&mut self, cid: &'a Cid) {
         self.tx.unpin(cid);
     }
 
     /// Updates a block.
-    pub fn update<'a, 'old: 'a, 'new: 'a>(&'a mut self, old: Option<&'old Cid>, new: &'new Cid) {
+    pub fn update<'old: 'cid, 'new: 'cid>(
+        &mut self,
+        old: Option<&'old Cid>,
+        new: &'new Cid,
+    ) {
         self.tx.update(old, new);
     }
 }
@@ -98,16 +102,16 @@ where
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
 {
     /// Creates a transaction.
-    fn transaction(&self) -> Transaction<S, C, T>;
+    fn transaction(&self) -> Transaction<'_, S, C, T>;
 
     /// Creates a transaction with capacity.
-    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<S, C, T>;
+    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<'_, S, C, T>;
 
     /// Returns a decoded block.
     async fn get(&self, cid: &Cid) -> Result<T>;
 
     /// Commits a transaction.
-    async fn commit(&self, tx: Transaction<S, C, T>) -> Result<()>;
+    async fn commit(&self, tx: Transaction<'_, S, C, T>) -> Result<()>;
 }
 
 #[async_trait]
@@ -119,11 +123,11 @@ where
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
     Ipld: Decode<<S::Params as StoreParams>::Codecs>,
 {
-    fn transaction(&self) -> Transaction<S::Params, C, T> {
+    fn transaction(&self) -> Transaction<'_, S::Params, C, T> {
         Transaction::new(self.codec, self.hash)
     }
 
-    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<S::Params, C, T> {
+    fn transaction_with_capacity(&self, capacity: usize) -> Transaction<'_, S::Params, C, T> {
         Transaction::with_capacity(self.codec, self.hash, capacity)
     }
 
@@ -138,7 +142,7 @@ where
         Ok(value)
     }
 
-    async fn commit(&self, transaction: Transaction<S::Params, C, T>) -> Result<()> {
+    async fn commit(&self, transaction: Transaction<'_, S::Params, C, T>) -> Result<()> {
         self.store.commit(transaction.tx).await?;
         let mut cache = self.cache.lock().await;
         for (cid, value) in transaction.cache {
@@ -159,14 +163,14 @@ macro_rules! derive_cache {
             <S::Params as $crate::store::StoreParams>::Codecs: From<$codec> + Into<$codec>,
             Ipld: $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
-            fn transaction(&self) -> $crate::cache::Transaction<S::Params, $codec, $type> {
+            fn transaction(&self) -> $crate::cache::Transaction<'_, S::Params, $codec, $type> {
                 self.$field.transaction()
             }
 
             fn transaction_with_capacity(
                 &self,
                 capacity: usize,
-            ) -> $crate::cache::Transaction<S::Params, $codec, $type> {
+            ) -> $crate::cache::Transaction<'_, S::Params, $codec, $type> {
                 self.$field.transaction_with_capacity(capacity)
             }
 
@@ -176,7 +180,7 @@ macro_rules! derive_cache {
 
             async fn commit(
                 &self,
-                tx: $crate::cache::Transaction<S::Params, $codec, $type>,
+                tx: $crate::cache::Transaction<'_, S::Params, $codec, $type>,
             ) -> $crate::error::Result<()> {
                 self.$field.commit(tx).await
             }

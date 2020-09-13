@@ -259,12 +259,12 @@ where
                     inserts.insert(block.cid());
                 }
                 Op::Pin(cid) => {
-                    if !inserts.contains(&cid) && self.status(&cid).is_none() {
+                    if !inserts.contains(cid) && self.status(cid).is_none() {
                         return Err(BlockNotFound(cid.to_string()).into());
                     }
                 }
                 Op::Unpin(cid) => {
-                    if !inserts.contains(&cid) && self.status(&cid).is_none() {
+                    if !inserts.contains(cid) && self.status(cid).is_none() {
                         return Err(BlockNotFound(cid.to_string()).into());
                     }
                 }
@@ -273,7 +273,7 @@ where
         Ok(())
     }
 
-    async fn commit(&mut self, tx: Transaction<S>) -> Result<()> {
+    async fn commit(&mut self, tx: Transaction<'_, S>) -> Result<()> {
         let mut dead = Vec::with_capacity(tx.len());
         self.verify_transaction(&tx)?;
         for op in tx {
@@ -288,12 +288,12 @@ where
                     self.blocks.insert(BlockInfo::new(block, refs));
                 }
                 Op::Pin(cid) => {
-                    let mut info = self.blocks.take(&cid).unwrap();
+                    let mut info = self.blocks.take(cid).unwrap();
                     info.pin();
                     self.blocks.insert(info);
                 }
                 Op::Unpin(cid) => {
-                    let mut info = self.blocks.take(&cid).unwrap();
+                    let mut info = self.blocks.take(cid).unwrap();
                     info.unpin();
                     if info.status().is_dead() {
                         dead.push(cid);
@@ -385,7 +385,7 @@ where
         self.local.read().await.get(cid).await
     }
 
-    async fn commit(&self, tx: Transaction<S>) -> Result<()> {
+    async fn commit(&self, tx: Transaction<'_, S>) -> Result<()> {
         self.local.write().await.commit(tx).await
     }
 }

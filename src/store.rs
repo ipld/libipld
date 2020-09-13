@@ -30,27 +30,27 @@ impl StoreParams for DefaultStoreParams {
 }
 
 /// Store operations.
-pub enum Op<S> {
+pub enum Op<'a, S> {
     /// Insert block.
     Insert(Block<S>, HashSet<Cid>),
     /// Pin a block.
-    Pin(Cid),
+    Pin(&'a Cid),
     /// Unpin a block.
-    Unpin(Cid),
+    Unpin(&'a Cid),
 }
 
 /// An atomic store transaction.
-pub struct Transaction<S> {
-    ops: VecDeque<Op<S>>,
+pub struct Transaction<'cid, S> {
+    ops: VecDeque<Op<'cid, S>>,
 }
 
-impl<S: StoreParams> Default for Transaction<S> {
+impl<'cid, S: StoreParams> Default for Transaction<'cid, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S: StoreParams> Transaction<S> {
+impl<'cid, S: StoreParams> Transaction<'cid, S> {
     /// Creates a new transaction.
     pub fn new() -> Self {
         Self {
@@ -76,19 +76,23 @@ impl<S: StoreParams> Transaction<S> {
     }
 
     /// Increases the pin count of a block.
-    pub fn pin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
-        self.ops.push_back(Op::Pin(cid.clone()));
+    pub fn pin<'a: 'cid>(&mut self, cid: &'a Cid) {
+        self.ops.push_back(Op::Pin(cid));
     }
 
     /// Decreases the pin count of a block.
-    pub fn unpin<'a, 'b: 'a>(&'a mut self, cid: &'b Cid) {
-        self.ops.push_back(Op::Unpin(cid.clone()));
+    pub fn unpin<'a: 'cid>(&mut self, cid: &'a Cid) {
+        self.ops.push_back(Op::Unpin(cid));
     }
 
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update<'a, 'old: 'a, 'new: 'a>(&'a mut self, old: Option<&'old Cid>, new: &'new Cid) {
+    pub fn update<'old: 'cid, 'new: 'cid>(
+        &mut self,
+        old: Option<&'old Cid>,
+        new: &'new Cid,
+    ) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);
@@ -146,17 +150,17 @@ impl<S: StoreParams> Transaction<S> {
     }
 }
 
-impl<'a, S: StoreParams> IntoIterator for &'a Transaction<S> {
-    type Item = &'a Op<S>;
-    type IntoIter = std::collections::vec_deque::Iter<'a, Op<S>>;
+impl<'a, 'cid, S: StoreParams> IntoIterator for &'a Transaction<'cid, S> {
+    type Item = &'a Op<'cid, S>;
+    type IntoIter = std::collections::vec_deque::Iter<'a, Op<'cid, S>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.ops.iter()
     }
 }
 
-impl<S: StoreParams> IntoIterator for Transaction<S> {
-    type Item = Op<S>;
+impl<'cid, S: StoreParams> IntoIterator for Transaction<'cid, S> {
+    type Item = Op<'cid, S>;
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -178,7 +182,7 @@ pub trait Store: Clone + Send + Sync {
     async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
     /// Commits a transaction to the store.
-    async fn commit(&self, tx: Transaction<Self::Params>) -> Result<()>;
+    async fn commit(&self, tx: Transaction<'_, Self::Params>) -> Result<()>;
 
     /// Inserts a block into the store.
     async fn insert(&self, block: Block<Self::Params>) -> Result<()>
