@@ -88,11 +88,7 @@ impl<'cid, S: StoreParams> Transaction<'cid, S> {
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update<'old: 'cid, 'new: 'cid>(
-        &mut self,
-        old: Option<&'old Cid>,
-        new: &'new Cid,
-    ) {
+    pub fn update<'old: 'cid, 'new: 'cid>(&mut self, old: Option<&'old Cid>, new: &'new Cid) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);

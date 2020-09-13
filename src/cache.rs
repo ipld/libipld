@@ -62,11 +62,7 @@ where
     }
 
     /// Updates a block.
-    pub fn update<'old: 'cid, 'new: 'cid>(
-        &mut self,
-        old: Option<&'old Cid>,
-        new: &'new Cid,
-    ) {
+    pub fn update<'old: 'cid, 'new: 'cid>(&mut self, old: Option<&'old Cid>, new: &'new Cid) {
         self.tx.update(old, new);
     }
 }
