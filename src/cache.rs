@@ -11,14 +11,14 @@ use cached::Cached;
 use std::borrow::Cow;
 
 /// Typed transaction.
-pub struct Transaction<'cid, S: StoreParams, C, T> {
+pub struct Transaction<'a, S: StoreParams, C, T> {
     codec: C,
     hash: u64,
-    tx: RawTransaction<'cid, S>,
+    tx: RawTransaction<'a, S>,
     cache: Vec<(Cid, T)>,
 }
 
-impl<'cid, S, C, T> Transaction<'cid, S, C, T>
+impl<'a, S, C, T> Transaction<'a, S, C, T>
 where
     S: StoreParams,
     C: Codec + Into<S::Codecs>,
@@ -53,21 +53,17 @@ where
     }
 
     /// Pins a block.
-    pub fn pin<'a: 'cid, I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+    pub fn pin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
         self.tx.pin(cid.into());
     }
 
     /// Pins a block.
-    pub fn unpin<'a: 'cid, I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+    pub fn unpin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
         self.tx.unpin(cid.into());
     }
 
     /// Updates a block.
-    pub fn update<'a: 'cid, I: Into<Cow<'a, Cid>>, N: Into<Cow<'a, Cid>>>(
-        &mut self,
-        old: Option<I>,
-        new: N,
-    ) {
+    pub fn update<I: Into<Cow<'a, Cid>>, N: Into<Cow<'a, Cid>>>(&mut self, old: Option<I>, new: N) {
         let old = old.map(|val| val.into());
         self.tx.update(old, new.into());
     }

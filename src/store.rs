@@ -41,17 +41,17 @@ pub enum Op<'a, S> {
 }
 
 /// An atomic store transaction.
-pub struct Transaction<'cid, S> {
-    ops: VecDeque<Op<'cid, S>>,
+pub struct Transaction<'a, S> {
+    ops: VecDeque<Op<'a, S>>,
 }
 
-impl<'cid, S: StoreParams> Default for Transaction<'cid, S> {
+impl<'a, S: StoreParams> Default for Transaction<'a, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'cid, S: StoreParams> Transaction<'cid, S> {
+impl<'a, S: StoreParams> Transaction<'a, S> {
     /// Creates a new transaction.
     pub fn new() -> Self {
         Self {
@@ -77,19 +77,19 @@ impl<'cid, S: StoreParams> Transaction<'cid, S> {
     }
 
     /// Increases the pin count of a block.
-    pub fn pin<'a: 'cid>(&mut self, cid: Cow<'a, Cid>) {
+    pub fn pin(&mut self, cid: Cow<'a, Cid>) {
         self.ops.push_back(Op::Pin(cid));
     }
 
     /// Decreases the pin count of a block.
-    pub fn unpin<'a: 'cid>(&mut self, cid: Cow<'a, Cid>) {
+    pub fn unpin(&mut self, cid: Cow<'a, Cid>) {
         self.ops.push_back(Op::Unpin(cid));
     }
 
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update<'a: 'cid>(&mut self, old: Option<Cow<'a, Cid>>, new: Cow<'a, Cid>) {
+    pub fn update(&mut self, old: Option<Cow<'a, Cid>>, new: Cow<'a, Cid>) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);
@@ -147,17 +147,17 @@ impl<'cid, S: StoreParams> Transaction<'cid, S> {
     }
 }
 
-impl<'a, 'cid, S: StoreParams> IntoIterator for &'a Transaction<'cid, S> {
-    type Item = &'a Op<'cid, S>;
-    type IntoIter = std::collections::vec_deque::Iter<'a, Op<'cid, S>>;
+impl<'a, S: StoreParams> IntoIterator for &'a Transaction<'a, S> {
+    type Item = &'a Op<'a, S>;
+    type IntoIter = std::collections::vec_deque::Iter<'a, Op<'a, S>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.ops.iter()
     }
 }
 
-impl<'cid, S: StoreParams> IntoIterator for Transaction<'cid, S> {
-    type Item = Op<'cid, S>;
+impl<'a, S: StoreParams> IntoIterator for Transaction<'a, S> {
+    type Item = Op<'a, S>;
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
