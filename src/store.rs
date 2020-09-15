@@ -7,7 +7,9 @@ use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::path::DagPath;
 use async_trait::async_trait;
+use std::borrow::Cow;
 use std::collections::{HashSet, VecDeque};
+use std::ops::Deref;
 
 /// The store parameters.
 pub trait StoreParams: Clone + Send + Sync {
@@ -30,27 +32,27 @@ impl StoreParams for DefaultStoreParams {
 }
 
 /// Store operations.
-pub enum Op<S> {
+pub enum Op<'a, S> {
     /// Insert block.
     Insert(Block<S>, HashSet<Cid>),
     /// Pin a block.
-    Pin(Cid),
+    Pin(Cow<'a, Cid>),
     /// Unpin a block.
-    Unpin(Cid),
+    Unpin(Cow<'a, Cid>),
 }
 
 /// An atomic store transaction.
-pub struct Transaction<S> {
-    ops: VecDeque<Op<S>>,
+pub struct Transaction<'a, S> {
+    ops: VecDeque<Op<'a, S>>,
 }
 
-impl<S: StoreParams> Default for Transaction<S> {
+impl<'a, S: StoreParams> Default for Transaction<'a, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<S: StoreParams> Transaction<S> {
+impl<'a, S: StoreParams> Transaction<'a, S> {
     /// Creates a new transaction.
     pub fn new() -> Self {
         Self {
@@ -76,19 +78,19 @@ impl<S: StoreParams> Transaction<S> {
     }
 
     /// Increases the pin count of a block.
-    pub fn pin(&mut self, cid: Cid) {
-        self.ops.push_back(Op::Pin(cid));
+    pub fn pin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.ops.push_back(Op::Pin(cid.into()));
     }
 
     /// Decreases the pin count of a block.
-    pub fn unpin(&mut self, cid: Cid) {
-        self.ops.push_back(Op::Unpin(cid));
+    pub fn unpin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.ops.push_back(Op::Unpin(cid.into()));
     }
 
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update(&mut self, old: Option<Cid>, new: Cid) {
+    pub fn update<I: Into<Cow<'a, Cid>>, J: Into<Cow<'a, Cid>>>(&mut self, old: Option<I>, new: J) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);
@@ -146,17 +148,17 @@ impl<S: StoreParams> Transaction<S> {
     }
 }
 
-impl<'a, S: StoreParams> IntoIterator for &'a Transaction<S> {
-    type Item = &'a Op<S>;
-    type IntoIter = std::collections::vec_deque::Iter<'a, Op<S>>;
+impl<'a, S: StoreParams> IntoIterator for &'a Transaction<'a, S> {
+    type Item = &'a Op<'a, S>;
+    type IntoIter = std::collections::vec_deque::Iter<'a, Op<'a, S>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.ops.iter()
     }
 }
 
-impl<S: StoreParams> IntoIterator for Transaction<S> {
-    type Item = Op<S>;
+impl<'a, S: StoreParams> IntoIterator for Transaction<'a, S> {
+    type Item = Op<'a, S>;
     type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -178,7 +180,7 @@ pub trait Store: Clone + Send + Sync {
     async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
     /// Commits a transaction to the store.
-    async fn commit(&self, tx: Transaction<Self::Params>) -> Result<()>;
+    async fn commit(&self, tx: Transaction<'_, Self::Params>) -> Result<()>;
 
     /// Inserts a block into the store.
     async fn insert(&self, block: Block<Self::Params>) -> Result<()>
@@ -191,9 +193,9 @@ pub trait Store: Clone + Send + Sync {
     }
 
     /// Unpins a block from the store.
-    async fn unpin(&self, cid: &Cid) -> Result<()> {
+    async fn unpin<'a, I: Into<Cow<'a, Cid>> + Send>(&self, cid: I) -> Result<()> {
         let mut tx = Transaction::with_capacity(1);
-        tx.unpin(cid.clone());
+        tx.unpin(cid.into());
         self.commit(tx).await
     }
 
@@ -218,13 +220,18 @@ pub trait Store: Clone + Send + Sync {
     /// pins the root and unpins the old root.
     ///
     /// If a block wasn't found it returns a `BlockNotFound` error without modifying the store.
-    async fn sync(&self, old: Option<Cid>, new: Cid) -> Result<()>
+    async fn sync<'a, I: Into<Cow<'a, Cid>> + Send, N: Into<Cow<'a, Cid>> + Send>(
+        &self,
+        old: Option<I>,
+        new: N,
+    ) -> Result<()>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
         let mut visited = HashSet::new();
+        let new: Cow<'_, Cid> = new.into();
         let mut tx = Transaction::new();
-        let mut stack = vec![new.clone()];
+        let mut stack: Vec<Cid> = vec![new.deref().clone()];
         while let Some(cid) = stack.pop() {
             if visited.contains(&cid) {
                 continue;
