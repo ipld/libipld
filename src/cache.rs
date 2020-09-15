@@ -8,6 +8,7 @@ use async_std::sync::Mutex;
 use async_trait::async_trait;
 use cached::stores::SizedCache;
 use cached::Cached;
+use std::borrow::Cow;
 
 /// Typed transaction.
 pub struct Transaction<'cid, S: StoreParams, C, T> {
@@ -52,18 +53,23 @@ where
     }
 
     /// Pins a block.
-    pub fn pin<'a: 'cid>(&mut self, cid: &'a Cid) {
-        self.tx.pin(cid);
+    pub fn pin<'a: 'cid, I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.tx.pin(cid.into());
     }
 
     /// Pins a block.
-    pub fn unpin<'a: 'cid>(&mut self, cid: &'a Cid) {
-        self.tx.unpin(cid);
+    pub fn unpin<'a: 'cid, I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.tx.unpin(cid.into());
     }
 
     /// Updates a block.
-    pub fn update<'old: 'cid, 'new: 'cid>(&mut self, old: Option<&'old Cid>, new: &'new Cid) {
-        self.tx.update(old, new);
+    pub fn update<'a: 'cid, I: Into<Cow<'a, Cid>>, N: Into<Cow<'a, Cid>>>(
+        &mut self,
+        old: Option<I>,
+        new: N,
+    ) {
+        let old = old.map(|val| val.into());
+        self.tx.update(old, new.into());
     }
 }
 
@@ -222,6 +228,6 @@ mod tests {
 
         let res = client.get(&cid).await.unwrap();
         assert_eq!(res, 42);
-        client.unpin(&cid).await.unwrap();
+        client.unpin(cid).await.unwrap();
     }
 }
