@@ -9,6 +9,7 @@ use crate::path::DagPath;
 use async_trait::async_trait;
 use std::borrow::Cow;
 use std::collections::{HashSet, VecDeque};
+use std::ops::Deref;
 
 /// The store parameters.
 pub trait StoreParams: Clone + Send + Sync {
@@ -77,19 +78,19 @@ impl<'a, S: StoreParams> Transaction<'a, S> {
     }
 
     /// Increases the pin count of a block.
-    pub fn pin(&mut self, cid: Cow<'a, Cid>) {
-        self.ops.push_back(Op::Pin(cid));
+    pub fn pin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.ops.push_back(Op::Pin(cid.into()));
     }
 
     /// Decreases the pin count of a block.
-    pub fn unpin(&mut self, cid: Cow<'a, Cid>) {
-        self.ops.push_back(Op::Unpin(cid));
+    pub fn unpin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
+        self.ops.push_back(Op::Unpin(cid.into()));
     }
 
     /// Update a block.
     ///
     /// Pins the new block and unpins the old one.
-    pub fn update(&mut self, old: Option<Cow<'a, Cid>>, new: Cow<'a, Cid>) {
+    pub fn update<I: Into<Cow<'a, Cid>>, J: Into<Cow<'a, Cid>>>(&mut self, old: Option<I>, new: J) {
         self.pin(new);
         if let Some(old) = old {
             self.unpin(old);
@@ -219,17 +220,18 @@ pub trait Store: Clone + Send + Sync {
     /// pins the root and unpins the old root.
     ///
     /// If a block wasn't found it returns a `BlockNotFound` error without modifying the store.
-    async fn sync<'a, 'old: 'a, 'new: 'a>(
-        &'a self,
-        old: Option<Cow<'new, Cid>>,
-        new: Cow<'new, Cid>,
+    async fn sync<'a, I: Into<Cow<'a, Cid>> + Send, N: Into<Cow<'a, Cid>> + Send>(
+        &self,
+        old: Option<I>,
+        new: N,
     ) -> Result<()>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
         let mut visited = HashSet::new();
+        let new: Cow<'_, Cid> = new.into();
         let mut tx = Transaction::new();
-        let mut stack: Vec<Cid> = vec![(&*new).clone()];
+        let mut stack: Vec<Cid> = vec![new.deref().clone()];
         while let Some(cid) = stack.pop() {
             if visited.contains(&cid) {
                 continue;
