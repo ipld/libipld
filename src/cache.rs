@@ -159,7 +159,7 @@ macro_rules! derive_cache {
         where
             S: $crate::store::Store,
             <S::Params as $crate::store::StoreParams>::Codecs: From<$codec> + Into<$codec>,
-            Ipld: $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
+            $crate::ipld::Ipld: $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
             fn transaction(&self) -> $crate::cache::Transaction<'_, S::Params, $codec, $type> {
                 self.$field.transaction()
