@@ -1,4 +1,5 @@
 //! `Ipld` error definitions.
+use crate::cid::Cid;
 use crate::ipld::{Ipld, IpldIndex};
 pub use anyhow::{Error, Result};
 use thiserror::Error;
@@ -26,7 +27,7 @@ pub struct InvalidMultihash(pub Vec<u8>);
 /// The block wasn't found. The supplied string is a CID.
 #[derive(Debug, Error)]
 #[error("Failed to retrive block {0}.")]
-pub struct BlockNotFound(pub String);
+pub struct BlockNotFound(pub Cid);
 
 /// Type error.
 #[derive(Debug, Error)]

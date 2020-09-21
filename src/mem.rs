@@ -1,377 +1,348 @@
-//! Reference implementation of the store traits.
+#![allow(missing_docs)]
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::Decode;
 use crate::error::{BlockNotFound, Result};
 use crate::ipld::Ipld;
-use crate::store::{AliasStore, Op, Store, StoreParams, Transaction};
-use async_std::sync::{Arc, RwLock};
+use crate::store::{Store, StoreParams};
 use async_trait::async_trait;
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
-/// The status of a block.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Status {
-    pinned: u32,
-    referenced: u32,
+type Id = u64;
+type Atime = u64;
+
+struct BlockStore<S: StoreParams> {
+    next_id: Id,
+    blocks: HashMap<Id, Block<S>>,
+    lookup: HashMap<Cid, Id>,
 }
 
-impl Status {
-    /// Creates a new status.
-    pub fn new(pinned: u32, referenced: u32) -> Self {
-        Self { pinned, referenced }
-    }
-
-    /// Returns the number of times the block is pinned.
-    pub fn pinned(&self) -> u32 {
-        self.pinned
-    }
-
-    /// Returns the number of references to the block.
-    pub fn referenced(&self) -> u32 {
-        self.referenced
-    }
-
-    /// The block is pinned at least once.
-    pub fn is_pinned(&self) -> bool {
-        self.pinned > 0
-    }
-
-    /// The block is referenced at least once.
-    pub fn is_referenced(&self) -> bool {
-        self.referenced > 0
-    }
-
-    /// The block is not going to be garbage collected.
-    pub fn is_live(&self) -> bool {
-        self.is_pinned() || self.is_referenced()
-    }
-
-    /// The block is going to be garbage collected.
-    pub fn is_dead(&self) -> bool {
-        self.pinned < 1 && self.referenced < 1
-    }
-}
-
-/// Block info.
-#[derive(Debug)]
-pub struct BlockInfo<S: StoreParams> {
-    block: Block<S>,
-    refs: HashSet<Cid>,
-    referrers: HashSet<Cid>,
-    pinned: u32,
-}
-
-impl<S: StoreParams> Clone for BlockInfo<S> {
-    fn clone(&self) -> Self {
+impl<S: StoreParams> BlockStore<S> {
+    pub fn new() -> Self {
         Self {
-            block: self.block.clone(),
-            refs: self.refs.clone(),
-            referrers: self.referrers.clone(),
-            pinned: self.pinned,
-        }
-    }
-}
-
-impl<S: StoreParams> core::hash::Hash for BlockInfo<S> {
-    fn hash<H: core::hash::Hasher>(&self, hasher: &mut H) {
-        self.block.hash(hasher)
-    }
-}
-
-impl<S: StoreParams> PartialEq for BlockInfo<S> {
-    fn eq(&self, other: &Self) -> bool {
-        self.block == other.block
-    }
-}
-
-impl<S: StoreParams> Eq for BlockInfo<S> {}
-
-impl<S: StoreParams> Borrow<Cid> for BlockInfo<S> {
-    fn borrow(&self) -> &Cid {
-        self.block.borrow()
-    }
-}
-
-impl<S: StoreParams> BlockInfo<S> {
-    /// Creates a new `BlockInfo`.
-    pub fn new(block: Block<S>, refs: HashSet<Cid>) -> Self {
-        Self {
-            block,
-            refs,
-            referrers: Default::default(),
-            pinned: 0,
-        }
-    }
-
-    /// Block.
-    pub fn block(&self) -> &Block<S> {
-        &self.block
-    }
-
-    /// Refs.
-    pub fn refs(&self) -> impl Iterator<Item = &Cid> {
-        self.refs.iter()
-    }
-
-    /// Referrers.
-    pub fn referrers(&self) -> impl Iterator<Item = &Cid> {
-        self.referrers.iter()
-    }
-
-    /// Pin.
-    pub fn pin(&mut self) {
-        self.pinned += 1;
-    }
-
-    /// Unpin.
-    pub fn unpin(&mut self) {
-        self.pinned -= 1;
-    }
-
-    /// Add referrer.
-    pub fn reference(&mut self, cid: Cid) {
-        self.referrers.insert(cid);
-    }
-
-    /// Remove referrer.
-    pub fn unreference(&mut self, cid: &Cid) {
-        self.referrers.remove(cid);
-    }
-
-    /// Returns the status of a block.
-    pub fn status(&self) -> Status {
-        Status::new(self.pinned, self.referrers.len() as u32)
-    }
-
-    /// Remove returns the list of references.
-    pub fn remove(self) -> HashSet<Cid> {
-        self.refs
-    }
-}
-
-/// Models a network for testing.
-pub struct GlobalStore<S: StoreParams> {
-    blocks: RwLock<HashSet<Block<S>>>,
-    aliases: RwLock<HashMap<Vec<u8>, Cid>>,
-}
-
-impl<S: StoreParams> Default for GlobalStore<S> {
-    fn default() -> Self {
-        Self {
+            next_id: 0,
             blocks: Default::default(),
-            aliases: Default::default(),
+            lookup: Default::default(),
         }
+    }
+
+    pub fn get<'a>(&'a self, id: Id) -> Option<&'a Block<S>> {
+        self.blocks.get(&id)
+    }
+
+    pub fn lookup(&self, cid: &Cid) -> Option<Id> {
+        self.lookup.get(cid).cloned()
+    }
+
+    pub fn insert(&mut self, block: Block<S>) -> Option<Id> {
+        if self.lookup.get(block.cid()).is_some() {
+            return None;
+        }
+        let id = self.next_id;
+        self.next_id += 1;
+        self.lookup.insert(*block.cid(), id);
+        self.blocks.insert(id, block);
+        Some(id)
+    }
+
+    pub fn remove(&mut self, id: Id) {
+        if let Some(block) = self.blocks.remove(&id) {
+            self.lookup.remove(block.cid());
+        }
+    }
+
+    pub fn references(&self, id: Id) -> Result<HashSet<Id>>
+    where
+        Ipld: Decode<S::Codecs>,
+    {
+        let mut refs = HashSet::new();
+        let mut todo = Vec::new();
+        todo.push(id);
+        while let Some(id) = todo.pop() {
+            if refs.contains(&id) {
+                continue;
+            }
+            for cid in self.get(id).expect("is in store").ipld()?.references() {
+                let id = self.lookup(&cid).ok_or_else(|| BlockNotFound(cid))?;
+                todo.push(id);
+            }
+            refs.insert(id);
+        }
+        Ok(refs)
     }
 }
 
-impl<S: StoreParams> GlobalStore<S> {
-    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
-        if let Some(block) = self.blocks.read().await.get(cid) {
-            Ok(block.clone())
+#[derive(Default)]
+struct BlockCache {
+    next_atime: Atime,
+    sorted: BTreeMap<Atime, Id>,
+    atime: HashMap<Id, Atime>,
+}
+
+impl BlockCache {
+    pub fn contains(&self, id: Id) -> bool {
+        self.atime.contains_key(&id)
+    }
+
+    pub fn insert(&mut self, id: Id) {
+        self.remove(id);
+        let atime = self.next_atime;
+        self.next_atime += 1;
+        self.atime.insert(id, atime);
+        self.sorted.insert(atime, id);
+    }
+
+    pub fn remove(&mut self, id: Id) -> Option<Atime> {
+        if let Some(atime) = self.atime.remove(&id) {
+            self.sorted.remove(&atime);
+            Some(atime)
         } else {
-            Err(BlockNotFound(cid.to_string()).into())
+            None
         }
     }
 
-    async fn insert(&self, block: Block<S>) {
-        self.blocks.write().await.insert(block);
+    pub fn hit(&mut self, id: Id) {
+        if self.remove(id).is_some() {
+            self.insert(id);
+        }
     }
 
-    async fn alias(&self, alias: &[u8], cid: &Cid) {
-        self.aliases
-            .write()
-            .await
-            .insert(alias.to_vec(), cid.clone());
+    pub fn evict(&mut self) -> Option<Id> {
+        let id = self.sorted.iter().next().map(|(_, id)| *id);
+        if let Some(id) = id {
+            self.remove(id);
+        }
+        id
     }
 
-    async fn unalias(&self, alias: &[u8]) {
-        self.aliases.write().await.remove(alias);
+    pub fn size(&self) -> usize {
+        self.sorted.len()
+    }
+}
+
+#[derive(Default)]
+struct BlockAliases {
+    aliases: HashMap<Vec<u8>, (Id, HashSet<Id>)>,
+    refs: HashMap<Id, u64>,
+}
+
+impl BlockAliases {
+    pub fn resolve(&self, alias: &[u8]) -> Option<Id> {
+        self.aliases.get(alias).map(|(id, _)| *id)
     }
 
-    async fn resolve<'a>(&'a self, alias: &'a [u8]) -> Option<Cid> {
-        self.aliases.read().await.get(alias).cloned()
+    pub fn alias(&mut self, alias: &[u8], id: Id, refs: HashSet<Id>) {
+        for id in &refs {
+            *self.refs.entry(*id).or_default() += 1;
+        }
+        self.aliases.insert(alias.to_vec(), (id, refs));
+    }
+
+    pub fn unalias(&mut self, alias: &[u8]) -> HashSet<Id> {
+        let mut cache = HashSet::new();
+        if let Some((_, refs)) = self.aliases.remove(alias) {
+            for id in refs {
+                let count = self.refs.get_mut(&id).expect("can't fail");
+                *count -= 1;
+                if *count < 1 {
+                    cache.insert(id);
+                }
+            }
+        }
+        cache
     }
 }
 
 struct LocalStore<S: StoreParams> {
-    global: Arc<GlobalStore<S>>,
-    blocks: HashSet<BlockInfo<S>>,
+    cache_size: usize,
+    blocks: BlockStore<S>,
+    cache: BlockCache,
+    aliases: BlockAliases,
 }
 
-impl<S: StoreParams> Default for LocalStore<S> {
-    fn default() -> Self {
+impl<S: StoreParams> LocalStore<S> {
+    pub fn new(cache_size: usize) -> Self {
+        assert!(cache_size > 0);
         Self {
-            global: Default::default(),
-            blocks: Default::default(),
-        }
-    }
-}
-
-impl<S: StoreParams> LocalStore<S>
-where
-    Ipld: Decode<S::Codecs>,
-{
-    fn new(global: Arc<GlobalStore<S>>) -> Self {
-        Self {
-            global,
-            ..Default::default()
+            cache_size,
+            blocks: BlockStore::new(),
+            cache: Default::default(),
+            aliases: Default::default(),
         }
     }
 
-    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
-        if let Some(info) = self.blocks.get(cid) {
-            Ok(info.block().clone())
+    pub fn get(&mut self, cid: &Cid) -> Option<Block<S>> {
+        if let Some(id) = self.blocks.lookup(cid) {
+            self.cache.hit(id);
+            self.blocks.get(id).cloned()
         } else {
-            self.global.get(cid).await
+            None
         }
     }
 
-    fn blocks(&self) -> Vec<Cid> {
-        self.blocks
-            .iter()
-            .map(|info| info.block().cid().clone())
-            .collect()
+    pub fn insert(&mut self, block: Block<S>) {
+        if let Some(id) = self.blocks.insert(block) {
+            self.insert_cache(id);
+        }
     }
 
-    fn info<'a>(&'a self, cid: &'a Cid) -> Option<&'a BlockInfo<S>> {
-        self.blocks.get(cid)
-    }
-
-    fn status(&self, cid: &Cid) -> Option<Status> {
-        self.info(cid).map(|info| info.status())
-    }
-
-    fn verify_transaction(&self, tx: &Transaction<S>) -> Result<()> {
-        let mut inserts = HashSet::with_capacity(tx.len());
-        for op in tx {
-            match op {
-                Op::Insert(block, refs) => {
-                    if self.status(block.cid()).is_some() {
-                        continue;
-                    }
-                    for cid in refs {
-                        if !inserts.contains(cid) && self.status(cid).is_none() {
-                            return Err(BlockNotFound(cid.to_string()).into());
-                        }
-                    }
-                    inserts.insert(block.cid());
-                }
-                Op::Pin(cid) => {
-                    if !inserts.contains(cid.deref()) && self.status(cid).is_none() {
-                        return Err(BlockNotFound(cid.to_string()).into());
-                    }
-                }
-                Op::Unpin(cid) => {
-                    if !inserts.contains(cid.deref()) && self.status(cid).is_none() {
-                        return Err(BlockNotFound(cid.to_string()).into());
-                    }
-                }
+    fn insert_cache(&mut self, id: Id) {
+        self.cache.insert(id);
+        if self.cache_size < self.cache.size() {
+            if let Some(id) = self.cache.evict() {
+                self.blocks.remove(id);
             }
+        }
+    }
+
+    fn remove_cache(&mut self, id: Id) {
+        self.cache.remove(id);
+    }
+
+    pub fn resolve<T: AsRef<[u8]>>(&self, alias: T) -> Option<Cid> {
+        if let Some(id) = self.aliases.resolve(alias.as_ref()) {
+            Some(*self.blocks.get(id).expect("can't fail").cid())
+        } else {
+            None
+        }
+    }
+
+    pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
+    where
+        Ipld: Decode<S::Codecs>,
+    {
+        let alias = alias.as_ref();
+        let ins = if let Some(cid) = cid {
+            let id = self.blocks.lookup(cid).ok_or_else(|| BlockNotFound(*cid))?;
+            let refs = self.blocks.references(id)?;
+            Some((id, refs))
+        } else {
+            None
+        };
+        let mut cache = self.aliases.unalias(alias);
+        if let Some((id, refs)) = ins {
+            for id in &refs {
+                self.remove_cache(*id);
+                cache.remove(id);
+            }
+            self.aliases.alias(alias, id, refs);
+        }
+        for id in cache {
+            self.insert_cache(id);
         }
         Ok(())
     }
 
-    async fn commit(&mut self, tx: Transaction<'_, S>) -> Result<()> {
-        let mut dead = Vec::with_capacity(tx.len());
-        self.verify_transaction(&tx)?;
-        for op in tx {
-            match op {
-                Op::Insert(block, refs) => {
-                    for cid in &refs {
-                        let mut info2 = self.blocks.take(cid).unwrap();
-                        info2.reference(block.cid().clone());
-                        self.blocks.insert(info2);
-                    }
-                    self.global.insert(block.clone()).await;
-                    self.blocks.insert(BlockInfo::new(block, refs));
-                }
-                Op::Pin(cid) => {
-                    let mut info = self.blocks.take(cid.deref()).unwrap();
-                    info.pin();
-                    self.blocks.insert(info);
-                }
-                Op::Unpin(cid) => {
-                    let mut info = self.blocks.take(cid.deref()).unwrap();
-                    info.unpin();
-                    if info.status().is_dead() {
-                        dead.push(cid);
-                    }
-                    self.blocks.insert(info);
-                }
-            }
-        }
-        for cid in dead {
-            self.remove(&cid);
-        }
-        Ok(())
-    }
-
-    fn remove_block(&mut self, cid: &Cid) -> HashSet<Cid> {
-        let info = self.blocks.take(cid).unwrap();
-        for cid in info.refs() {
-            if let Some(mut info2) = self.blocks.take(cid) {
-                info2.unreference(info.block().cid());
-                self.blocks.insert(info2);
-            }
-        }
-        info.remove()
-    }
-
-    fn remove(&mut self, cid: &Cid) {
-        if let Some(status) = self.status(cid) {
-            if status.is_dead() {
-                for cid in self.remove_block(cid) {
-                    self.remove(&cid);
-                }
-            }
+    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+        if let Some(id) = self.blocks.lookup(cid) {
+            Some(!self.cache.contains(id))
+        } else {
+            None
         }
     }
 }
 
-/// A memory backed store
-#[derive(Clone)]
-pub struct MemStore<S: StoreParams> {
-    global: Arc<GlobalStore<S>>,
-    local: Arc<RwLock<LocalStore<S>>>,
+pub struct GlobalStore<S: StoreParams>(Arc<Mutex<HashSet<Block<S>>>>);
+
+impl<S: StoreParams> Clone for GlobalStore<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<S: StoreParams> Default for GlobalStore<S> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<S: StoreParams> GlobalStore<S> {
+    pub fn get(&self, cid: &Cid) -> Option<Block<S>> {
+        self.0.lock().unwrap().get(cid).cloned()
+    }
+
+    pub fn insert(&self, block: Block<S>) {
+        self.0.lock().unwrap().insert(block);
+    }
+}
+
+struct SharedStore<S: StoreParams> {
+    local: LocalStore<S>,
+    network: GlobalStore<S>,
+}
+
+impl<S: StoreParams> SharedStore<S> {
+    pub fn new(network: GlobalStore<S>, cache_size: usize) -> Self {
+        Self {
+            local: LocalStore::new(cache_size),
+            network,
+        }
+    }
+
+    pub fn get(&mut self, cid: &Cid) -> Option<Block<S>> {
+        if let Some(block) = self.local.get(cid) {
+            return Some(block);
+        }
+        if let Some(block) = self.network.get(cid) {
+            self.local.insert(block.clone());
+            return Some(block);
+        }
+        None
+    }
+
+    pub fn insert(&mut self, block: Block<S>) {
+        self.local.insert(block.clone());
+        self.network.insert(block);
+    }
+
+    pub fn resolve<T: AsRef<[u8]>>(&self, alias: T) -> Option<Cid> {
+        self.local.resolve(alias)
+    }
+
+    pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
+    where
+        Ipld: Decode<S::Codecs>,
+    {
+        loop {
+            if let Err(err) = self.local.alias(alias.as_ref(), cid) {
+                if let Some(BlockNotFound(cid)) = err.downcast_ref::<BlockNotFound>() {
+                    if self.get(cid).is_none() {
+                        return Err(BlockNotFound(*cid).into());
+                    }
+                }
+            } else {
+                return Ok(());
+            }
+        }
+    }
+
+    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+        self.local.pinned(cid)
+    }
+}
+
+pub struct MemStore<S: StoreParams>(Arc<Mutex<SharedStore<S>>>);
+
+impl<S: StoreParams> Clone for MemStore<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
 }
 
 impl<S: StoreParams> Default for MemStore<S> {
     fn default() -> Self {
-        Self {
-            global: Default::default(),
-            local: Default::default(),
-        }
+        Self::new(Default::default(), 64)
     }
 }
 
-impl<S: StoreParams> MemStore<S>
-where
-    Ipld: Decode<S::Codecs>,
-{
-    /// Create a new empty `MemStore`
-    pub fn new(global: Arc<GlobalStore<S>>) -> Self {
-        Self {
-            global: global.clone(),
-            local: Arc::new(RwLock::new(LocalStore::new(global))),
-        }
+impl<S: StoreParams> MemStore<S> {
+    pub fn new(network: GlobalStore<S>, cache_size: usize) -> Self {
+        Self(Arc::new(Mutex::new(SharedStore::new(network, cache_size))))
     }
 
-    /// Returns a vec of all cid's in the store.
-    pub async fn blocks(&self) -> Vec<Cid> {
-        self.local.read().await.blocks()
-    }
-
-    /// Returns the status of a block.
-    pub async fn status(&self, cid: &Cid) -> Option<Status> {
-        self.local.read().await.status(cid)
-    }
-
-    /// Returns the block info.
-    pub async fn info<'a>(&'a self, cid: &'a Cid) -> Option<BlockInfo<S>> {
-        self.local.read().await.info(cid).cloned()
+    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+        self.0.lock().unwrap().pinned(cid)
     }
 }
 
@@ -383,169 +354,183 @@ where
     type Params = S;
 
     async fn get(&self, cid: &Cid) -> Result<Block<S>> {
-        self.local.read().await.get(cid).await
+        self.0
+            .lock()
+            .unwrap()
+            .get(cid)
+            .ok_or_else(|| BlockNotFound(*cid).into())
     }
 
-    async fn commit(&self, tx: Transaction<'_, S>) -> Result<()> {
-        self.local.write().await.commit(tx).await
-    }
-}
-
-#[async_trait]
-impl<S: StoreParams> AliasStore for MemStore<S>
-where
-    Ipld: Decode<S::Codecs>,
-{
-    async fn alias(&self, alias: &[u8], cid: &Cid) -> Result<()> {
-        self.global.alias(alias, cid).await;
+    async fn insert(&self, block: &Block<S>) -> Result<()> {
+        self.0.lock().unwrap().insert(block.clone());
         Ok(())
     }
 
-    async fn unalias(&self, alias: &[u8]) -> Result<()> {
-        self.global.unalias(alias).await;
-        Ok(())
+    async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()> {
+        self.0.lock().unwrap().alias(alias, cid)
     }
 
-    async fn resolve(&self, alias: &[u8]) -> Result<Option<Cid>> {
-        Ok(self.global.resolve(alias).await)
+    async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>> {
+        Ok(self.0.lock().unwrap().resolve(alias))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::block::Block;
     use crate::cbor::DagCborCodec;
-    use crate::ipld;
-    use crate::ipld::Ipld;
     use crate::multihash::SHA2_256;
-    use crate::store::{DefaultStoreParams, Store};
+    use crate::store::DefaultStoreParams;
+    use crate::{alias, ipld};
 
     fn create_block(ipld: &Ipld) -> Block<DefaultStoreParams> {
         Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
     }
 
-    #[async_std::test]
-    async fn test_gc() -> Result<()> {
-        let store = MemStore::<DefaultStoreParams>::default();
+    macro_rules! assert_evicted {
+        ($store:expr, $block:expr) => {
+            assert_eq!($store.pinned($block.cid()), None);
+        };
+    }
+
+    macro_rules! assert_pinned {
+        ($store:expr, $block:expr) => {
+            assert_eq!($store.pinned($block.cid()), Some(true));
+        };
+    }
+
+    macro_rules! assert_unpinned {
+        ($store:expr, $block:expr) => {
+            assert_eq!($store.pinned($block.cid()), Some(false));
+        };
+    }
+
+    #[test]
+    fn test_store_evict() {
+        let mut store = LocalStore::new(2);
+        let blocks = [
+            create_block(&ipld!(0)),
+            create_block(&ipld!(1)),
+            create_block(&ipld!(2)),
+            create_block(&ipld!(3)),
+        ];
+        store.insert(blocks[0].clone());
+        assert_unpinned!(&store, &blocks[0]);
+        store.insert(blocks[1].clone());
+        assert_unpinned!(&store, &blocks[1]);
+        store.insert(blocks[2].clone());
+        assert_evicted!(&store, &blocks[0]);
+        assert_unpinned!(&store, &blocks[1]);
+        assert_unpinned!(&store, &blocks[2]);
+        store.get(&blocks[1]);
+        store.insert(blocks[3].clone());
+        assert_unpinned!(&store, &blocks[1]);
+        assert_evicted!(&store, &blocks[2]);
+        assert_unpinned!(&store, &blocks[3]);
+    }
+
+    #[test]
+    #[allow(clippy::many_single_char_names)]
+    fn test_store_unpin() {
+        let mut store = LocalStore::new(3);
         let a = create_block(&ipld!({ "a": [] }));
         let b = create_block(&ipld!({ "b": [a.cid()] }));
         let c = create_block(&ipld!({ "c": [a.cid()] }));
-
-        let mut tx = Transaction::with_capacity(5);
-        tx.insert(a.clone())?;
-        tx.insert(b.clone())?;
-        tx.insert(c.clone())?;
-        tx.pin(b.cid());
-        tx.pin(c.cid());
-        store.commit(tx).await.unwrap();
-        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 2)));
-        assert_eq!(store.status(b.cid()).await, Some(Status::new(1, 0)));
-        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
-
-        store.unpin(b.cid()).await?;
-        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await, None);
-        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
-
-        store.unpin(c.cid()).await?;
-        assert_eq!(store.status(a.cid()).await, None);
-        assert_eq!(store.status(b.cid()).await, None);
-        assert_eq!(store.status(c.cid()).await, None);
-
-        Ok(())
+        let x = alias!(x);
+        let y = alias!(y);
+        store.insert(a.clone());
+        store.insert(b.clone());
+        store.insert(c.clone());
+        store.alias(x, Some(b.cid())).unwrap();
+        store.alias(y, Some(c.cid())).unwrap();
+        assert_pinned!(&store, &a);
+        assert_pinned!(&store, &b);
+        assert_pinned!(&store, &c);
+        store.alias(x, None).unwrap();
+        assert_pinned!(&store, &a);
+        assert_unpinned!(&store, &b);
+        assert_pinned!(&store, &c);
+        store.alias(y, None).unwrap();
+        assert_unpinned!(&store, &a);
+        assert_unpinned!(&store, &b);
+        assert_unpinned!(&store, &c);
     }
 
-    #[async_std::test]
-    async fn test_gc_2() -> Result<()> {
-        let store = MemStore::<DefaultStoreParams>::default();
+    #[test]
+    #[allow(clippy::many_single_char_names)]
+    fn test_store_unpin2() {
+        let mut store = LocalStore::new(3);
         let a = create_block(&ipld!({ "a": [] }));
         let b = create_block(&ipld!({ "b": [a.cid()] }));
-        let c = b.clone();
-
-        let mut tx = Transaction::with_capacity(5);
-        tx.insert(a.clone())?;
-        tx.insert(b.clone())?;
-        tx.insert(c.clone())?;
-        tx.pin(b.cid());
-        tx.pin(c.cid());
-        store.commit(tx).await?;
-        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await, Some(Status::new(2, 0)));
-        assert_eq!(store.status(c.cid()).await, Some(Status::new(2, 0)));
-
-        store.unpin(b.cid()).await?;
-        assert_eq!(store.status(a.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(store.status(b.cid()).await, Some(Status::new(1, 0)));
-        assert_eq!(store.status(c.cid()).await, Some(Status::new(1, 0)));
-
-        store.unpin(c.cid()).await?;
-        assert_eq!(store.status(a.cid()).await, None);
-        assert_eq!(store.status(b.cid()).await, None);
-        assert_eq!(store.status(c.cid()).await, None);
-
-        Ok(())
+        let x = alias!(x);
+        let y = alias!(y);
+        store.insert(a.clone());
+        store.insert(b.clone());
+        store.alias(x, Some(b.cid())).unwrap();
+        store.alias(y, Some(b.cid())).unwrap();
+        assert_pinned!(&store, &a);
+        assert_pinned!(&store, &b);
+        store.alias(x, None).unwrap();
+        assert_pinned!(&store, &a);
+        assert_pinned!(&store, &b);
+        store.alias(y, None).unwrap();
+        assert_unpinned!(&store, &a);
+        assert_unpinned!(&store, &b);
     }
 
-    #[async_std::test]
-    async fn test_sync() -> Result<()> {
-        let global = Arc::new(GlobalStore::<DefaultStoreParams>::default());
-        let local1 = MemStore::new(global.clone());
-        let local2 = MemStore::new(global.clone());
+    #[test]
+    fn test_sync() {
+        let network = GlobalStore::default();
+        let mut local1 = SharedStore::new(network.clone(), 5);
+        let mut local2 = SharedStore::new(network, 5);
         let a1 = create_block(&ipld!({ "a": 0 }));
         let b1 = create_block(&ipld!({ "b": 0 }));
         let c1 = create_block(&ipld!({ "c": [a1.cid(), b1.cid()] }));
         let b2 = create_block(&ipld!({ "b": 1 }));
         let c2 = create_block(&ipld!({ "c": [a1.cid(), b2.cid()] }));
+        let x = alias!(x);
 
-        let mut tx = Transaction::with_capacity(4);
-        tx.insert(a1.clone())?;
-        tx.insert(b1.clone())?;
-        tx.insert(c1.clone())?;
-        tx.pin(c1.cid());
-        local1.commit(tx).await?;
-        assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(b1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(c1.cid()).await, Some(Status::new(1, 0)));
+        local1.insert(a1.clone());
+        local1.insert(b1.clone());
+        local1.insert(c1.clone());
+        local1.alias(x, Some(c1.cid())).unwrap();
+        assert_pinned!(&local1, &a1);
+        assert_pinned!(&local1, &b1);
+        assert_pinned!(&local1, &c1);
 
-        local2.sync(None::<Cid>, c1.cid()).await?;
-        assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(b1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(c1.cid()).await, Some(Status::new(1, 0)));
+        local2.alias(x, Some(c1.cid())).unwrap();
+        assert_pinned!(&local2, &a1);
+        assert_pinned!(&local2, &b1);
+        assert_pinned!(&local2, &c1);
 
-        let mut tx = Transaction::with_capacity(4);
-        tx.insert(b2.clone())?;
-        tx.insert(c2.clone())?;
-        tx.pin(c2.cid());
-        tx.unpin(c1.cid());
-        local2.commit(tx).await?;
-        assert_eq!(local2.status(a1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(b1.cid()).await, None);
-        assert_eq!(local2.status(c1.cid()).await, None);
-        assert_eq!(local2.status(b2.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local2.status(c2.cid()).await, Some(Status::new(1, 0)));
+        local2.insert(b2.clone());
+        local2.insert(c2.clone());
+        local2.alias(x, Some(c2.cid())).unwrap();
+        assert_pinned!(&local2, &a1);
+        assert_unpinned!(&local2, &b1);
+        assert_unpinned!(&local2, &c1);
+        assert_pinned!(&local2, &b2);
+        assert_pinned!(&local2, &c2);
 
-        local1.sync(Some(c1.cid()), c2.cid()).await?;
-        assert_eq!(local1.status(a1.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(b1.cid()).await, None);
-        assert_eq!(local1.status(c1.cid()).await, None);
-        assert_eq!(local1.status(b2.cid()).await, Some(Status::new(0, 1)));
-        assert_eq!(local1.status(c2.cid()).await, Some(Status::new(1, 0)));
+        local1.alias(x, Some(c2.cid())).unwrap();
+        assert_pinned!(&local1, &a1);
+        assert_unpinned!(&local1, &b1);
+        assert_unpinned!(&local1, &c1);
+        assert_pinned!(&local1, &b2);
+        assert_pinned!(&local1, &c2);
 
-        let mut tx = Transaction::with_capacity(1);
-        tx.unpin(c2.cid());
-        local1.commit(tx).await?;
-        assert_eq!(local1.status(a1.cid()).await, None);
-        assert_eq!(local1.status(b2.cid()).await, None);
-        assert_eq!(local1.status(c2.cid()).await, None);
+        local2.alias(x, None).unwrap();
+        assert_unpinned!(&local2, &a1);
+        assert_unpinned!(&local2, &b1);
+        assert_unpinned!(&local2, &c1);
+        assert_unpinned!(&local2, &b2);
+        assert_unpinned!(&local2, &c2);
 
-        let mut tx = Transaction::with_capacity(1);
-        tx.unpin(c2.cid());
-        local2.commit(tx).await?;
-        assert_eq!(local2.status(a1.cid()).await, None);
-        assert_eq!(local2.status(b2.cid()).await, None);
-        assert_eq!(local2.status(c2.cid()).await, None);
-
-        Ok(())
+        local1.alias(x, None).unwrap();
+        assert_unpinned!(&local1, &a1);
+        assert_unpinned!(&local1, &b1);
+        assert_unpinned!(&local1, &c1);
+        assert_unpinned!(&local1, &b2);
+        assert_unpinned!(&local1, &c2);
     }
 }

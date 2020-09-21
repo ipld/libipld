@@ -191,7 +191,7 @@ mod tests {
         let data = vec![0, 1, 2, 3];
         let hash = Multihash::new(SHA2_256, &data).unwrap().to_raw().unwrap();
         let cid = Cid::new_v0(hash).unwrap();
-        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
+        assert_eq!(Ipld::Link(cid), Ipld::from(cid));
     }
 
     #[test]

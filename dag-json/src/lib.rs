@@ -60,7 +60,7 @@ mod tests {
         // Contact { name: "Hello World", details: CID }
         let mut map = BTreeMap::new();
         map.insert("name".to_string(), Ipld::String("Hello World!".to_string()));
-        map.insert("details".to_string(), Ipld::Link(cid.clone()));
+        map.insert("details".to_string(), Ipld::Link(cid));
         let contact = Ipld::Map(map);
 
         let contact_encoded = DagJsonCodec.encode(&contact).unwrap();
