@@ -30,8 +30,8 @@ impl StoreParams for DefaultStoreParams {
 
 /// Implementable by ipld stores. An ipld store behaves like a cache. It will keep blocks
 /// until the cache is full after which it evicts blocks based on an eviction policy. If
-/// a block is aliases, it and it's recursive references will not be evicted or counted towards
-/// the cache size.
+/// a block is aliased (recursive named pin), it and it's recursive references will not
+/// be evicted or counted towards the cache size.
 #[async_trait]
 pub trait Store: Clone + Send + Sync {
     /// Store parameters.

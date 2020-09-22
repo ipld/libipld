@@ -734,6 +734,7 @@ dependencies = [
  "async-trait",
  "cached",
  "criterion",
+ "fnv",
  "libipld-cbor",
  "libipld-cbor-derive",
  "libipld-core",

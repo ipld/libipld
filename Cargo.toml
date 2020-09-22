@@ -11,6 +11,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 async-std = { version = "1.6.3", features = ["attributes"] }
 async-trait = "0.1.40"
 cached = { version = "0.19.0", default-features = false }
+fnv = "1.0.7"
 libipld-cbor = { version = "0.5.0", path = "dag-cbor", optional = true }
 libipld-cbor-derive = { version = "0.5.0", path = "dag-cbor-derive", optional = true }
 libipld-core = { version = "0.5.0", path = "core" }

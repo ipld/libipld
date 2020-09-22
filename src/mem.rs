@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Reference store implementation.
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::Decode;
@@ -6,7 +6,8 @@ use crate::error::{BlockNotFound, Result};
 use crate::ipld::Ipld;
 use crate::store::{Store, StoreParams};
 use async_trait::async_trait;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use fnv::{FnvHashMap as HashMap, FnvHashSet as HashSet};
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 type Id = u64;
@@ -56,7 +57,7 @@ impl<S: StoreParams> BlockStore<S> {
     where
         Ipld: Decode<S::Codecs>,
     {
-        let mut refs = HashSet::new();
+        let mut refs = HashSet::default();
         let mut todo = Vec::new();
         todo.push(id);
         while let Some(id) = todo.pop() {
@@ -140,7 +141,7 @@ impl BlockAliases {
     }
 
     pub fn unalias(&mut self, alias: &[u8]) -> HashSet<Id> {
-        let mut cache = HashSet::new();
+        let mut cache = HashSet::default();
         if let Some((_, refs)) = self.aliases.remove(alias) {
             for id in refs {
                 let count = self.refs.get_mut(&id).expect("can't fail");
@@ -243,6 +244,7 @@ impl<S: StoreParams> LocalStore<S> {
     }
 }
 
+/// Simulated network.
 pub struct GlobalStore<S: StoreParams>(Arc<Mutex<HashSet<Block<S>>>>);
 
 impl<S: StoreParams> Clone for GlobalStore<S> {
@@ -258,10 +260,12 @@ impl<S: StoreParams> Default for GlobalStore<S> {
 }
 
 impl<S: StoreParams> GlobalStore<S> {
+    /// Fetch a block from the network.
     pub fn get(&self, cid: &Cid) -> Option<Block<S>> {
         self.0.lock().unwrap().get(cid).cloned()
     }
 
+    /// Insert a block in the network.
     pub fn insert(&self, block: Block<S>) {
         self.0.lock().unwrap().insert(block);
     }
@@ -322,6 +326,7 @@ impl<S: StoreParams> SharedStore<S> {
     }
 }
 
+/// In memory reference store implementation. Is intended for testing.
 pub struct MemStore<S: StoreParams>(Arc<Mutex<SharedStore<S>>>);
 
 impl<S: StoreParams> Clone for MemStore<S> {
@@ -337,10 +342,16 @@ impl<S: StoreParams> Default for MemStore<S> {
 }
 
 impl<S: StoreParams> MemStore<S> {
+    /// Creates a new `MemStore`.
     pub fn new(network: GlobalStore<S>, cache_size: usize) -> Self {
         Self(Arc::new(Mutex::new(SharedStore::new(network, cache_size))))
     }
 
+    /// Returns the status of a cid.
+    ///
+    /// not in store: None
+    /// evictable: Some(false)
+    /// not evictable: Some(true)
     pub fn pinned(&self, cid: &Cid) -> Option<bool> {
         self.0.lock().unwrap().pinned(cid)
     }
