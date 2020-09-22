@@ -9,7 +9,7 @@ use crate::path::DagPath;
 use async_trait::async_trait;
 
 /// The store parameters.
-pub trait StoreParams: Clone + Send + Sync {
+pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
     /// The multihash type of the store.
     type Hashes: MultihashDigest;
     /// The codec type of the store.
