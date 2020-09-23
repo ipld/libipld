@@ -1,18 +1,15 @@
 //! Store traits.
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::{Codec, Decode, Encode};
+use crate::codec::{Codec, Decode};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
 use crate::path::DagPath;
 use async_trait::async_trait;
-use std::borrow::Cow;
-use std::collections::{HashSet, VecDeque};
-use std::ops::Deref;
 
 /// The store parameters.
-pub trait StoreParams: Clone + Send + Sync {
+pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
     /// The multihash type of the store.
     type Hashes: MultihashDigest;
     /// The codec type of the store.
@@ -31,173 +28,24 @@ impl StoreParams for DefaultStoreParams {
     type Hashes = crate::multihash::Multihash;
 }
 
-/// Store operations.
-pub enum Op<'a, S> {
-    /// Insert block.
-    Insert(Block<S>, HashSet<Cid>),
-    /// Pin a block.
-    Pin(Cow<'a, Cid>),
-    /// Unpin a block.
-    Unpin(Cow<'a, Cid>),
-}
-
-/// An atomic store transaction.
-pub struct Transaction<'a, S> {
-    ops: VecDeque<Op<'a, S>>,
-}
-
-impl<'a, S: StoreParams> Default for Transaction<'a, S> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a, S: StoreParams> Transaction<'a, S> {
-    /// Creates a new transaction.
-    pub fn new() -> Self {
-        Self {
-            ops: VecDeque::new(),
-        }
-    }
-
-    /// Creates a transaction with capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            ops: VecDeque::with_capacity(capacity),
-        }
-    }
-
-    /// Is empty.
-    pub fn is_empty(&self) -> bool {
-        self.ops.is_empty()
-    }
-
-    /// Len.
-    pub fn len(&self) -> usize {
-        self.ops.len()
-    }
-
-    /// Increases the pin count of a block.
-    pub fn pin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
-        self.ops.push_back(Op::Pin(cid.into()));
-    }
-
-    /// Decreases the pin count of a block.
-    pub fn unpin<I: Into<Cow<'a, Cid>>>(&mut self, cid: I) {
-        self.ops.push_back(Op::Unpin(cid.into()));
-    }
-
-    /// Update a block.
-    ///
-    /// Pins the new block and unpins the old one.
-    pub fn update<I: Into<Cow<'a, Cid>>, J: Into<Cow<'a, Cid>>>(&mut self, old: Option<I>, new: J) {
-        self.pin(new);
-        if let Some(old) = old {
-            self.unpin(old);
-        }
-    }
-
-    /// Imports a block.
-    ///
-    /// This will add the block to the front of the transaction.
-    ///
-    /// When importing blocks from a network, they'll be fetched in
-    /// reverse order. This ensures that when inserting the block
-    /// all it's references have been inserted.
-    pub fn import(&mut self, block: Block<S>) -> Result<()>
-    where
-        Ipld: Decode<S::Codecs>,
-    {
-        let refs = block.references()?;
-        self.ops.push_front(Op::Insert(block, refs));
-        Ok(())
-    }
-
-    /// Inserts a block.
-    ///
-    /// This will add the block to the end of the transaction.
-    pub fn insert(&mut self, block: Block<S>) -> Result<()>
-    where
-        Ipld: Decode<S::Codecs>,
-    {
-        let refs = block.references()?;
-        self.ops.push_back(Op::Insert(block, refs));
-        Ok(())
-    }
-
-    /// Creates a block.
-    ///
-    /// This will add the block to the end of the transaction.
-    ///
-    /// When constructing blocks, the all references need to be
-    /// created before the referrer.
-    pub fn create<CE: Codec, T: Encode<CE> + ?Sized>(
-        &mut self,
-        codec: CE,
-        hash: u64,
-        value: &T,
-    ) -> Result<Cid>
-    where
-        CE: Into<S::Codecs>,
-        Ipld: Decode<S::Codecs>,
-    {
-        let block = Block::<S>::encode(codec, hash, value)?;
-        let cid = block.cid().clone();
-        self.insert(block)?;
-        Ok(cid)
-    }
-}
-
-impl<'a, S: StoreParams> IntoIterator for &'a Transaction<'a, S> {
-    type Item = &'a Op<'a, S>;
-    type IntoIter = std::collections::vec_deque::Iter<'a, Op<'a, S>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.ops.iter()
-    }
-}
-
-impl<'a, S: StoreParams> IntoIterator for Transaction<'a, S> {
-    type Item = Op<'a, S>;
-    type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.ops.into_iter()
-    }
-}
-
-/// Implementable by ipld stores.
+/// Implementable by ipld stores. An ipld store behaves like a cache. It will keep blocks
+/// until the cache is full after which it evicts blocks based on an eviction policy. If
+/// a block is aliased (recursive named pin), it and it's recursive references will not
+/// be evicted or counted towards the cache size.
 #[async_trait]
 pub trait Store: Clone + Send + Sync {
     /// Store parameters.
     type Params: StoreParams;
 
     /// Returns a block from the store. If the store supports networking and the block is not
-    /// in the store it fetches it from the network. Dropping the future cancels the request.
-    /// This will not insert the block into the store.
+    /// in the store it fetches it from the network and inserts it into the store. Dropping the
+    /// future cancels the request.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
     async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
-    /// Commits a transaction to the store.
-    async fn commit(&self, tx: Transaction<'_, Self::Params>) -> Result<()>;
-
-    /// Inserts a block into the store.
-    async fn insert(&self, block: Block<Self::Params>) -> Result<()>
-    where
-        Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
-    {
-        let mut tx = Transaction::with_capacity(1);
-        tx.insert(block)?;
-        self.commit(tx).await
-    }
-
-    /// Unpins a block from the store.
-    async fn unpin<'a, I: Into<Cow<'a, Cid>> + Send>(&self, cid: I) -> Result<()> {
-        let mut tx = Transaction::with_capacity(1);
-        tx.unpin(cid.into());
-        self.commit(tx).await
-    }
+    /// Inserts a block into the store and publishes the block on the network.
+    async fn insert(&self, block: &Block<Self::Params>) -> Result<()>;
 
     /// Resolves a path recursively and returns the ipld.
     async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
@@ -216,53 +64,49 @@ pub trait Store: Clone + Send + Sync {
         Ok(ipld.clone())
     }
 
-    /// Recursively gets a block and all it's references, inserts them into the store,
-    /// pins the root and unpins the old root.
-    ///
-    /// If a block wasn't found it returns a `BlockNotFound` error without modifying the store.
-    async fn sync<'a, I: Into<Cow<'a, Cid>> + Send, N: Into<Cow<'a, Cid>> + Send>(
-        &self,
-        old: Option<I>,
-        new: N,
-    ) -> Result<()>
-    where
-        Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
-    {
-        let mut visited = HashSet::new();
-        let new: Cow<'_, Cid> = new.into();
-        let mut tx = Transaction::new();
-        let mut stack: Vec<Cid> = vec![new.deref().clone()];
-        while let Some(cid) = stack.pop() {
-            if visited.contains(&cid) {
-                continue;
-            }
-            let block = self.get(&cid).await?;
-            for r in block.references()? {
-                stack.push(r);
-            }
-            tx.import(block)?;
-            visited.insert(cid);
-        }
-        tx.update(old, new);
-        self.commit(tx).await
-    }
-
-    /// Flushes the write buffer.
-    async fn flush(&self) -> Result<()> {
-        Ok(())
-    }
-}
-
-/// Implemented by ipld storage backends that support aliasing `Cid`s with arbitrary
-/// byte strings.
-#[async_trait]
-pub trait AliasStore: Store {
-    /// Creates an alias for a `Cid` with announces the alias on the public network.
-    async fn alias(&self, alias: &[u8], cid: &Cid) -> Result<()>;
-
-    /// Removes an alias for a `Cid`.
-    async fn unalias(&self, alias: &[u8]) -> Result<()>;
+    /// Creates an alias for a `Cid`. To alias a block all it's recursive references
+    /// must be in the store. If blocks are missing, they will be fetched from the network. If
+    /// they aren't found, it will return a `BlockNotFound` error.
+    async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
 
     /// Resolves an alias for a `Cid`.
-    async fn resolve(&self, alias: &[u8]) -> Result<Option<Cid>>;
+    async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>>;
+}
+
+/// Creates a static alias concatenating the module path with an identifier.
+#[macro_export]
+macro_rules! alias {
+    ($name:ident) => {
+        concat!(module_path!(), "::", stringify!($name))
+    };
+}
+
+/// Creates a dynamic alias by appending a id.
+pub fn dyn_alias(alias: &'static str, id: u64) -> String {
+    let mut alias = alias.to_string();
+    alias.push_str("::");
+    alias.push_str(&id.to_string());
+    alias
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod aliases {
+        pub const CHAIN_ALIAS: &str = alias!(CHAIN_ALIAS);
+    }
+
+    #[test]
+    fn test_alias() {
+        assert_eq!(alias!(test_alias), "libipld::store::tests::test_alias");
+        assert_eq!(
+            aliases::CHAIN_ALIAS,
+            "libipld::store::tests::aliases::CHAIN_ALIAS"
+        );
+        assert_eq!(
+            dyn_alias(aliases::CHAIN_ALIAS, 3).as_str(),
+            "libipld::store::tests::aliases::CHAIN_ALIAS::3"
+        );
+    }
 }

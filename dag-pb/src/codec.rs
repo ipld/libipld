@@ -117,7 +117,7 @@ impl TryFrom<&Ipld> for PbLink {
 
     fn try_from(ipld: &Ipld) -> core::result::Result<PbLink, Self::Error> {
         let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
-            cid.clone()
+            *cid
         } else {
             return Err(TypeError::new(TypeErrorType::Link, ipld));
         };
