@@ -1,6 +1,6 @@
 [package]
 name = "libipld-core"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -11,5 +11,5 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 anyhow = "1.0.32"
 multibase = "0.8.0"
 thiserror = "1.0.20"
-tiny-cid = "0.2.5"
-tiny-multihash = "0.4.5"
+tiny-cid = "0.2.8"
+tiny-multihash = "0.4.7"
