@@ -92,7 +92,7 @@ macro_rules! derive_cache {
                 self.$field.get(cid).await
             }
 
-            async fn insert(&self, payload: $type) -> Result<$crate::cid::Cid> {
+            async fn insert(&self, payload: $type) -> $crate::error::Result<$crate::cid::Cid> {
                 self.$field.insert(payload).await
             }
         }
