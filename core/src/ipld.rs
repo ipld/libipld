@@ -55,7 +55,28 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
 }
 
 impl Ipld {
-    /// Indexes into a ipld list or map.
+    /// Destructs an ipld list or map
+    pub fn take<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Result<Self, TypeError> {
+        let index = index.into();
+        let type_err = |index, ipld| TypeError::new(index, ipld);
+        match self {
+            Ipld::List(mut l) => match index {
+                IpldIndex::List(i) => Some(i),
+                IpldIndex::Map(ref key) => key.parse().ok(),
+                IpldIndex::MapRef(key) => key.parse().ok(),
+            }
+            .map(|i: usize| l.remove(i))
+            .ok_or_else(|| type_err(index, Ipld::List(l))),
+            Ipld::Map(mut m) => match index {
+                IpldIndex::Map(ref key) => m.remove(key),
+                IpldIndex::MapRef(key) => m.remove(key),
+                IpldIndex::List(i) => m.remove(&i.to_string()),
+            }
+            .ok_or_else(|| type_err(index, Ipld::Map(m))),
+            a => Err(TypeError::new(index, a)),
+        }
+    }
+    /// Indexes into an ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
         let index = index.into();
         let ipld = match self {
