@@ -34,9 +34,9 @@ jobs:
           host: macos-latest
           cross: true
 
-       # - target: wasm32-unknown-unknown
-       #   host: ubuntu-latest
-       #   cross: true
+        - target: wasm32-unknown-unknown
+          host: ubuntu-latest
+          cross: true
     env:
       RUST_BACKTRACE: 1
       CARGO_INCREMENTAL: 0
