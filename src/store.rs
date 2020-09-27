@@ -19,11 +19,11 @@ pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
 }
 
 /// Default store parameters.
-#[derive(Clone)]
-pub struct DefaultStoreParams;
+#[derive(Clone, Default)]
+pub struct DefaultParams;
 
-impl StoreParams for DefaultStoreParams {
-    const MAX_BLOCK_SIZE: usize = usize::MAX;
+impl StoreParams for DefaultParams {
+    const MAX_BLOCK_SIZE: usize = 1_048_576;
     type Codecs = crate::Multicodec;
     type Hashes = crate::multihash::Multihash;
 }
@@ -52,16 +52,14 @@ pub trait Store: Clone + Send + Sync {
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
-        let mut root = self.get(path.root()).await?.ipld()?;
-        let mut ipld = &root;
+        let mut ipld = self.get(path.root()).await?.ipld()?;
         for segment in path.path().iter() {
-            ipld = ipld.get(segment)?;
+            ipld = ipld.take(segment)?;
             if let Ipld::Link(cid) = ipld {
-                root = self.get(cid).await?.ipld()?;
-                ipld = &root;
+                ipld = self.get(&cid).await?.ipld()?;
             }
         }
-        Ok(ipld.clone())
+        Ok(ipld)
     }
 
     /// Creates an alias for a `Cid`. To alias a block all it's recursive references
@@ -92,6 +90,7 @@ pub fn dyn_alias(alias: &'static str, id: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use libipld_macro::ipld;
 
     mod aliases {
         pub const CHAIN_ALIAS: &str = alias!(CHAIN_ALIAS);
@@ -108,5 +107,25 @@ mod tests {
             dyn_alias(aliases::CHAIN_ALIAS, 3).as_str(),
             "libipld::store::tests::aliases::CHAIN_ALIAS::3"
         );
+    }
+    #[async_std::test]
+    async fn test_query() -> Result<()> {
+        use crate::mem::MemStore;
+        use crate::multihash::BLAKE2S_256;
+        use libipld_cbor::DagCborCodec;
+
+        let store = MemStore::<DefaultParams>::default();
+        let leaf = ipld!({"name": "John Doe"});
+        let leaf_block = Block::encode(DagCborCodec, BLAKE2S_256, &leaf).unwrap();
+        let root = ipld!({ "list": [leaf_block.cid()] });
+        store.insert(&leaf_block).await.unwrap();
+        let root_block = Block::encode(DagCborCodec, BLAKE2S_256, &root).unwrap();
+        store.insert(&root_block).await.unwrap();
+        let path = DagPath::new(root_block.cid(), "list/0/name");
+        assert_eq!(
+            store.query(&path).await.unwrap(),
+            Ipld::String("John Doe".to_string())
+        );
+        Ok(())
     }
 }

@@ -76,6 +76,22 @@ pub enum TypeErrorType {
     Index(usize),
 }
 
+impl From<Ipld> for TypeErrorType {
+    fn from(ipld: Ipld) -> Self {
+        match ipld {
+            Ipld::Null => Self::Null,
+            Ipld::Bool(_) => Self::Bool,
+            Ipld::Integer(_) => Self::Integer,
+            Ipld::Float(_) => Self::Float,
+            Ipld::String(_) => Self::String,
+            Ipld::Bytes(_) => Self::Bytes,
+            Ipld::List(_) => Self::List,
+            Ipld::Map(_) => Self::Map,
+            Ipld::Link(_) => Self::Link,
+        }
+    }
+}
+
 impl From<&Ipld> for TypeErrorType {
     fn from(ipld: &Ipld) -> Self {
         match ipld {
