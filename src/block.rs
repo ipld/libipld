@@ -158,10 +158,10 @@ impl<S: StoreParams> Block<S> {
     /// use libipld::codec_impl::Multicodec;
     /// use libipld::ipld::Ipld;
     /// use libipld::multihash::{Multihash, SHA2_256};
-    /// use libipld::store::DefaultStoreParams;
+    /// use libipld::store::DefaultParams;
     ///
     /// let block =
-    ///     Block::<DefaultStoreParams>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
+    ///     Block::<DefaultParams>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
     /// let ipld = block.decode::<DagCborCodec, Ipld>().unwrap();
     ///
     /// assert_eq!(ipld, Ipld::String("Hello World!".to_string()));
@@ -204,9 +204,9 @@ mod tests {
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::SHA2_256;
-    use crate::store::DefaultStoreParams;
+    use crate::store::DefaultParams;
 
-    type IpldBlock = Block<DefaultStoreParams>;
+    type IpldBlock = Block<DefaultParams>;
 
     #[test]
     fn test_references() {

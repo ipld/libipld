@@ -27,4 +27,4 @@ pub use codec_impl::Multicodec;
 pub use ipld::Ipld;
 pub use multihash::Multihash;
 pub use path::{DagPath, Path};
-pub use store::DefaultStoreParams;
+pub use store::DefaultParams;

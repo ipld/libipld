@@ -19,11 +19,11 @@ pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
 }
 
 /// Default store parameters.
-#[derive(Clone)]
-pub struct DefaultStoreParams;
+#[derive(Clone, Default)]
+pub struct DefaultParams;
 
-impl StoreParams for DefaultStoreParams {
-    const MAX_BLOCK_SIZE: usize = usize::MAX;
+impl StoreParams for DefaultParams {
+    const MAX_BLOCK_SIZE: usize = 1_048_576;
     type Codecs = crate::Multicodec;
     type Hashes = crate::multihash::Multihash;
 }
@@ -112,10 +112,9 @@ mod tests {
     async fn test_query() -> Result<()> {
         use crate::mem::MemStore;
         use crate::multihash::BLAKE2S_256;
-        use crate::store::DefaultStoreParams;
         use libipld_cbor::DagCborCodec;
 
-        let store = MemStore::<DefaultStoreParams>::default();
+        let store = MemStore::<DefaultParams>::default();
         let leaf = ipld!({"name": "John Doe"});
         let leaf_block = Block::encode(DagCborCodec, BLAKE2S_256, &leaf).unwrap();
         let root = ipld!({ "list": [leaf_block.cid()] });

@@ -113,7 +113,7 @@ mod tests {
     use crate::cbor::DagCborCodec;
     use crate::mem::MemStore;
     use crate::multihash::BLAKE2B_256;
-    use crate::store::DefaultStoreParams;
+    use crate::store::DefaultParams;
     use core::ops::Deref;
 
     struct OffchainClient<S> {
@@ -133,7 +133,7 @@ mod tests {
 
     #[async_std::test]
     async fn test_cache() {
-        let store = MemStore::<DefaultStoreParams>::default();
+        let store = MemStore::<DefaultParams>::default();
         let client = OffchainClient {
             store: store.clone(),
             number: IpldCache::new(store, DagCborCodec, BLAKE2B_256, 1),

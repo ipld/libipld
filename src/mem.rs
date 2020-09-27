@@ -391,10 +391,10 @@ mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
     use crate::multihash::SHA2_256;
-    use crate::store::DefaultStoreParams;
+    use crate::store::DefaultParams;
     use crate::{alias, ipld};
 
-    fn create_block(ipld: &Ipld) -> Block<DefaultStoreParams> {
+    fn create_block(ipld: &Ipld) -> Block<DefaultParams> {
         Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
     }
 

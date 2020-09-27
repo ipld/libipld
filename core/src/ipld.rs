@@ -220,7 +220,7 @@ mod tests {
         let ipld = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
         assert_eq!(ipld.clone().take(0).unwrap(), Ipld::Integer(0));
         assert_eq!(ipld.clone().take(1).unwrap(), Ipld::Integer(1));
-        assert_eq!(ipld.clone().take(2).unwrap(), Ipld::Integer(2));
+        assert_eq!(ipld.take(2).unwrap(), Ipld::Integer(2));
 
         let mut map = BTreeMap::new();
         map.insert("a".to_string(), Ipld::Integer(0));
