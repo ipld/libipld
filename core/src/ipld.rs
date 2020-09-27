@@ -161,13 +161,13 @@ mod tests {
     use crate::multihash::{Multihash, MultihashDigest, SHA2_256};
 
     #[test]
-    fn ipld_bool_from() {
+    fn test_ipld_bool_from() {
         assert_eq!(Ipld::Bool(true), Ipld::from(true));
         assert_eq!(Ipld::Bool(false), Ipld::from(false));
     }
 
     #[test]
-    fn ipld_integer_from() {
+    fn test_ipld_integer_from() {
         assert_eq!(Ipld::Integer(1), Ipld::from(1i8));
         assert_eq!(Ipld::Integer(1), Ipld::from(1i16));
         assert_eq!(Ipld::Integer(1), Ipld::from(1i32));
@@ -181,13 +181,13 @@ mod tests {
     }
 
     #[test]
-    fn ipld_float_from() {
+    fn test_ipld_float_from() {
         assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
         assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]
-    fn ipld_string_from() {
+    fn test_ipld_string_from() {
         assert_eq!(Ipld::String("a string".into()), Ipld::from("a string"));
         assert_eq!(
             Ipld::String("a string".into()),
@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn ipld_bytes_from() {
+    fn test_ipld_bytes_from() {
         assert_eq!(
             Ipld::Bytes(vec![0, 1, 2, 3]),
             Ipld::from(&[0u8, 1u8, 2u8, 3u8][..])
@@ -208,7 +208,7 @@ mod tests {
     }
 
     #[test]
-    fn ipld_link_from() {
+    fn test_ipld_link_from() {
         let data = vec![0, 1, 2, 3];
         let hash = Multihash::new(SHA2_256, &data).unwrap().to_raw().unwrap();
         let cid = Cid::new_v0(hash).unwrap();
@@ -216,7 +216,22 @@ mod tests {
     }
 
     #[test]
-    fn index() {
+    fn test_take() {
+        let ipld = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
+        assert_eq!(ipld.clone().take(0).unwrap(), Ipld::Integer(0));
+        assert_eq!(ipld.clone().take(1).unwrap(), Ipld::Integer(1));
+        assert_eq!(ipld.clone().take(2).unwrap(), Ipld::Integer(2));
+
+        let mut map = BTreeMap::new();
+        map.insert("a".to_string(), Ipld::Integer(0));
+        map.insert("b".to_string(), Ipld::Integer(1));
+        map.insert("c".to_string(), Ipld::Integer(2));
+        let ipld = Ipld::Map(map);
+        assert_eq!(ipld.take("a").unwrap(), Ipld::Integer(0));
+    }
+
+    #[test]
+    fn test_get() {
         let ipld = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)]);
         assert_eq!(ipld.get(0).unwrap(), &Ipld::Integer(0));
         assert_eq!(ipld.get(1).unwrap(), &Ipld::Integer(1));
