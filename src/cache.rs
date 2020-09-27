@@ -4,6 +4,7 @@ use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
 use crate::ipld::Ipld;
+use crate::multihash::BLAKE2S_256;
 use crate::store::{Store, StoreParams};
 use async_std::sync::Mutex;
 use async_trait::async_trait;
@@ -11,11 +12,18 @@ use cached::stores::SizedCache;
 use cached::Cached;
 
 /// Cache for ipld blocks.
+#[derive(Debug)]
 pub struct IpldCache<S, C, T> {
     store: S,
     codec: C,
     hash: u64,
     cache: Mutex<SizedCache<Cid, T>>,
+}
+
+impl<S: Default, C: Default, T> Default for IpldCache<S, C, T> {
+    fn default() -> Self {
+        Self::new(S::default(), C::default(), BLAKE2S_256, 12)
+    }
 }
 
 impl<S, C, T> IpldCache<S, C, T> {

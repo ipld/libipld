@@ -11,7 +11,7 @@ pub mod encode;
 pub mod error;
 
 /// CBOR codec.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct DagCborCodec;
 
 impl Codec for DagCborCodec {}
