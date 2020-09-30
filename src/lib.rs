@@ -24,7 +24,8 @@ pub use libipld_pb as pb;
 pub use block::Block;
 pub use cid::Cid;
 pub use codec_impl::Multicodec;
-pub use ipld::Ipld;
 pub use multihash::Multihash;
 pub use path::{DagPath, Path};
 pub use store::DefaultParams;
+
+pub use libipld_core::Ipld;

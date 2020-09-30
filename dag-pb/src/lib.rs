@@ -6,7 +6,7 @@ pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};
 use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::error::{Result, UnsupportedCodec};
-use libipld_core::ipld::Ipld;
+use libipld_core::ipld::{Ipld, Size};
 use std::io::{Read, Write};
 
 mod codec;
@@ -19,7 +19,7 @@ impl Codec for DagPbCodec {}
 
 impl From<DagPbCodec> for u64 {
     fn from(_: DagPbCodec) -> Self {
-        libipld_core::cid::DAG_PROTOBUF
+        0x70
     }
 }
 
@@ -31,16 +31,16 @@ impl TryFrom<u64> for DagPbCodec {
     }
 }
 
-impl Encode<DagPbCodec> for Ipld {
+impl<S: Size> Encode<DagPbCodec> for Ipld<S> {
     fn encode<W: Write>(&self, _: DagPbCodec, w: &mut W) -> Result<()> {
-        let pb_node: PbNode = self.try_into()?;
+        let pb_node: PbNode<S> = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
         Ok(())
     }
 }
 
-impl Decode<DagPbCodec> for Ipld {
+impl<S: Size> Decode<DagPbCodec> for Ipld<S> {
     fn decode<R: Read>(_: DagPbCodec, r: &mut R) -> Result<Self> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
@@ -51,14 +51,16 @@ impl Decode<DagPbCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Code, MultihashCode};
+    use libipld_core::raw::RawCodec;
+    use libipld_core::Ipld;
     use std::collections::BTreeMap;
 
     #[test]
     fn test_encode_decode() {
-        let digest = Multihash::new(SHA2_256, &b"cid"[..]).unwrap();
-        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
+        let digest = Code::Sha2_256.digest(&b"cid"[..]);
+        let cid = Cid::new_v1(RawCodec.into(), digest);
         let mut pb_link = BTreeMap::<String, Ipld>::new();
         pb_link.insert("Hash".to_string(), cid.into());
         pb_link.insert("Name".to_string(), "block".to_string().into());

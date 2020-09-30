@@ -1,7 +1,7 @@
 use libipld_cbor::error::{InvalidCidPrefix, LengthOutOfRange};
 use libipld_cbor::DagCborCodec;
 use libipld_core::codec::Codec;
-use libipld_core::ipld::Ipld;
+use libipld_core::Ipld;
 
 #[test]
 fn roundtrip_with_cid() {

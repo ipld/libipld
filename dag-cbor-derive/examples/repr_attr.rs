@@ -1,6 +1,6 @@
 use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
-use libipld::ipld::Ipld;
+use libipld::Ipld;
 use libipld::{ipld, DagCbor};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]

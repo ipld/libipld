@@ -1,11 +1,12 @@
 //! Ipld representation.
 use crate::cid::Cid;
+pub use crate::cid::{Size, U64};
 use crate::error::TypeError;
 use std::collections::{BTreeMap, HashSet};
 
 /// Ipld
 #[derive(Clone, Debug, PartialEq)]
-pub enum Ipld {
+pub enum Ipld<S: Size> {
     /// Represents the absence of a value or the value undefined.
     Null,
     /// Represents a boolean value.
@@ -19,11 +20,11 @@ pub enum Ipld {
     /// Represents a sequence of bytes.
     Bytes(Vec<u8>),
     /// Represents a list.
-    List(Vec<Ipld>),
+    List(Vec<Ipld<S>>),
     /// Represents a map.
-    Map(BTreeMap<String, Ipld>),
+    Map(BTreeMap<String, Ipld<S>>),
     /// Represents a link to an Ipld node.
-    Link(Cid),
+    Link(Cid<S>),
 }
 
 /// An index into ipld
@@ -54,7 +55,7 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
     }
 }
 
-impl Ipld {
+impl<S: Size> Ipld<S> {
     /// Destructs an ipld list or map
     pub fn take<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Result<Self, TypeError> {
         let index = index.into();
@@ -104,15 +105,15 @@ impl Ipld {
     }
 
     /// Returns an iterator.
-    pub fn iter(&self) -> IpldIter<'_> {
+    pub fn iter(&self) -> IpldIter<'_, S> {
         IpldIter {
             stack: vec![Box::new(vec![self].into_iter())],
         }
     }
 
     /// Returns the references to other blocks.
-    pub fn references(&self) -> HashSet<Cid> {
-        let mut set: HashSet<Cid> = Default::default();
+    pub fn references(&self) -> HashSet<Cid<S>> {
+        let mut set: HashSet<Cid<S>> = Default::default();
         for ipld in self.iter() {
             if let Ipld::Link(cid) = ipld {
                 set.insert(cid.to_owned());
@@ -123,12 +124,12 @@ impl Ipld {
 }
 
 /// Ipld iterator.
-pub struct IpldIter<'a> {
-    stack: Vec<Box<dyn Iterator<Item = &'a Ipld> + 'a>>,
+pub struct IpldIter<'a, S: Size> {
+    stack: Vec<Box<dyn Iterator<Item = &'a Ipld<S>> + 'a>>,
 }
 
-impl<'a> Iterator for IpldIter<'a> {
-    type Item = &'a Ipld;
+impl<'a, S: Size> Iterator for IpldIter<'a, S> {
+    type Item = &'a Ipld<S>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -158,7 +159,9 @@ impl<'a> Iterator for IpldIter<'a> {
 mod tests {
     use super::*;
     use crate::cid::Cid;
-    use crate::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use crate::multihash::{Code, MultihashCode};
+
+    type Ipld = super::Ipld<U64>;
 
     #[test]
     fn test_ipld_bool_from() {
@@ -210,9 +213,9 @@ mod tests {
     #[test]
     fn test_ipld_link_from() {
         let data = vec![0, 1, 2, 3];
-        let hash = Multihash::new(SHA2_256, &data).unwrap().to_raw().unwrap();
+        let hash = Code::Sha2_256.digest(&data);
         let cid = Cid::new_v0(hash).unwrap();
-        assert_eq!(Ipld::Link(cid), Ipld::from(cid));
+        assert_eq!(Ipld::Link(cid.clone()), Ipld::from(cid));
     }
 
     #[test]

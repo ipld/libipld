@@ -1,4 +1,5 @@
 //! Implements the raw codec.
+use crate::cid::Size;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::{Result, TypeError, TypeErrorType, UnsupportedCodec};
 use crate::ipld::Ipld;
@@ -13,7 +14,7 @@ impl Codec for RawCodec {}
 
 impl From<RawCodec> for u64 {
     fn from(_: RawCodec) -> Self {
-        crate::cid::RAW
+        0x55
     }
 }
 
@@ -43,7 +44,7 @@ impl Encode<RawCodec> for Vec<u8> {
     }
 }
 
-impl Encode<RawCodec> for Ipld {
+impl<S: Size> Encode<RawCodec> for Ipld<S> {
     fn encode<W: Write>(&self, c: RawCodec, w: &mut W) -> Result<()> {
         if let Ipld::Bytes(bytes) = self {
             bytes.encode(c, w)
@@ -68,7 +69,7 @@ impl Decode<RawCodec> for Vec<u8> {
     }
 }
 
-impl Decode<RawCodec> for Ipld {
+impl<S: Size> Decode<RawCodec> for Ipld<S> {
     fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self> {
         let bytes: Vec<u8> = Decode::decode(c, r)?;
         Ok(Ipld::Bytes(bytes))
@@ -78,6 +79,7 @@ impl Decode<RawCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ipld;
 
     #[test]
     fn test_raw_codec() {

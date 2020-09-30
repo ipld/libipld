@@ -4,6 +4,7 @@ use crate::cid::Cid;
 use crate::codec::Decode;
 use crate::error::{BlockNotFound, Result};
 use crate::ipld::Ipld;
+use crate::multihash::MultihashCode;
 use crate::store::{Store, StoreParams};
 use async_trait::async_trait;
 use fnv::{FnvHashMap as HashMap, FnvHashSet as HashSet};
@@ -16,7 +17,7 @@ type Atime = u64;
 struct BlockStore<S: StoreParams> {
     next_id: Id,
     blocks: HashMap<Id, Block<S>>,
-    lookup: HashMap<Cid, Id>,
+    lookup: HashMap<Cid<<S::Hashes as MultihashCode>::AllocSize>, Id>,
 }
 
 impl<S: StoreParams> BlockStore<S> {
@@ -32,7 +33,7 @@ impl<S: StoreParams> BlockStore<S> {
         self.blocks.get(&id)
     }
 
-    pub fn lookup(&self, cid: &Cid) -> Option<Id> {
+    pub fn lookup(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<Id> {
         self.lookup.get(cid).cloned()
     }
 
@@ -42,7 +43,7 @@ impl<S: StoreParams> BlockStore<S> {
         }
         let id = self.next_id;
         self.next_id += 1;
-        self.lookup.insert(*block.cid(), id);
+        self.lookup.insert(block.cid().clone(), id);
         self.blocks.insert(id, block);
         Some(id)
     }
@@ -55,7 +56,7 @@ impl<S: StoreParams> BlockStore<S> {
 
     pub fn references(&self, id: Id) -> Result<HashSet<Id>>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld<<S::Hashes as MultihashCode>::AllocSize>: Decode<S::Codecs>,
     {
         let mut refs = HashSet::default();
         let mut todo = Vec::new();
@@ -173,7 +174,7 @@ impl<S: StoreParams> LocalStore<S> {
         }
     }
 
-    pub fn get(&mut self, cid: &Cid) -> Option<Block<S>> {
+    pub fn get(&mut self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<Block<S>> {
         if let Some(id) = self.blocks.lookup(cid) {
             self.cache.hit(id);
             self.blocks.get(id).cloned()
@@ -201,21 +202,31 @@ impl<S: StoreParams> LocalStore<S> {
         self.cache.remove(id);
     }
 
-    pub fn resolve<T: AsRef<[u8]>>(&self, alias: T) -> Option<Cid> {
+    pub fn resolve<T: AsRef<[u8]>>(
+        &self,
+        alias: T,
+    ) -> Option<Cid<<S::Hashes as MultihashCode>::AllocSize>> {
         if let Some(id) = self.aliases.resolve(alias.as_ref()) {
-            Some(*self.blocks.get(id).expect("can't fail").cid())
+            Some(self.blocks.get(id).expect("can't fail").cid().clone())
         } else {
             None
         }
     }
 
-    pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
+    pub fn alias<T: AsRef<[u8]>>(
+        &mut self,
+        alias: T,
+        cid: Option<&Cid<<S::Hashes as MultihashCode>::AllocSize>>,
+    ) -> Result<()>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld<<S::Hashes as MultihashCode>::AllocSize>: Decode<S::Codecs>,
     {
         let alias = alias.as_ref();
         let ins = if let Some(cid) = cid {
-            let id = self.blocks.lookup(cid).ok_or_else(|| BlockNotFound(*cid))?;
+            let id = self
+                .blocks
+                .lookup(cid)
+                .ok_or_else(|| BlockNotFound(cid.clone()))?;
             let refs = self.blocks.references(id)?;
             Some((id, refs))
         } else {
@@ -235,7 +246,7 @@ impl<S: StoreParams> LocalStore<S> {
         Ok(())
     }
 
-    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+    pub fn pinned(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<bool> {
         if let Some(id) = self.blocks.lookup(cid) {
             Some(!self.cache.contains(id))
         } else {
@@ -261,7 +272,7 @@ impl<S: StoreParams> Default for GlobalStore<S> {
 
 impl<S: StoreParams> GlobalStore<S> {
     /// Fetch a block from the network.
-    pub fn get(&self, cid: &Cid) -> Option<Block<S>> {
+    pub fn get(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<Block<S>> {
         self.0.lock().unwrap().get(cid).cloned()
     }
 
@@ -284,7 +295,7 @@ impl<S: StoreParams> SharedStore<S> {
         }
     }
 
-    pub fn get(&mut self, cid: &Cid) -> Option<Block<S>> {
+    pub fn get(&mut self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<Block<S>> {
         if let Some(block) = self.local.get(cid) {
             return Some(block);
         }
@@ -300,19 +311,28 @@ impl<S: StoreParams> SharedStore<S> {
         self.network.insert(block);
     }
 
-    pub fn resolve<T: AsRef<[u8]>>(&self, alias: T) -> Option<Cid> {
+    pub fn resolve<T: AsRef<[u8]>>(
+        &self,
+        alias: T,
+    ) -> Option<Cid<<S::Hashes as MultihashCode>::AllocSize>> {
         self.local.resolve(alias)
     }
 
-    pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
+    pub fn alias<T: AsRef<[u8]>>(
+        &mut self,
+        alias: T,
+        cid: Option<&Cid<<S::Hashes as MultihashCode>::AllocSize>>,
+    ) -> Result<()>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld<<S::Hashes as MultihashCode>::AllocSize>: Decode<S::Codecs>,
     {
         loop {
             if let Err(err) = self.local.alias(alias.as_ref(), cid) {
-                if let Some(BlockNotFound(cid)) = err.downcast_ref::<BlockNotFound>() {
+                if let Some(BlockNotFound(cid)) =
+                    err.downcast_ref::<BlockNotFound<<S::Hashes as MultihashCode>::AllocSize>>()
+                {
                     if self.get(cid).is_none() {
-                        return Err(BlockNotFound(*cid).into());
+                        return Err(BlockNotFound(cid.clone()).into());
                     }
                 }
             } else {
@@ -321,7 +341,7 @@ impl<S: StoreParams> SharedStore<S> {
         }
     }
 
-    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+    pub fn pinned(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<bool> {
         self.local.pinned(cid)
     }
 }
@@ -352,7 +372,7 @@ impl<S: StoreParams> MemStore<S> {
     /// not in store: None
     /// evictable: Some(false)
     /// not evictable: Some(true)
-    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+    pub fn pinned(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Option<bool> {
         self.0.lock().unwrap().pinned(cid)
     }
 }
@@ -360,16 +380,16 @@ impl<S: StoreParams> MemStore<S> {
 #[async_trait]
 impl<S: StoreParams> Store for MemStore<S>
 where
-    Ipld: Decode<S::Codecs>,
+    Ipld<<S::Hashes as MultihashCode>::AllocSize>: Decode<S::Codecs>,
 {
     type Params = S;
 
-    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
+    async fn get(&self, cid: &Cid<<S::Hashes as MultihashCode>::AllocSize>) -> Result<Block<S>> {
         self.0
             .lock()
             .unwrap()
             .get(cid)
-            .ok_or_else(|| BlockNotFound(*cid).into())
+            .ok_or_else(|| BlockNotFound(cid.clone()).into())
     }
 
     async fn insert(&self, block: &Block<S>) -> Result<()> {
@@ -377,11 +397,18 @@ where
         Ok(())
     }
 
-    async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()> {
+    async fn alias<T: AsRef<[u8]> + Send + Sync>(
+        &self,
+        alias: T,
+        cid: Option<&Cid<<S::Hashes as MultihashCode>::AllocSize>>,
+    ) -> Result<()> {
         self.0.lock().unwrap().alias(alias, cid)
     }
 
-    async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>> {
+    async fn resolve<T: AsRef<[u8]> + Send + Sync>(
+        &self,
+        alias: T,
+    ) -> Result<Option<Cid<<S::Hashes as MultihashCode>::AllocSize>>> {
         Ok(self.0.lock().unwrap().resolve(alias))
     }
 }
@@ -390,12 +417,14 @@ where
 mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
-    use crate::multihash::SHA2_256;
+    use crate::multihash::Code;
     use crate::store::DefaultParams;
     use crate::{alias, ipld};
 
-    fn create_block(ipld: &Ipld) -> Block<DefaultParams> {
-        Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
+    fn create_block(
+        ipld: &Ipld<<<DefaultParams as StoreParams>::Hashes as MultihashCode>::AllocSize>,
+    ) -> Block<DefaultParams> {
+        Block::encode(DagCborCodec, Code::Sha2_256.into(), ipld).unwrap()
     }
 
     macro_rules! assert_evicted {

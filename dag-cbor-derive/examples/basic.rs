@@ -1,6 +1,6 @@
 use libipld::cbor::{DagCborCodec, Result};
 use libipld::codec::{Decode, Encode};
-use libipld::ipld::Ipld;
+use libipld::Ipld;
 use libipld::{ipld, DagCbor};
 use std::collections::BTreeMap;
 

@@ -5,7 +5,7 @@
 use core::convert::TryFrom;
 use libipld_core::codec::{Codec, Decode, Encode};
 use libipld_core::error::{Result, UnsupportedCodec};
-use libipld_core::ipld::Ipld;
+use libipld_core::ipld::{Ipld, Size};
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
 use std::io::{Read, Write};
@@ -20,7 +20,7 @@ impl Codec for DagJsonCodec {}
 
 impl From<DagJsonCodec> for u64 {
     fn from(_: DagJsonCodec) -> Self {
-        libipld_core::cid::DAG_JSON
+        0x0129
     }
 }
 
@@ -32,13 +32,13 @@ impl TryFrom<u64> for DagJsonCodec {
     }
 }
 
-impl Encode<DagJsonCodec> for Ipld {
+impl<S: Size> Encode<DagJsonCodec> for Ipld<S> {
     fn encode<W: Write>(&self, _: DagJsonCodec, w: &mut W) -> Result<()> {
         Ok(codec::encode(self, w)?)
     }
 }
 
-impl Decode<DagJsonCodec> for Ipld {
+impl<S: Size> Decode<DagJsonCodec> for Ipld<S> {
     fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
         Ok(codec::decode(r)?)
     }
@@ -47,20 +47,23 @@ impl Decode<DagJsonCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Code, MultihashCode, U64};
+    use libipld_core::raw::RawCodec;
     use std::collections::BTreeMap;
+
+    type Ipld = super::Ipld<U64>;
 
     #[test]
     fn encode_struct() {
-        let digest = Multihash::new(SHA2_256, &b"block"[..]).unwrap();
-        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
+        let digest = Code::Sha2_256.digest(&b"block"[..]);
+        let cid = Cid::new_v1(RawCodec.into(), digest);
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }
         let mut map = BTreeMap::new();
         map.insert("name".to_string(), Ipld::String("Hello World!".to_string()));
-        map.insert("details".to_string(), Ipld::Link(cid));
+        map.insert("details".to_string(), Ipld::Link(cid.clone()));
         let contact = Ipld::Map(map);
 
         let contact_encoded = DagJsonCodec.encode(&contact).unwrap();

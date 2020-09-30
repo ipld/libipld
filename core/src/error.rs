@@ -1,5 +1,5 @@
 //! `Ipld` error definitions.
-use crate::cid::Cid;
+use crate::cid::{Cid, Size};
 use crate::ipld::{Ipld, IpldIndex};
 pub use anyhow::{Error, Result};
 use thiserror::Error;
@@ -27,7 +27,7 @@ pub struct InvalidMultihash(pub Vec<u8>);
 /// The block wasn't found. The supplied string is a CID.
 #[derive(Debug, Error)]
 #[error("Failed to retrive block {0}.")]
-pub struct BlockNotFound(pub Cid);
+pub struct BlockNotFound<S: Size>(pub Cid<S>);
 
 /// Type error.
 #[derive(Debug, Error)]
@@ -76,8 +76,8 @@ pub enum TypeErrorType {
     Index(usize),
 }
 
-impl From<Ipld> for TypeErrorType {
-    fn from(ipld: Ipld) -> Self {
+impl<S: Size> From<Ipld<S>> for TypeErrorType {
+    fn from(ipld: Ipld<S>) -> Self {
         match ipld {
             Ipld::Null => Self::Null,
             Ipld::Bool(_) => Self::Bool,
@@ -92,8 +92,8 @@ impl From<Ipld> for TypeErrorType {
     }
 }
 
-impl From<&Ipld> for TypeErrorType {
-    fn from(ipld: &Ipld) -> Self {
+impl<S: Size> From<&Ipld<S>> for TypeErrorType {
+    fn from(ipld: &Ipld<S>) -> Self {
         match ipld {
             Ipld::Null => Self::Null,
             Ipld::Bool(_) => Self::Bool,

@@ -1,5 +1,6 @@
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
+use core::marker::PhantomData;
+use libipld_core::cid::{Cid, Size};
 use libipld_core::ipld::Ipld;
 use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
@@ -12,18 +13,21 @@ use std::iter::FromIterator;
 
 const LINK_KEY: &str = "/";
 
-pub fn encode<W: Write>(ipld: &Ipld, writer: &mut W) -> Result<(), Error> {
+pub fn encode<S: Size, W: Write>(ipld: &Ipld<S>, writer: &mut W) -> Result<(), Error> {
     let mut ser = Serializer::new(writer);
     serialize(&ipld, &mut ser)?;
     Ok(())
 }
 
-pub fn decode<R: Read>(r: &mut R) -> Result<Ipld, Error> {
+pub fn decode<S: Size, R: Read>(r: &mut R) -> Result<Ipld<S>, Error> {
     let mut de = serde_json::Deserializer::from_reader(r);
     Ok(deserialize(&mut de)?)
 }
 
-fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error> {
+fn serialize<S: Size, Ser: ser::Serializer>(
+    ipld: &Ipld<S>,
+    ser: Ser,
+) -> Result<Ser::Ok, Ser::Error> {
     match &ipld {
         Ipld::Null => ser.serialize_none(),
         Ipld::Bool(bool) => ser.serialize_bool(*bool),
@@ -49,18 +53,21 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
     }
 }
 
-fn deserialize<'de, D: de::Deserializer<'de>>(deserializer: D) -> Result<Ipld, D::Error> {
+fn deserialize<'de, D: de::Deserializer<'de>, S: Size>(
+    deserializer: D,
+) -> Result<Ipld<S>, D::Error> {
     // Sadly such a PhantomData hack is needed
-    deserializer.deserialize_any(JSONVisitor)
+    deserializer.deserialize_any(JSONVisitor(PhantomData))
 }
 
 // Needed for `collect_seq` and `collect_map` in Seserializer
-struct Wrapper<'a>(&'a Ipld);
+struct Wrapper<'a, S: Size>(&'a Ipld<S>);
 
-impl<'a> Serialize for Wrapper<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'a, S: Size> Serialize for Wrapper<'a, S> {
+    fn serialize<Ser>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error>
     where
-        S: ser::Serializer,
+        S: Size,
+        Ser: ser::Serializer,
     {
         serialize(&self.0, serializer)
     }
@@ -68,9 +75,9 @@ impl<'a> Serialize for Wrapper<'a> {
 
 // serde deserializer visitor that is used by Deseraliazer to decode
 // json into IPLD.
-struct JSONVisitor;
-impl<'de> de::Visitor<'de> for JSONVisitor {
-    type Value = Ipld;
+struct JSONVisitor<S: Size>(PhantomData<S>);
+impl<'de, S: Size> de::Visitor<'de> for JSONVisitor<S> {
+    type Value = Ipld<S>;
 
     fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.write_str("any valid JSON value")
@@ -149,7 +156,7 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
     where
         V: de::SeqAccess<'de>,
     {
-        let mut vec: Vec<WrapperOwned> = Vec::new();
+        let mut vec: Vec<WrapperOwned<S>> = Vec::new();
 
         while let Some(elem) = visitor.next_element()? {
             vec.push(elem);
@@ -163,7 +170,7 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
     where
         V: de::MapAccess<'de>,
     {
-        let mut values: Vec<(String, WrapperOwned)> = Vec::new();
+        let mut values: Vec<(String, WrapperOwned<S>)> = Vec::new();
 
         while let Some((key, value)) = visitor.next_entry()? {
             values.push((key, value));
@@ -200,9 +207,9 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
 /// an unwrapped `Ipld` instance. Wrap that `Ipld` instance in `Wrapper` and return it.
 /// Users of this wrapper will then unwrap it again so that they can return the expected `Ipld`
 /// instance.
-struct WrapperOwned(Ipld);
+struct WrapperOwned<S: Size>(Ipld<S>);
 
-impl<'de> Deserialize<'de> for WrapperOwned {
+impl<'de, S: Size> Deserialize<'de> for WrapperOwned<S> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: de::Deserializer<'de>,

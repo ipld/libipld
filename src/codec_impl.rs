@@ -3,7 +3,7 @@
 use crate::cbor::DagCborCodec;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::{Result, UnsupportedCodec};
-use crate::ipld::Ipld;
+use crate::ipld::{Ipld, Size};
 #[cfg(feature = "dag-json")]
 use crate::json::DagJsonCodec;
 #[cfg(feature = "dag-pb")]
@@ -11,6 +11,18 @@ use crate::pb::DagPbCodec;
 use crate::raw::RawCodec;
 use core::convert::TryFrom;
 use std::io::{Read, Write};
+
+/// Multicodec codec code for the Raw IPLD Codec.
+pub const RAW: u64 = 0x55;
+/// Multicodec codec code for the DAG-PB IPLD Codec.
+#[cfg(feature = "dag-pb")]
+pub const DAG_PB: u64 = 0x70;
+/// Multicodec codec code for the DAG-CBOR IPLD Codec.
+#[cfg(feature = "dag-cbor")]
+pub const DAG_CBOR: u64 = 0x71;
+/// Multicodec codec code for the DAG-JSON IPLD Codec.
+#[cfg(feature = "dag-json")]
+pub const DAG_JSON: u64 = 0x0129;
 
 /// Default codecs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,13 +45,13 @@ impl TryFrom<u64> for Multicodec {
 
     fn try_from(ccode: u64) -> core::result::Result<Self, Self::Error> {
         Ok(match ccode {
-            crate::cid::RAW => Self::Raw,
+            RAW => Self::Raw,
             #[cfg(feature = "dag-cbor")]
-            crate::cid::DAG_CBOR => Self::DagCbor,
+            DAG_CBOR => Self::DagCbor,
             #[cfg(feature = "dag-json")]
-            crate::cid::DAG_JSON => Self::DagJson,
+            DAG_JSON => Self::DagJson,
             #[cfg(feature = "dag-pb")]
-            crate::cid::DAG_PROTOBUF => Self::DagPb,
+            DAG_PB => Self::DagPb,
             _ => return Err(UnsupportedCodec(ccode)),
         })
     }
@@ -48,13 +60,13 @@ impl TryFrom<u64> for Multicodec {
 impl From<Multicodec> for u64 {
     fn from(mc: Multicodec) -> Self {
         match mc {
-            Multicodec::Raw => crate::cid::RAW,
+            Multicodec::Raw => RAW,
             #[cfg(feature = "dag-cbor")]
-            Multicodec::DagCbor => crate::cid::DAG_CBOR,
+            Multicodec::DagCbor => DAG_CBOR,
             #[cfg(feature = "dag-json")]
-            Multicodec::DagJson => crate::cid::DAG_JSON,
+            Multicodec::DagJson => DAG_JSON,
             #[cfg(feature = "dag-pb")]
-            Multicodec::DagPb => crate::cid::DAG_PROTOBUF,
+            Multicodec::DagPb => DAG_PB,
         }
     }
 }
@@ -109,7 +121,7 @@ impl From<Multicodec> for DagPbCodec {
 
 impl Codec for Multicodec {}
 
-impl Encode<Multicodec> for Ipld {
+impl<S: Size> Encode<Multicodec> for Ipld<S> {
     fn encode<W: Write>(&self, c: Multicodec, w: &mut W) -> Result<()> {
         match c {
             Multicodec::Raw => self.encode(RawCodec, w)?,
@@ -124,7 +136,7 @@ impl Encode<Multicodec> for Ipld {
     }
 }
 
-impl Decode<Multicodec> for Ipld {
+impl<S: Size> Decode<Multicodec> for Ipld<S> {
     fn decode<R: Read>(c: Multicodec, r: &mut R) -> Result<Self> {
         Ok(match c {
             Multicodec::Raw => Self::decode(RawCodec, r)?,
@@ -141,6 +153,7 @@ impl Decode<Multicodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Ipld;
 
     #[test]
     fn raw_encode() {

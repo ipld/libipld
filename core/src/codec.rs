@@ -47,7 +47,7 @@ pub trait Decode<C: Codec>: Sized {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ipld::Ipld;
+    use crate::Ipld;
     use thiserror::Error;
 
     #[derive(Debug, Error)]

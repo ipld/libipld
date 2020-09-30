@@ -1,5 +1,5 @@
 use core::convert::{TryFrom, TryInto};
-use libipld_core::cid::Cid;
+use libipld_core::cid::{Cid, Size};
 use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
@@ -9,9 +9,9 @@ mod dag_pb {
 }
 
 /// A protobuf ipld link.
-pub struct PbLink {
+pub struct PbLink<S: Size> {
     /// Content identifier.
-    pub cid: Cid,
+    pub cid: Cid<S>,
     /// Name of the link.
     pub name: String,
     /// Size of the data.
@@ -19,16 +19,16 @@ pub struct PbLink {
 }
 
 /// A protobuf ipld node.
-pub struct PbNode {
+pub struct PbNode<S: Size> {
     /// List of protobuf ipld links.
-    pub links: Vec<PbLink>,
+    pub links: Vec<PbLink<S>>,
     /// Binary data blob.
     pub data: Box<[u8]>,
 }
 
 use prost::Message;
 
-impl PbNode {
+impl<S: Size> PbNode<S> {
     /// Deserializes a `PbNode` from bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let proto: dag_pb::PbNode = dag_pb::PbNode::decode(bytes)?;
@@ -67,23 +67,23 @@ impl PbNode {
     }
 }
 
-impl Into<Ipld> for PbNode {
-    fn into(self) -> Ipld {
-        let mut map = BTreeMap::<String, Ipld>::new();
+impl<S: Size> Into<Ipld<S>> for PbNode<S> {
+    fn into(self) -> Ipld<S> {
+        let mut map = BTreeMap::<String, Ipld<S>>::new();
         let links = self
             .links
             .into_iter()
             .map(|link| link.into())
-            .collect::<Vec<Ipld>>();
+            .collect::<Vec<Ipld<S>>>();
         map.insert("Links".to_string(), links.into());
         map.insert("Data".to_string(), self.data.into());
         map.into()
     }
 }
 
-impl Into<Ipld> for PbLink {
-    fn into(self) -> Ipld {
-        let mut map = BTreeMap::<String, Ipld>::new();
+impl<S: Size> Into<Ipld<S>> for PbLink<S> {
+    fn into(self) -> Ipld<S> {
+        let mut map = BTreeMap::<String, Ipld<S>>::new();
         map.insert("Hash".to_string(), self.cid.into());
         map.insert("Name".to_string(), self.name.into());
         map.insert("Tsize".to_string(), self.size.into());
@@ -91,10 +91,10 @@ impl Into<Ipld> for PbLink {
     }
 }
 
-impl TryFrom<&Ipld> for PbNode {
+impl<S: Size> TryFrom<&Ipld<S>> for PbNode<S> {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld) -> core::result::Result<PbNode, Self::Error> {
+    fn try_from(ipld: &Ipld<S>) -> core::result::Result<PbNode<S>, Self::Error> {
         let links = if let Ipld::List(links) = ipld.get("Links")? {
             links
                 .iter()
@@ -112,12 +112,12 @@ impl TryFrom<&Ipld> for PbNode {
     }
 }
 
-impl TryFrom<&Ipld> for PbLink {
+impl<S: Size> TryFrom<&Ipld<S>> for PbLink<S> {
     type Error = TypeError;
 
-    fn try_from(ipld: &Ipld) -> core::result::Result<PbLink, Self::Error> {
+    fn try_from(ipld: &Ipld<S>) -> core::result::Result<PbLink<S>, Self::Error> {
         let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
-            *cid
+            cid.clone()
         } else {
             return Err(TypeError::new(TypeErrorType::Link, ipld));
         };

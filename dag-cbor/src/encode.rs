@@ -2,7 +2,7 @@
 use crate::error::NumberOutOfRange;
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
-use libipld_core::cid::Cid;
+use libipld_core::cid::{Cid, Size};
 use libipld_core::codec::Encode;
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
@@ -204,7 +204,7 @@ impl Encode<DagCbor> for i128 {
     }
 }
 
-impl Encode<DagCbor> for Cid {
+impl<S: Size> Encode<DagCbor> for Cid<S> {
     fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         write_tag(w, 42)?;
         // insert zero byte per https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
@@ -250,7 +250,7 @@ impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
     }
 }
 
-impl Encode<DagCbor> for Ipld {
+impl<S: Size> Encode<DagCbor> for Ipld<S> {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         match self {
             Self::Null => write_null(w),

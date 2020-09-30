@@ -9,7 +9,9 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 anyhow = "1.0.32"
-multibase = "0.8.0"
+#multibase = "0.8.0"
 thiserror = "1.0.20"
-tiny-cid = "0.2.8"
-tiny-multihash = "0.4.7"
+#tiny-cid = "0.2.8"
+#tiny-multihash = "0.4.7"
+#tiny-cid = { path = "../../rust-cid", package = "cid" }
+cid = { path = "../../rust-cid", package = "cid" }

@@ -3,7 +3,7 @@ use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, Unexpecte
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
+use libipld_core::cid::{Cid, Size};
 use libipld_core::codec::Decode;
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
@@ -109,7 +109,7 @@ pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeM
 }
 
 /// Reads a cid from a stream of cbor encoded bytes.
-pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
+pub fn read_link<R: Read, S: Size>(r: &mut R) -> Result<Cid<S>> {
     let tag = read_u8(r)?;
     if tag != 42 {
         return Err(UnknownTag.into());
@@ -142,6 +142,13 @@ pub trait TryReadCbor: Sized {
 macro_rules! impl_decode {
     ($ty:ident) => {
         impl Decode<DagCbor> for $ty {
+            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
+                read(r)
+            }
+        }
+    };
+    ($ty:ident<S>) => {
+        impl<S: Size> Decode<DagCbor> for $ty<S> {
             fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
@@ -323,7 +330,7 @@ impl TryReadCbor for String {
 }
 impl_decode!(String);
 
-impl TryReadCbor for Cid {
+impl<S: Size> TryReadCbor for Cid<S> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xd8 => Ok(Some(read_link(r)?)),
@@ -332,7 +339,7 @@ impl TryReadCbor for Cid {
     }
 }
 
-impl_decode!(Cid);
+impl_decode!(Cid<S>);
 
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -414,7 +421,7 @@ impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
 }
 impl_decode!(BTreeMap<String, T>);
 
-impl TryReadCbor for Ipld {
+impl<S: Size> TryReadCbor for Ipld<S> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
             // Major type 0: an unsigned integer
@@ -566,4 +573,4 @@ impl TryReadCbor for Ipld {
         Ok(Some(ipld))
     }
 }
-impl_decode!(Ipld);
+impl_decode!(Ipld<S>);
