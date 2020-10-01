@@ -4,7 +4,6 @@ use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
 use crate::ipld::Ipld;
-use crate::multihash::BLAKE2S_256;
 use crate::store::{Store, StoreParams};
 use async_std::sync::Mutex;
 use async_trait::async_trait;
@@ -13,22 +12,30 @@ use cached::Cached;
 
 /// Cache for ipld blocks.
 #[derive(Debug)]
-pub struct IpldCache<S, C, T> {
+pub struct IpldCache<S: Store, C, T> {
     store: S,
     codec: C,
-    hash: u64,
+    hash: <S::Params as StoreParams>::Hashes,
     cache: Mutex<SizedCache<Cid, T>>,
 }
 
-impl<S: Default, C: Default, T> Default for IpldCache<S, C, T> {
+impl<S: Store + Default, C: Default, T> Default for IpldCache<S, C, T>
+where
+    <S::Params as StoreParams>::Hashes: Default,
+{
     fn default() -> Self {
-        Self::new(S::default(), C::default(), BLAKE2S_256, 12)
+        Self::new(
+            S::default(),
+            C::default(),
+            <S::Params as StoreParams>::Hashes::default(),
+            12,
+        )
     }
 }
 
-impl<S, C, T> IpldCache<S, C, T> {
+impl<S: Store, C, T> IpldCache<S, C, T> {
     /// Creates a new cache of size `size`.
-    pub fn new(store: S, codec: C, hash: u64, size: usize) -> Self {
+    pub fn new(store: S, codec: C, hash: <S::Params as StoreParams>::Hashes, size: usize) -> Self {
         let cache = Mutex::new(SizedCache::with_size(size));
         Self {
             store,
@@ -112,16 +119,16 @@ mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
     use crate::mem::MemStore;
-    use crate::multihash::BLAKE2B_256;
+    use crate::multihash::Code;
     use crate::store::DefaultParams;
     use core::ops::Deref;
 
-    struct OffchainClient<S> {
+    struct OffchainClient<S: Store> {
         store: S,
         number: IpldCache<S, DagCborCodec, u32>,
     }
 
-    impl<S> Deref for OffchainClient<S> {
+    impl<S: Store> Deref for OffchainClient<S> {
         type Target = S;
 
         fn deref(&self) -> &Self::Target {
@@ -136,7 +143,7 @@ mod tests {
         let store = MemStore::<DefaultParams>::default();
         let client = OffchainClient {
             store: store.clone(),
-            number: IpldCache::new(store, DagCborCodec, BLAKE2B_256, 1),
+            number: IpldCache::new(store, DagCborCodec, Code::Blake3_256, 1),
         };
         let cid = client.insert(42).await.unwrap();
         let res = client.get(&cid).await.unwrap();

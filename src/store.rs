@@ -4,14 +4,14 @@ use crate::cid::Cid;
 use crate::codec::{Codec, Decode};
 use crate::error::Result;
 use crate::ipld::Ipld;
-use crate::multihash::MultihashDigest;
+use crate::multihash::{MultihashCode, U64};
 use crate::path::DagPath;
 use async_trait::async_trait;
 
 /// The store parameters.
 pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
     /// The multihash type of the store.
-    type Hashes: MultihashDigest;
+    type Hashes: MultihashCode<AllocSize = U64>;
     /// The codec type of the store.
     type Codecs: Codec;
     /// The maximum block size supported by the store.
@@ -25,7 +25,7 @@ pub struct DefaultParams;
 impl StoreParams for DefaultParams {
     const MAX_BLOCK_SIZE: usize = usize::MAX;
     type Codecs = crate::Multicodec;
-    type Hashes = crate::multihash::Multihash;
+    type Hashes = crate::multihash::Code;
 }
 
 /// Implementable by ipld stores. An ipld store behaves like a cache. It will keep blocks
@@ -108,18 +108,19 @@ mod tests {
             "libipld::store::tests::aliases::CHAIN_ALIAS::3"
         );
     }
+
     #[async_std::test]
     async fn test_query() -> Result<()> {
+        use crate::cbor::DagCborCodec;
         use crate::mem::MemStore;
-        use crate::multihash::BLAKE2S_256;
-        use libipld_cbor::DagCborCodec;
+        use crate::multihash::Code;
 
         let store = MemStore::<DefaultParams>::default();
         let leaf = ipld!({"name": "John Doe"});
-        let leaf_block = Block::encode(DagCborCodec, BLAKE2S_256, &leaf).unwrap();
+        let leaf_block = Block::encode(DagCborCodec, Code::Blake3_256, &leaf).unwrap();
         let root = ipld!({ "list": [leaf_block.cid()] });
         store.insert(&leaf_block).await.unwrap();
-        let root_block = Block::encode(DagCborCodec, BLAKE2S_256, &root).unwrap();
+        let root_block = Block::encode(DagCborCodec, Code::Blake3_256, &root).unwrap();
         store.insert(&root_block).await.unwrap();
         let path = DagPath::new(root_block.cid(), "list/0/name");
         assert_eq!(

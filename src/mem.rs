@@ -390,12 +390,12 @@ where
 mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
-    use crate::multihash::SHA2_256;
+    use crate::multihash::Code;
     use crate::store::DefaultParams;
     use crate::{alias, ipld};
 
     fn create_block(ipld: &Ipld) -> Block<DefaultParams> {
-        Block::encode(DagCborCodec, SHA2_256, ipld).unwrap()
+        Block::encode(DagCborCodec, Code::Blake3_256, ipld).unwrap()
     }
 
     macro_rules! assert_evicted {

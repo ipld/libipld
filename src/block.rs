@@ -3,7 +3,7 @@ use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
-use crate::multihash::MultihashDigest;
+use crate::multihash::MultihashCode;
 use crate::store::StoreParams;
 use core::borrow::Borrow;
 use core::convert::TryFrom;
@@ -71,18 +71,11 @@ impl<S> AsRef<[u8]> for Block<S> {
 }
 
 // TODO: move to tiny_cid
-fn create_cid<M: MultihashDigest>(ccode: u64, hcode: u64, payload: &[u8]) -> Result<Cid> {
-    let digest = M::new(hcode, payload)
-        .map_err(|_| UnsupportedMultihash(hcode))?
-        .to_raw()
-        .map_err(|_| UnsupportedMultihash(hcode))?;
-    Ok(Cid::new_v1(ccode, digest))
-}
+fn verify_cid<M: MultihashCode>(cid: &Cid, payload: &[u8]) -> Result<()> {
+    let mh = M::try_from(cid.hash().code())
+        .map_err(|_| UnsupportedMultihash(cid.hash().code()))?
+        .digest(payload);
 
-// TODO: move to tiny_cid
-fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
-    let hcode = cid.hash().code();
-    let mh = M::new(hcode, payload).map_err(|_| UnsupportedMultihash(hcode))?;
     if mh.digest() != cid.hash().digest() {
         return Err(InvalidMultihash(mh.to_bytes()).into());
     }
@@ -124,7 +117,7 @@ impl<S: StoreParams> Block<S> {
     /// Encode a block.`
     pub fn encode<CE: Codec, T: Encode<CE> + ?Sized>(
         codec: CE,
-        hcode: u64,
+        hcode: S::Hashes,
         payload: &T,
     ) -> Result<Self>
     where
@@ -138,7 +131,8 @@ impl<S: StoreParams> Block<S> {
         if data.len() > S::MAX_BLOCK_SIZE {
             return Err(BlockTooLarge(data.len()).into());
         }
-        let cid = create_cid::<S::Hashes>(codec.into(), hcode, &data)?;
+        let mh = hcode.digest(&data);
+        let cid = Cid::new_v1(codec.into(), mh);
         Ok(Self {
             _marker: PhantomData,
             cid,
@@ -157,11 +151,11 @@ impl<S: StoreParams> Block<S> {
     /// use libipld::cbor::DagCborCodec;
     /// use libipld::codec_impl::Multicodec;
     /// use libipld::ipld::Ipld;
-    /// use libipld::multihash::{Multihash, SHA2_256};
+    /// use libipld::multihash::Code;
     /// use libipld::store::DefaultParams;
     ///
     /// let block =
-    ///     Block::<DefaultParams>::encode(DagCborCodec, SHA2_256, "Hello World!").unwrap();
+    ///     Block::<DefaultParams>::encode(DagCborCodec, Code::Blake3_256, "Hello World!").unwrap();
     /// let ipld = block.decode::<DagCborCodec, Ipld>().unwrap();
     ///
     /// assert_eq!(ipld, Ipld::String("Hello World!".to_string()));
@@ -203,18 +197,19 @@ mod tests {
     use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::SHA2_256;
+    use crate::multihash::Code;
     use crate::store::DefaultParams;
 
     type IpldBlock = Block<DefaultParams>;
 
     #[test]
     fn test_references() {
-        let b1 = IpldBlock::encode(Multicodec::Raw, SHA2_256, &ipld!(&b"cid1"[..])).unwrap();
-        let b2 = IpldBlock::encode(Multicodec::DagJson, SHA2_256, &ipld!("cid2")).unwrap();
+        let b1 =
+            IpldBlock::encode(Multicodec::Raw, Code::Blake3_256, &ipld!(&b"cid1"[..])).unwrap();
+        let b2 = IpldBlock::encode(Multicodec::DagJson, Code::Blake3_256, &ipld!("cid2")).unwrap();
         let b3 = IpldBlock::encode(
             Multicodec::DagPb,
-            SHA2_256,
+            Code::Blake3_256,
             &ipld!({
                 "Data": &b"data"[..],
                 "Links": Ipld::List(vec![]),
@@ -227,7 +222,7 @@ mod tests {
             "cid2": { "other": true, "cid2": { "cid2": &b2.cid }},
             "cid3": [[ &b3.cid, &b1.cid ]],
         });
-        let block = IpldBlock::encode(Multicodec::DagCbor, SHA2_256, &payload).unwrap();
+        let block = IpldBlock::encode(Multicodec::DagCbor, Code::Blake3_256, &payload).unwrap();
         let payload2 = block.decode::<Multicodec, _>().unwrap();
         assert_eq!(payload, payload2);
 
@@ -240,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_transmute() {
-        let b1 = IpldBlock::encode(DagCborCodec, SHA2_256, &42).unwrap();
+        let b1 = IpldBlock::encode(DagCborCodec, Code::Blake3_256, &42).unwrap();
         assert_eq!(b1.cid.codec(), DAG_CBOR);
     }
 }

@@ -52,13 +52,13 @@ impl Decode<DagPbCodec> for Ipld {
 mod tests {
     use super::*;
     use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::multihash::{Code, MultihashCode};
     use std::collections::BTreeMap;
 
     #[test]
     fn test_encode_decode() {
-        let digest = Multihash::new(SHA2_256, &b"cid"[..]).unwrap();
-        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
+        let digest = Code::Blake3_256.digest(&b"cid"[..]);
+        let cid = Cid::new_v1(RAW, digest);
         let mut pb_link = BTreeMap::<String, Ipld>::new();
         pb_link.insert("Hash".to_string(), cid.into());
         pb_link.insert("Name".to_string(), "block".to_string().into());

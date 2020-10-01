@@ -39,18 +39,12 @@ impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCb
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::multihash::{Code, MultihashCode};
     use libipld_macro::ipld;
 
     #[test]
     fn test_encode_decode_cbor() {
-        let cid = Cid::new_v1(
-            0,
-            Multihash::new(SHA2_256, &b"cid"[..])
-                .unwrap()
-                .to_raw()
-                .unwrap(),
-        );
+        let cid = Cid::new_v1(0, Code::Blake3_256.digest(&b"cid"[..]));
         let ipld = ipld!({
           "number": 1,
           "list": [true, null, false],

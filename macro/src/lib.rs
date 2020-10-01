@@ -293,7 +293,7 @@ macro_rules! ipld_unexpected {
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::multihash::{Code, MultihashCode};
 
     #[test]
     fn test_macro() {
@@ -311,10 +311,7 @@ mod tests {
             "numbers": [1, 2, 3],
             "a": a,
         });
-        let mh = Multihash::new(SHA2_256, &b"cid"[..])
-            .unwrap()
-            .to_raw()
-            .unwrap();
+        let mh = Code::Blake3_256.digest(&b"cid"[..]);
         let _: Ipld = ipld!(Cid::new_v1(0, mh));
     }
 }

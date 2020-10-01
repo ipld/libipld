@@ -48,13 +48,13 @@ impl Decode<DagJsonCodec> for Ipld {
 mod tests {
     use super::*;
     use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Multihash, MultihashDigest, SHA2_256};
+    use libipld_core::multihash::{Code, MultihashCode};
     use std::collections::BTreeMap;
 
     #[test]
     fn encode_struct() {
-        let digest = Multihash::new(SHA2_256, &b"block"[..]).unwrap();
-        let cid = Cid::new_v1(RAW, digest.to_raw().unwrap());
+        let digest = Code::Blake3_256.digest(&b"block"[..]);
+        let cid = Cid::new_v1(RAW, digest);
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }

@@ -5,32 +5,32 @@ pub use anyhow::{Error, Result};
 use thiserror::Error;
 
 /// Block exceeds 1MiB.
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 #[error("Block size {0} exceeds 1MiB.")]
 pub struct BlockTooLarge(pub usize);
 
 /// The codec is unsupported.
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 #[error("Unsupported codec {0:?}.")]
 pub struct UnsupportedCodec(pub u64);
 
 /// The multihash is unsupported.
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 #[error("Unsupported multihash {0:?}.")]
 pub struct UnsupportedMultihash(pub u64);
 
 /// Hash does not match the CID.
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 #[error("Hash of data does not match the CID.")]
 pub struct InvalidMultihash(pub Vec<u8>);
 
 /// The block wasn't found. The supplied string is a CID.
-#[derive(Debug, Error)]
+#[derive(Clone, Copy, Debug, Error)]
 #[error("Failed to retrive block {0}.")]
 pub struct BlockNotFound(pub Cid);
 
 /// Type error.
-#[derive(Debug, Error)]
+#[derive(Clone, Debug, Error)]
 #[error("Expected {expected:?} but found {found:?}")]
 pub struct TypeError {
     /// The expected type.
@@ -50,7 +50,7 @@ impl TypeError {
 }
 
 /// Type error type.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TypeErrorType {
     /// Null type.
     Null,
