@@ -23,7 +23,7 @@ pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
 pub struct DefaultParams;
 
 impl StoreParams for DefaultParams {
-    const MAX_BLOCK_SIZE: usize = usize::MAX;
+    const MAX_BLOCK_SIZE: usize = 1_048_576;
     type Codecs = crate::Multicodec;
     type Hashes = crate::multihash::Multihash;
 }
