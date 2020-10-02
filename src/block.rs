@@ -149,7 +149,6 @@ impl<S: StoreParams> Block<S> {
     /// ```
     /// use libipld::block::Block;
     /// use libipld::cbor::DagCborCodec;
-    /// use libipld::codec_impl::Multicodec;
     /// use libipld::ipld::Ipld;
     /// use libipld::multihash::Code;
     /// use libipld::store::DefaultParams;
@@ -193,7 +192,7 @@ impl<S: StoreParams> Block<S> {
 mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
-    use crate::codec_impl::Multicodec;
+    use crate::codec_impl::IpldCodec;
     use crate::ipld;
     use crate::ipld::Ipld;
     use crate::multihash::Code;
@@ -203,11 +202,10 @@ mod tests {
 
     #[test]
     fn test_references() {
-        let b1 =
-            IpldBlock::encode(Multicodec::Raw, Code::Blake3_256, &ipld!(&b"cid1"[..])).unwrap();
-        let b2 = IpldBlock::encode(Multicodec::DagJson, Code::Blake3_256, &ipld!("cid2")).unwrap();
+        let b1 = IpldBlock::encode(IpldCodec::Raw, Code::Blake3_256, &ipld!(&b"cid1"[..])).unwrap();
+        let b2 = IpldBlock::encode(IpldCodec::DagJson, Code::Blake3_256, &ipld!("cid2")).unwrap();
         let b3 = IpldBlock::encode(
-            Multicodec::DagPb,
+            IpldCodec::DagPb,
             Code::Blake3_256,
             &ipld!({
                 "Data": &b"data"[..],
@@ -221,8 +219,8 @@ mod tests {
             "cid2": { "other": true, "cid2": { "cid2": &b2.cid }},
             "cid3": [[ &b3.cid, &b1.cid ]],
         });
-        let block = IpldBlock::encode(Multicodec::DagCbor, Code::Blake3_256, &payload).unwrap();
-        let payload2 = block.decode::<Multicodec, _>().unwrap();
+        let block = IpldBlock::encode(IpldCodec::DagCbor, Code::Blake3_256, &payload).unwrap();
+        let payload2 = block.decode::<IpldCodec, _>().unwrap();
         assert_eq!(payload, payload2);
 
         let refs = payload2.references();
