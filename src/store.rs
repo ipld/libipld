@@ -9,7 +9,7 @@ use crate::path::DagPath;
 use async_trait::async_trait;
 
 /// The store parameters.
-pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
+pub trait StoreParams: std::fmt::Debug + Clone + Send + Sync + Unpin + 'static {
     /// The multihash type of the store.
     type Hashes: MultihashCode<AllocSize = U64>;
     /// The codec type of the store.
@@ -19,7 +19,7 @@ pub trait StoreParams: Clone + Send + Sync + Unpin + 'static {
 }
 
 /// Default store parameters.
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct DefaultParams;
 
 impl StoreParams for DefaultParams {
