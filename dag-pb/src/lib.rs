@@ -19,7 +19,7 @@ impl Codec for DagPbCodec {}
 
 impl From<DagPbCodec> for u64 {
     fn from(_: DagPbCodec) -> Self {
-        libipld_core::cid::DAG_PROTOBUF
+        0x70
     }
 }
 
@@ -51,14 +51,14 @@ impl Decode<DagPbCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Code, MultihashCode};
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Code, MultihashDigest};
     use std::collections::BTreeMap;
 
     #[test]
     fn test_encode_decode() {
         let digest = Code::Blake3_256.digest(&b"cid"[..]);
-        let cid = Cid::new_v1(RAW, digest);
+        let cid = Cid::new_v1(0x55, digest);
         let mut pb_link = BTreeMap::<String, Ipld>::new();
         pb_link.insert("Hash".to_string(), cid.into());
         pb_link.insert("Name".to_string(), "block".to_string().into());

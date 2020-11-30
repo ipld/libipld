@@ -8,6 +8,6 @@ pub mod error;
 pub mod ipld;
 pub mod raw;
 
+pub use cid;
 pub use multibase;
-pub use tiny_cid as cid;
-pub use tiny_multihash as multihash;
+pub use multihash;

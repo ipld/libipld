@@ -20,7 +20,7 @@ impl Codec for DagJsonCodec {}
 
 impl From<DagJsonCodec> for u64 {
     fn from(_: DagJsonCodec) -> Self {
-        libipld_core::cid::DAG_JSON
+        0x0129
     }
 }
 
@@ -47,14 +47,14 @@ impl Decode<DagJsonCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::{Cid, RAW};
-    use libipld_core::multihash::{Code, MultihashCode};
+    use libipld_core::cid::Cid;
+    use libipld_core::multihash::{Code, MultihashDigest};
     use std::collections::BTreeMap;
 
     #[test]
     fn encode_struct() {
         let digest = Code::Blake3_256.digest(&b"block"[..]);
-        let cid = Cid::new_v1(RAW, digest);
+        let cid = Cid::new_v1(0x55, digest);
 
         // Create a contact object that looks like:
         // Contact { name: "Hello World", details: CID }

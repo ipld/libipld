@@ -158,7 +158,7 @@ impl<'a> Iterator for IpldIter<'a> {
 mod tests {
     use super::*;
     use crate::cid::Cid;
-    use crate::multihash::{Code, MultihashCode};
+    use crate::multihash::{Code, MultihashDigest};
 
     #[test]
     fn test_ipld_bool_from() {
@@ -211,7 +211,7 @@ mod tests {
     fn test_ipld_link_from() {
         let data = vec![0, 1, 2, 3];
         let hash = Code::Blake3_256.digest(&data);
-        let cid = Cid::new_v0(hash).unwrap();
+        let cid = Cid::new_v1(0x55, hash);
         assert_eq!(Ipld::Link(cid), Ipld::from(cid));
     }
 
