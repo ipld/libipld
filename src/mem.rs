@@ -65,7 +65,7 @@ impl<S: StoreParams> BlockStore<S> {
                 continue;
             }
             for cid in self.get(id).expect("is in store").ipld()?.references() {
-                let id = self.lookup(&cid).ok_or_else(|| BlockNotFound(cid))?;
+                let id = self.lookup(&cid).ok_or(BlockNotFound(cid))?;
                 todo.push(id);
             }
             refs.insert(id);
