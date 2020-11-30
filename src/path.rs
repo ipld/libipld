@@ -50,7 +50,7 @@ impl ToString for Path {
         let mut path = "".to_string();
         for seg in &self.0 {
             path.push_str(seg.as_str());
-            path.push_str("/");
+            path.push('/');
         }
         path.pop();
         path
