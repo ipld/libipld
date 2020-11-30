@@ -10,7 +10,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 [dependencies]
 libipld-core = { version = "0.7.0", path = "../core" }
 prost = "0.6.1"
-thiserror = "1.0.20"
+thiserror = "1.0.22"
 
 [build-dependencies]
 prost-build = "0.6.1"

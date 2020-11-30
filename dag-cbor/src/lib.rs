@@ -18,7 +18,7 @@ impl Codec for DagCborCodec {}
 
 impl From<DagCborCodec> for u64 {
     fn from(_: DagCborCodec) -> Self {
-        libipld_core::cid::DAG_CBOR
+        0x71
     }
 }
 
@@ -39,7 +39,7 @@ impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCb
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashCode};
+    use libipld_core::multihash::{Code, MultihashDigest};
     use libipld_macro::ipld;
 
     #[test]

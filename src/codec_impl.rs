@@ -33,13 +33,13 @@ impl TryFrom<u64> for Multicodec {
 
     fn try_from(ccode: u64) -> core::result::Result<Self, Self::Error> {
         Ok(match ccode {
-            crate::cid::RAW => Self::Raw,
+            0x55 => Self::Raw,
             #[cfg(feature = "dag-cbor")]
-            crate::cid::DAG_CBOR => Self::DagCbor,
+            0x71 => Self::DagCbor,
             #[cfg(feature = "dag-json")]
-            crate::cid::DAG_JSON => Self::DagJson,
+            0x0129 => Self::DagJson,
             #[cfg(feature = "dag-pb")]
-            crate::cid::DAG_PROTOBUF => Self::DagPb,
+            0x70 => Self::DagPb,
             _ => return Err(UnsupportedCodec(ccode)),
         })
     }
@@ -48,13 +48,13 @@ impl TryFrom<u64> for Multicodec {
 impl From<Multicodec> for u64 {
     fn from(mc: Multicodec) -> Self {
         match mc {
-            Multicodec::Raw => crate::cid::RAW,
+            Multicodec::Raw => 0x55,
             #[cfg(feature = "dag-cbor")]
-            Multicodec::DagCbor => crate::cid::DAG_CBOR,
+            Multicodec::DagCbor => 0x71,
             #[cfg(feature = "dag-json")]
-            Multicodec::DagJson => crate::cid::DAG_JSON,
+            Multicodec::DagJson => 0x0129,
             #[cfg(feature = "dag-pb")]
-            Multicodec::DagPb => crate::cid::DAG_PROTOBUF,
+            Multicodec::DagPb => 0x70,
         }
     }
 }

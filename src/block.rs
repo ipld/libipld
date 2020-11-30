@@ -3,7 +3,7 @@ use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
-use crate::multihash::MultihashCode;
+use crate::multihash::MultihashDigest;
 use crate::store::StoreParams;
 use core::borrow::Borrow;
 use core::convert::TryFrom;
@@ -71,7 +71,7 @@ impl<S> AsRef<[u8]> for Block<S> {
 }
 
 // TODO: move to tiny_cid
-fn verify_cid<M: MultihashCode>(cid: &Cid, payload: &[u8]) -> Result<()> {
+fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
     let mh = M::try_from(cid.hash().code())
         .map_err(|_| UnsupportedMultihash(cid.hash().code()))?
         .digest(payload);
@@ -193,7 +193,6 @@ impl<S: StoreParams> Block<S> {
 mod tests {
     use super::*;
     use crate::cbor::DagCborCodec;
-    use crate::cid::DAG_CBOR;
     use crate::codec_impl::Multicodec;
     use crate::ipld;
     use crate::ipld::Ipld;
@@ -236,6 +235,6 @@ mod tests {
     #[test]
     fn test_transmute() {
         let b1 = IpldBlock::encode(DagCborCodec, Code::Blake3_256, &42).unwrap();
-        assert_eq!(b1.cid.codec(), DAG_CBOR);
+        assert_eq!(b1.cid.codec(), 0x71);
     }
 }
