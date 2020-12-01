@@ -5,7 +5,7 @@ use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::store::{Store, StoreParams};
-use async_std::sync::Mutex;
+use async_lock::Mutex;
 use async_trait::async_trait;
 use cached::stores::SizedCache;
 use cached::Cached;

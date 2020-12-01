@@ -1,6 +1,6 @@
 [package]
 name = "libipld"
-version = "0.8.1"
+version = "0.8.2"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ description = "library for dealing with ipld"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-async-std = { version = "1.7.0", features = ["attributes"] }
+async-lock = "2.3.0"
 async-trait = "0.1.42"
 cached = { version = "0.21.0", default-features = false }
 fnv = "1.0.7"
@@ -23,6 +23,7 @@ multihash = { version = "0.13.1", default-features = false, features = ["multiha
 thiserror = "1.0.22"
 
 [dev-dependencies]
+async-std = { version = "1.7.0", features = ["attributes"] }
 criterion = "0.3.3"
 proptest = "0.10.1"
 model = "0.1.2"
