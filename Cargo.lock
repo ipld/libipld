@@ -791,6 +791,7 @@ name = "libipld-cbor"
 version = "0.7.0"
 dependencies = [
  "byteorder",
+ "fnv",
  "hex",
  "libipld-core",
  "libipld-macro",
@@ -816,6 +817,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "cid",
+ "fnv",
  "multibase 0.9.1",
  "multihash",
  "thiserror",
@@ -826,6 +828,7 @@ name = "libipld-json"
 version = "0.7.0"
 dependencies = [
  "base64",
+ "fnv",
  "libipld-core",
  "multihash",
  "serde",
@@ -843,6 +846,7 @@ dependencies = [
 name = "libipld-pb"
 version = "0.7.0"
 dependencies = [
+ "fnv",
  "libipld-core",
  "libipld-macro",
  "multihash",

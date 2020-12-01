@@ -1,6 +1,6 @@
 //! Block validation
 use crate::cid::Cid;
-use crate::codec::{Codec, Decode, Encode};
+use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
 use crate::multihash::MultihashDigest;
@@ -9,7 +9,7 @@ use core::borrow::Borrow;
 use core::convert::TryFrom;
 use core::marker::PhantomData;
 use core::ops::Deref;
-use std::collections::HashSet;
+use fnv::FnvHashSet;
 
 /// Block
 #[derive(Clone)]
@@ -167,7 +167,6 @@ impl<S: StoreParams> Block<S> {
             Into::<u64>::into(CD::try_from(self.cid.codec()).unwrap()),
             Into::<u64>::into(S::Codecs::try_from(self.cid.codec()).unwrap()),
         );
-        verify_cid::<S::Hashes>(&self.cid, &self.data)?;
         CD::try_from(self.cid.codec())?.decode(&self.data)
     }
 
@@ -180,11 +179,11 @@ impl<S: StoreParams> Block<S> {
     }
 
     /// Returns the references.
-    pub fn references(&self) -> Result<HashSet<Cid>>
+    pub fn references(&self, set: &mut FnvHashSet<Cid>) -> Result<()>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld: References<S::Codecs>,
     {
-        Ok(self.ipld()?.references())
+        S::Codecs::try_from(self.cid.codec())?.references::<Ipld>(&self.data, set)
     }
 }
 
@@ -223,7 +222,8 @@ mod tests {
         let payload2 = block.decode::<IpldCodec, _>().unwrap();
         assert_eq!(payload, payload2);
 
-        let refs = payload2.references();
+        let mut refs = FnvHashSet::default();
+        payload2.references(&mut refs);
         assert_eq!(refs.len(), 3);
         assert!(refs.contains(&b1.cid));
         assert!(refs.contains(&b2.cid));

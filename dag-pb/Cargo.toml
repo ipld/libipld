@@ -8,6 +8,7 @@ description = "ipld protobuf codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
+fnv = "1.0.7"
 libipld-core = { version = "0.7.0", path = "../core" }
 prost = "0.6.1"
 thiserror = "1.0.22"

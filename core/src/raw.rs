@@ -1,8 +1,10 @@
 //! Implements the raw codec.
-use crate::codec::{Codec, Decode, Encode};
+use crate::cid::Cid;
+use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{Result, TypeError, TypeErrorType, UnsupportedCodec};
 use crate::ipld::Ipld;
 use core::convert::TryFrom;
+use fnv::FnvHashSet;
 use std::io::{Read, Write};
 
 /// Raw codec.
@@ -72,6 +74,12 @@ impl Decode<RawCodec> for Ipld {
     fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self> {
         let bytes: Vec<u8> = Decode::decode(c, r)?;
         Ok(Ipld::Bytes(bytes))
+    }
+}
+
+impl<T> References<RawCodec> for T {
+    fn references<R: Read>(_c: RawCodec, _r: &mut R, _set: &mut FnvHashSet<Cid>) -> Result<()> {
+        Ok(())
     }
 }
 

@@ -1,12 +1,12 @@
 //! Reference store implementation.
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::Decode;
+use crate::codec::References;
 use crate::error::{BlockNotFound, Result};
 use crate::ipld::Ipld;
 use crate::store::{Store, StoreParams};
 use async_trait::async_trait;
-use fnv::{FnvHashMap as HashMap, FnvHashSet as HashSet};
+use fnv::{FnvHashMap, FnvHashSet};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
@@ -15,8 +15,8 @@ type Atime = u64;
 
 struct BlockStore<S: StoreParams> {
     next_id: Id,
-    blocks: HashMap<Id, Block<S>>,
-    lookup: HashMap<Cid, Id>,
+    blocks: FnvHashMap<Id, Block<S>>,
+    lookup: FnvHashMap<Cid, Id>,
 }
 
 impl<S: StoreParams> BlockStore<S> {
@@ -53,18 +53,22 @@ impl<S: StoreParams> BlockStore<S> {
         }
     }
 
-    pub fn references(&self, id: Id) -> Result<HashSet<Id>>
+    pub fn references(&self, id: Id) -> Result<FnvHashSet<Id>>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld: References<S::Codecs>,
     {
-        let mut refs = HashSet::default();
+        let mut refs = FnvHashSet::default();
         let mut todo = Vec::new();
         todo.push(id);
         while let Some(id) = todo.pop() {
             if refs.contains(&id) {
                 continue;
             }
-            for cid in self.get(id).expect("is in store").ipld()?.references() {
+            let mut new_refs = FnvHashSet::default();
+            self.get(id)
+                .expect("is in store")
+                .references(&mut new_refs)?;
+            for cid in new_refs {
                 let id = self.lookup(&cid).ok_or(BlockNotFound(cid))?;
                 todo.push(id);
             }
@@ -78,7 +82,7 @@ impl<S: StoreParams> BlockStore<S> {
 struct BlockCache {
     next_atime: Atime,
     sorted: BTreeMap<Atime, Id>,
-    atime: HashMap<Id, Atime>,
+    atime: FnvHashMap<Id, Atime>,
 }
 
 impl BlockCache {
@@ -124,8 +128,8 @@ impl BlockCache {
 
 #[derive(Default)]
 struct BlockAliases {
-    aliases: HashMap<Vec<u8>, (Id, HashSet<Id>)>,
-    refs: HashMap<Id, u64>,
+    aliases: FnvHashMap<Vec<u8>, (Id, FnvHashSet<Id>)>,
+    refs: FnvHashMap<Id, u64>,
 }
 
 impl BlockAliases {
@@ -133,15 +137,15 @@ impl BlockAliases {
         self.aliases.get(alias).map(|(id, _)| *id)
     }
 
-    pub fn alias(&mut self, alias: &[u8], id: Id, refs: HashSet<Id>) {
+    pub fn alias(&mut self, alias: &[u8], id: Id, refs: FnvHashSet<Id>) {
         for id in &refs {
             *self.refs.entry(*id).or_default() += 1;
         }
         self.aliases.insert(alias.to_vec(), (id, refs));
     }
 
-    pub fn unalias(&mut self, alias: &[u8]) -> HashSet<Id> {
-        let mut cache = HashSet::default();
+    pub fn unalias(&mut self, alias: &[u8]) -> FnvHashSet<Id> {
+        let mut cache = FnvHashSet::default();
         if let Some((_, refs)) = self.aliases.remove(alias) {
             for id in refs {
                 let count = self.refs.get_mut(&id).expect("can't fail");
@@ -211,7 +215,7 @@ impl<S: StoreParams> LocalStore<S> {
 
     pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld: References<S::Codecs>,
     {
         let alias = alias.as_ref();
         let ins = if let Some(cid) = cid {
@@ -245,7 +249,7 @@ impl<S: StoreParams> LocalStore<S> {
 }
 
 /// Simulated network.
-pub struct GlobalStore<S: StoreParams>(Arc<Mutex<HashSet<Block<S>>>>);
+pub struct GlobalStore<S: StoreParams>(Arc<Mutex<FnvHashSet<Block<S>>>>);
 
 impl<S: StoreParams> Clone for GlobalStore<S> {
     fn clone(&self) -> Self {
@@ -306,7 +310,7 @@ impl<S: StoreParams> SharedStore<S> {
 
     pub fn alias<T: AsRef<[u8]>>(&mut self, alias: T, cid: Option<&Cid>) -> Result<()>
     where
-        Ipld: Decode<S::Codecs>,
+        Ipld: References<S::Codecs>,
     {
         loop {
             if let Err(err) = self.local.alias(alias.as_ref(), cid) {
@@ -360,7 +364,7 @@ impl<S: StoreParams> MemStore<S> {
 #[async_trait]
 impl<S: StoreParams> Store for MemStore<S>
 where
-    Ipld: Decode<S::Codecs>,
+    Ipld: References<S::Codecs>,
 {
     type Params = S;
 

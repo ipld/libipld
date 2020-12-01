@@ -1,7 +1,8 @@
 //! IPLD Codecs.
 #[cfg(feature = "dag-cbor")]
 use crate::cbor::DagCborCodec;
-use crate::codec::{Codec, Decode, Encode};
+use crate::cid::Cid;
+use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{Result, UnsupportedCodec};
 use crate::ipld::Ipld;
 #[cfg(feature = "dag-json")]
@@ -10,7 +11,8 @@ use crate::json::DagJsonCodec;
 use crate::pb::DagPbCodec;
 use crate::raw::RawCodec;
 use core::convert::TryFrom;
-use std::io::{Read, Write};
+use fnv::FnvHashSet;
+use std::io::{Read, Seek, Write};
 
 /// Default codecs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -134,6 +136,28 @@ impl Decode<IpldCodec> for Ipld {
             IpldCodec::DagJson => Self::decode(DagJsonCodec, r)?,
             #[cfg(feature = "dag-pb")]
             IpldCodec::DagPb => Self::decode(DagPbCodec, r)?,
+        })
+    }
+}
+
+impl References<IpldCodec> for Ipld {
+    fn references<R: Read + Seek>(
+        c: IpldCodec,
+        r: &mut R,
+        set: &mut FnvHashSet<Cid>,
+    ) -> Result<()> {
+        Ok(match c {
+            IpldCodec::Raw => <Self as References<RawCodec>>::references(RawCodec, r, set)?,
+            #[cfg(feature = "dag-cbor")]
+            IpldCodec::DagCbor => {
+                <Self as References<DagCborCodec>>::references(DagCborCodec, r, set)?
+            }
+            #[cfg(feature = "dag-json")]
+            IpldCodec::DagJson => {
+                <Self as References<DagJsonCodec>>::references(DagJsonCodec, r, set)?
+            }
+            #[cfg(feature = "dag-pb")]
+            IpldCodec::DagPb => <Self as References<DagPbCodec>>::references(DagPbCodec, r, set)?,
         })
     }
 }

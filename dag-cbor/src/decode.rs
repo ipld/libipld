@@ -3,12 +3,13 @@ use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, Unexpecte
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
+use fnv::FnvHashSet;
 use libipld_core::cid::Cid;
-use libipld_core::codec::Decode;
+use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
@@ -130,6 +131,24 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
     // skip the first byte per
     // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
     Ok(Cid::try_from(&bytes[1..])?)
+}
+
+/// Reads the len given a base.
+pub fn read_len<R: Read>(r: &mut R, major: u8) -> Result<usize> {
+    Ok(match major {
+        0x00..=0x17 => major as usize,
+        0x18 => read_u8(r)? as usize,
+        0x19 => read_u16(r)? as usize,
+        0x1a => read_u32(r)? as usize,
+        0x1b => {
+            let len = read_u64(r)?;
+            if len > usize::max_value() as u64 {
+                return Err(LengthOutOfRange.into());
+            }
+            len as usize
+        }
+        _ => return Err(UnexpectedCode.into()),
+    })
 }
 
 /// `TryReadCbor` trait.
@@ -304,21 +323,13 @@ impl_decode!(f64);
 
 impl TryReadCbor for String {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x60..=0x77 => major as usize - 0x60,
-            0x78 => read_u8(r)? as usize,
-            0x79 => read_u16(r)? as usize,
-            0x7a => read_u32(r)? as usize,
-            0x7b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
-                len as usize
+        match major {
+            0x60..=0x7b => {
+                let len = read_len(r, major - 0x60)?;
+                Ok(Some(read_str(r, len)?))
             }
-            _ => return Ok(None),
-        };
-        Ok(Some(read_str(r, len)?))
+            _ => Ok(None),
+        }
     }
 }
 impl_decode!(String);
@@ -331,26 +342,17 @@ impl TryReadCbor for Cid {
         }
     }
 }
-
 impl_decode!(Cid);
 
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x40..=0x57 => major as usize - 0x40,
-            0x58 => read_u8(r)? as usize,
-            0x59 => read_u16(r)? as usize,
-            0x5a => read_u32(r)? as usize,
-            0x5b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
-                len as usize
+        match major {
+            0x40..=0x5b => {
+                let len = read_len(r, major - 0x40)?;
+                Ok(Some(read_bytes(r, len)?.into_boxed_slice()))
             }
-            _ => return Ok(None),
-        };
-        Ok(Some(read_bytes(r, len)?.into_boxed_slice()))
+            _ => Ok(None),
+        }
     }
 }
 impl_decode!(Box<[u8]>);
@@ -374,42 +376,26 @@ impl_decode!(Option<T>);
 
 impl<T: TryReadCbor> TryReadCbor for Vec<T> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0x80..=0x97 => major as usize - 0x80,
-            0x98 => read_u8(r)? as usize,
-            0x99 => read_u16(r)? as usize,
-            0x9a => read_u32(r)? as usize,
-            0x9b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
-                len as usize
+        match major {
+            0x80..=0x9b => {
+                let len = read_len(r, major - 0x80)?;
+                Ok(Some(read_list(r, len)?))
             }
-            _ => return Ok(None),
-        };
-        Ok(Some(read_list(r, len)?))
+            _ => Ok(None),
+        }
     }
 }
 impl_decode!(Vec<T>);
 
 impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        let len = match major {
-            0xa0..=0xb7 => major as usize - 0xa0,
-            0xb8 => read_u8(r)? as usize,
-            0xb9 => read_u16(r)? as usize,
-            0xba => read_u32(r)? as usize,
-            0xbb => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
-                len as usize
+        match major {
+            0xa0..=0xbb => {
+                let len = read_len(r, major - 0xa0)?;
+                Ok(Some(read_map(r, len)?))
             }
-            _ => return Ok(None),
-        };
-        Ok(Some(read_map(r, len)?))
+            _ => Ok(None),
+        }
     }
 }
 impl_decode!(BTreeMap<String, T>);
@@ -432,121 +418,29 @@ impl TryReadCbor for Ipld {
             0x3b => Self::Integer(-1 - read_u64(r)? as i128),
 
             // Major type 2: a byte string
-            0x40..=0x57 => {
-                let len = major - 0x40;
-                let bytes = read_bytes(r, len as usize)?;
-                Self::Bytes(bytes)
-            }
-            0x58 => {
-                let len = read_u8(r)?;
-                let bytes = read_bytes(r, len as usize)?;
-                Self::Bytes(bytes)
-            }
-            0x59 => {
-                let len = read_u16(r)?;
-                let bytes = read_bytes(r, len as usize)?;
-                Self::Bytes(bytes)
-            }
-            0x5a => {
-                let len = read_u32(r)?;
-                let bytes = read_bytes(r, len as usize)?;
-                Self::Bytes(bytes)
-            }
-            0x5b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
+            0x40..=0x5b => {
+                let len = read_len(r, major - 0x40)?;
                 let bytes = read_bytes(r, len as usize)?;
                 Self::Bytes(bytes)
             }
 
             // Major type 3: a text string
-            0x60..=0x77 => {
-                let len = major - 0x60;
-                let string = read_str(r, len as usize)?;
-                Self::String(string)
-            }
-            0x78 => {
-                let len = read_u8(r)?;
-                let string = read_str(r, len as usize)?;
-                Self::String(string)
-            }
-            0x79 => {
-                let len = read_u16(r)?;
-                let string = read_str(r, len as usize)?;
-                Self::String(string)
-            }
-            0x7a => {
-                let len = read_u32(r)?;
-                let string = read_str(r, len as usize)?;
-                Self::String(string)
-            }
-            0x7b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
+            0x60..=0x7b => {
+                let len = read_len(r, major - 0x60)?;
                 let string = read_str(r, len as usize)?;
                 Self::String(string)
             }
 
             // Major type 4: an array of data items
-            0x80..=0x97 => {
-                let len = major - 0x80;
-                let list = read_list(r, len as usize)?;
-                Self::List(list)
-            }
-            0x98 => {
-                let len = read_u8(r)?;
-                let list = read_list(r, len as usize)?;
-                Self::List(list)
-            }
-            0x99 => {
-                let len = read_u16(r)?;
-                let list = read_list(r, len as usize)?;
-                Self::List(list)
-            }
-            0x9a => {
-                let len = read_u32(r)?;
-                let list = read_list(r, len as usize)?;
-                Self::List(list)
-            }
-            0x9b => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
+            0x80..=0x9b => {
+                let len = read_len(r, major - 0x80)?;
                 let list = read_list(r, len as usize)?;
                 Self::List(list)
             }
 
             // Major type 5: a map of pairs of data items
-            0xa0..=0xb7 => {
-                let len = major - 0xa0;
-                let map = read_map(r, len as usize)?;
-                Self::Map(map)
-            }
-            0xb8 => {
-                let len = read_u8(r)?;
-                let map = read_map(r, len as usize)?;
-                Self::Map(map)
-            }
-            0xb9 => {
-                let len = read_u16(r)?;
-                let map = read_map(r, len as usize)?;
-                Self::Map(map)
-            }
-            0xba => {
-                let len = read_u32(r)?;
-                let map = read_map(r, len as usize)?;
-                Self::Map(map)
-            }
-            0xbb => {
-                let len = read_u64(r)?;
-                if len > usize::max_value() as u64 {
-                    return Err(LengthOutOfRange.into());
-                }
+            0xa0..=0xbb => {
+                let len = read_len(r, major - 0xa0)?;
                 let map = read_map(r, len as usize)?;
                 Self::Map(map)
             }
@@ -567,3 +461,84 @@ impl TryReadCbor for Ipld {
     }
 }
 impl_decode!(Ipld);
+impl References<DagCbor> for Ipld {
+    fn references<R: Read + Seek>(c: DagCbor, r: &mut R, set: &mut FnvHashSet<Cid>) -> Result<()> {
+        let major = read_u8(r)?;
+        match major {
+            // Major type 0: an unsigned integer
+            0x00..=0x17 => {}
+            0x18 => {
+                r.seek(SeekFrom::Current(1))?;
+            }
+            0x19 => {
+                r.seek(SeekFrom::Current(2))?;
+            }
+            0x1a => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0x1b => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+
+            // Major type 1: a negative integer
+            0x20..=0x37 => {}
+            0x38 => {
+                r.seek(SeekFrom::Current(1))?;
+            }
+            0x39 => {
+                r.seek(SeekFrom::Current(2))?;
+            }
+            0x3a => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0x3b => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+
+            // Major type 2: a byte string
+            0x40..=0x5b => {
+                let len = read_len(r, major - 0x40)?;
+                r.seek(SeekFrom::Current(len as _))?;
+            }
+
+            // Major type 3: a text string
+            0x60..=0x7b => {
+                let len = read_len(r, major - 0x60)?;
+                r.seek(SeekFrom::Current(len as _))?;
+            }
+
+            // Major type 4: an array of data items
+            0x80..=0x9b => {
+                let len = read_len(r, major - 0x80)?;
+                for _ in 0..len {
+                    <Self as References<DagCbor>>::references(c, r, set)?;
+                }
+            }
+
+            // Major type 5: a map of pairs of data items
+            0xa0..=0xb7 => {
+                let len = read_len(r, major - 0xa0)?;
+                for _ in 0..len {
+                    <Self as References<DagCbor>>::references(c, r, set)?;
+                    <Self as References<DagCbor>>::references(c, r, set)?;
+                }
+            }
+
+            // Major type 6: optional semantic tagging of other major types
+            0xd8 => {
+                set.insert(read_link(r)?);
+            }
+
+            // Major type 7: floating-point numbers and other simple data types that need no content
+            0xf4..=0xf7 => {}
+            0xfa => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0xfb => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+            _ => return Err(UnexpectedCode.into()),
+        };
+        Ok(())
+    }
+}
