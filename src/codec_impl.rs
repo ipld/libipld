@@ -146,7 +146,7 @@ impl References<IpldCodec> for Ipld {
         r: &mut R,
         set: &mut FnvHashSet<Cid>,
     ) -> Result<()> {
-        Ok(match c {
+        match c {
             IpldCodec::Raw => <Self as References<RawCodec>>::references(RawCodec, r, set)?,
             #[cfg(feature = "dag-cbor")]
             IpldCodec::DagCbor => {
@@ -158,7 +158,8 @@ impl References<IpldCodec> for Ipld {
             }
             #[cfg(feature = "dag-pb")]
             IpldCodec::DagPb => <Self as References<DagPbCodec>>::references(DagPbCodec, r, set)?,
-        })
+        };
+        Ok(())
     }
 }
 
