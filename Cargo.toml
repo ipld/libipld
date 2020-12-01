@@ -25,6 +25,7 @@ thiserror = "1.0.22"
 criterion = "0.3.3"
 proptest = "0.10.1"
 model = "0.1.2"
+multihash = "0.13.1"
 
 [features]
 default = ["all", "derive"]
