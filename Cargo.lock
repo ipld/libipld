@@ -766,7 +766,7 @@ checksum = "f2f96b10ec2560088a8e76961b00d47107b3a625fecb76dedb29ee7ccbf98235"
 
 [[package]]
 name = "libipld"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -788,7 +788,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-cbor"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "byteorder",
  "hex",
@@ -800,7 +800,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-cbor-derive"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "libipld",
  "proc-macro2",
@@ -812,7 +812,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-core"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "cid",
@@ -823,7 +823,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-json"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "base64",
  "libipld-core",
@@ -834,14 +834,14 @@ dependencies = [
 
 [[package]]
 name = "libipld-macro"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "libipld-core",
 ]
 
 [[package]]
 name = "libipld-pb"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "libipld-core",
  "libipld-macro",
