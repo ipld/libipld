@@ -4,8 +4,8 @@ use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{Result, TypeError, TypeErrorType, UnsupportedCodec};
 use crate::ipld::Ipld;
 use core::convert::TryFrom;
-use fnv::FnvHashSet;
 use std::io::{Read, Write};
+use std::iter::Extend;
 
 /// Raw codec.
 #[derive(Clone, Copy, Debug)]
@@ -78,7 +78,7 @@ impl Decode<RawCodec> for Ipld {
 }
 
 impl<T> References<RawCodec> for T {
-    fn references<R: Read>(_c: RawCodec, _r: &mut R, _set: &mut FnvHashSet<Cid>) -> Result<()> {
+    fn references<R: Read, E: Extend<Cid>>(_c: RawCodec, _r: &mut R, _set: &mut E) -> Result<()> {
         Ok(())
     }
 }

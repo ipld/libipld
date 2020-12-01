@@ -4,7 +4,6 @@
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};
-use fnv::FnvHashSet;
 use libipld_core::cid::Cid;
 use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
@@ -51,7 +50,7 @@ impl Decode<DagPbCodec> for Ipld {
 }
 
 impl References<DagPbCodec> for Ipld {
-    fn references<R: Read>(c: DagPbCodec, r: &mut R, set: &mut FnvHashSet<Cid>) -> Result<()> {
+    fn references<R: Read, E: Extend<Cid>>(c: DagPbCodec, r: &mut R, set: &mut E) -> Result<()> {
         Ipld::decode(c, r)?.references(set);
         Ok(())
     }

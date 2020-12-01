@@ -2,7 +2,6 @@
 use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
 use core::convert::TryFrom;
-use fnv::FnvHashSet;
 use std::io::{Cursor, Read, Seek, Write};
 
 /// Codec trait.
@@ -22,10 +21,10 @@ pub trait Codec:
     }
 
     /// Scrapes the references.
-    fn references<T: References<Self>>(
+    fn references<T: References<Self>, E: Extend<Cid>>(
         &self,
         bytes: &[u8],
-        set: &mut FnvHashSet<Cid>,
+        set: &mut E,
     ) -> Result<()> {
         T::references(*self, &mut Cursor::new(bytes), set)
     }
@@ -64,7 +63,7 @@ pub trait References<C: Codec>: Sized {
     ///
     /// It takes a specific codec as parameter, so that the [`References`] can be generic over an
     /// enum that contains multiple codecs.
-    fn references<R: Read + Seek>(c: C, r: &mut R, set: &mut FnvHashSet<Cid>) -> Result<()>;
+    fn references<R: Read + Seek, E: Extend<Cid>>(c: C, r: &mut R, set: &mut E) -> Result<()>;
 }
 
 #[cfg(test)]

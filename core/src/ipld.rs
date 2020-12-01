@@ -1,7 +1,6 @@
 //! Ipld representation.
 use crate::cid::Cid;
 use crate::error::TypeError;
-use fnv::FnvHashSet;
 use std::collections::BTreeMap;
 
 /// Ipld
@@ -112,10 +111,10 @@ impl Ipld {
     }
 
     /// Returns the references to other blocks.
-    pub fn references(&self, set: &mut FnvHashSet<Cid>) {
+    pub fn references<E: Extend<Cid>>(&self, set: &mut E) {
         for ipld in self.iter() {
             if let Ipld::Link(cid) = ipld {
-                set.insert(cid.to_owned());
+                set.extend(std::iter::once(cid.to_owned()));
             }
         }
     }

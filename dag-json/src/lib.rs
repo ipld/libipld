@@ -3,7 +3,6 @@
 #![deny(warnings)]
 
 use core::convert::TryFrom;
-use fnv::FnvHashSet;
 use libipld_core::cid::Cid;
 use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
@@ -47,7 +46,7 @@ impl Decode<DagJsonCodec> for Ipld {
 }
 
 impl References<DagJsonCodec> for Ipld {
-    fn references<R: Read>(c: DagJsonCodec, r: &mut R, set: &mut FnvHashSet<Cid>) -> Result<()> {
+    fn references<R: Read, E: Extend<Cid>>(c: DagJsonCodec, r: &mut R, set: &mut E) -> Result<()> {
         Ipld::decode(c, r)?.references(set);
         Ok(())
     }

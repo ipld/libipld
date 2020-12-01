@@ -38,11 +38,11 @@ impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCb
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fnv::FnvHashSet;
     use libipld_core::cid::Cid;
     use libipld_core::ipld::Ipld;
     use libipld_core::multihash::{Code, MultihashDigest};
     use libipld_macro::ipld;
+    use std::collections::HashSet;
 
     #[test]
     fn test_encode_decode_cbor() {
@@ -66,8 +66,10 @@ mod tests {
             "list": [true, cid],
         });
         let bytes = DagCborCodec.encode(&ipld).unwrap();
-        let mut set = FnvHashSet::default();
-        DagCborCodec.references::<Ipld>(&bytes, &mut set).unwrap();
+        let mut set = HashSet::new();
+        DagCborCodec
+            .references::<Ipld, _>(&bytes, &mut set)
+            .unwrap();
         assert!(set.contains(&cid));
     }
 }

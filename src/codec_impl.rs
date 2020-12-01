@@ -11,7 +11,6 @@ use crate::json::DagJsonCodec;
 use crate::pb::DagPbCodec;
 use crate::raw::RawCodec;
 use core::convert::TryFrom;
-use fnv::FnvHashSet;
 use std::io::{Read, Seek, Write};
 
 /// Default codecs.
@@ -141,10 +140,10 @@ impl Decode<IpldCodec> for Ipld {
 }
 
 impl References<IpldCodec> for Ipld {
-    fn references<R: Read + Seek>(
+    fn references<R: Read + Seek, E: Extend<Cid>>(
         c: IpldCodec,
         r: &mut R,
-        set: &mut FnvHashSet<Cid>,
+        set: &mut E,
     ) -> Result<()> {
         match c {
             IpldCodec::Raw => <Self as References<RawCodec>>::references(RawCodec, r, set)?,

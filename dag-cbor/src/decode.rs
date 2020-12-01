@@ -3,7 +3,6 @@ use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, Unexpecte
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use fnv::FnvHashSet;
 use libipld_core::cid::Cid;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
@@ -462,7 +461,11 @@ impl TryReadCbor for Ipld {
 }
 impl_decode!(Ipld);
 impl References<DagCbor> for Ipld {
-    fn references<R: Read + Seek>(c: DagCbor, r: &mut R, set: &mut FnvHashSet<Cid>) -> Result<()> {
+    fn references<R: Read + Seek, E: Extend<Cid>>(
+        c: DagCbor,
+        r: &mut R,
+        set: &mut E,
+    ) -> Result<()> {
         let major = read_u8(r)?;
         match major {
             // Major type 0: an unsigned integer
@@ -526,7 +529,7 @@ impl References<DagCbor> for Ipld {
 
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {
-                set.insert(read_link(r)?);
+                set.extend(std::iter::once(read_link(r)?));
             }
 
             // Major type 7: floating-point numbers and other simple data types that need no content

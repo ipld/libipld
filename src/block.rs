@@ -9,7 +9,6 @@ use core::borrow::Borrow;
 use core::convert::TryFrom;
 use core::marker::PhantomData;
 use core::ops::Deref;
-use fnv::FnvHashSet;
 
 /// Block
 #[derive(Clone)]
@@ -179,11 +178,11 @@ impl<S: StoreParams> Block<S> {
     }
 
     /// Returns the references.
-    pub fn references(&self, set: &mut FnvHashSet<Cid>) -> Result<()>
+    pub fn references<E: Extend<Cid>>(&self, set: &mut E) -> Result<()>
     where
         Ipld: References<S::Codecs>,
     {
-        S::Codecs::try_from(self.cid.codec())?.references::<Ipld>(&self.data, set)
+        S::Codecs::try_from(self.cid.codec())?.references::<Ipld, E>(&self.data, set)
     }
 }
 
@@ -196,6 +195,7 @@ mod tests {
     use crate::ipld::Ipld;
     use crate::multihash::Code;
     use crate::store::DefaultParams;
+    use fnv::FnvHashSet;
 
     type IpldBlock = Block<DefaultParams>;
 
