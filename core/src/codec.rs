@@ -1,7 +1,8 @@
 //! `Ipld` codecs.
+use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
 use core::convert::TryFrom;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 /// Codec trait.
 pub trait Codec:
@@ -17,6 +18,15 @@ pub trait Codec:
     /// Decodes a decodable type.
     fn decode<T: Decode<Self>>(&self, mut bytes: &[u8]) -> Result<T> {
         T::decode(*self, &mut bytes)
+    }
+
+    /// Scrapes the references.
+    fn references<T: References<Self>, E: Extend<Cid>>(
+        &self,
+        bytes: &[u8],
+        set: &mut E,
+    ) -> Result<()> {
+        T::references(*self, &mut Cursor::new(bytes), set)
     }
 }
 
@@ -42,6 +52,18 @@ pub trait Decode<C: Codec>: Sized {
     /// It takes a specific codec as parameter, so that the [`Decode`] can be generic over an enum
     /// that contains multiple codecs.
     fn decode<R: Read>(c: C, r: &mut R) -> Result<Self>;
+}
+
+/// References trait.
+///
+/// This trait is generic over a codec, so that different codecs can be implemented for the same
+/// type.
+pub trait References<C: Codec>: Sized {
+    /// Scrape the references from an `impl Read`.
+    ///
+    /// It takes a specific codec as parameter, so that the [`References`] can be generic over an
+    /// enum that contains multiple codecs.
+    fn references<R: Read + Seek, E: Extend<Cid>>(c: C, r: &mut R, set: &mut E) -> Result<()>;
 }
 
 #[cfg(test)]

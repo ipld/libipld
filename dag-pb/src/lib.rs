@@ -4,7 +4,8 @@
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};
-use libipld_core::codec::{Codec, Decode, Encode};
+use libipld_core::cid::Cid;
+use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 use std::io::{Read, Write};
@@ -45,6 +46,13 @@ impl Decode<DagPbCodec> for Ipld {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
         Ok(PbNode::from_bytes(&bytes)?.into())
+    }
+}
+
+impl References<DagPbCodec> for Ipld {
+    fn references<R: Read, E: Extend<Cid>>(c: DagPbCodec, r: &mut R, set: &mut E) -> Result<()> {
+        Ipld::decode(c, r)?.references(set);
+        Ok(())
     }
 }
 

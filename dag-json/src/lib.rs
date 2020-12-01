@@ -3,7 +3,8 @@
 #![deny(warnings)]
 
 use core::convert::TryFrom;
-use libipld_core::codec::{Codec, Decode, Encode};
+use libipld_core::cid::Cid;
+use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
@@ -41,6 +42,13 @@ impl Encode<DagJsonCodec> for Ipld {
 impl Decode<DagJsonCodec> for Ipld {
     fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
         Ok(codec::decode(r)?)
+    }
+}
+
+impl References<DagJsonCodec> for Ipld {
+    fn references<R: Read, E: Extend<Cid>>(c: DagJsonCodec, r: &mut R, set: &mut E) -> Result<()> {
+        Ipld::decode(c, r)?.references(set);
+        Ok(())
     }
 }
 
