@@ -17,3 +17,4 @@ prost-build = "0.6.1"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
+multihash = "0.13.1"

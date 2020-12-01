@@ -13,5 +13,6 @@ libipld-core = { version = "0.7.0", path = "../core" }
 thiserror = "1.0.22"
 
 [dev-dependencies]
-libipld-macro = { path = "../macro" }
 hex = "0.4.2"
+libipld-macro = { path = "../macro" }
+multihash = "0.13.1"
