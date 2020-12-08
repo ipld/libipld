@@ -239,11 +239,11 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Vec<T> {
     }
 }
 
-impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
+impl<K: ToString, T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<K, T> {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 5, self.len() as u64)?;
         for (k, v) in self {
-            k.encode(c, w)?;
+            k.to_string().encode(c, w)?;
             v.encode(c, w)?;
         }
         Ok(())
