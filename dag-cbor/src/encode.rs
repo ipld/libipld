@@ -8,6 +8,8 @@ use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::ops::Deref;
+use std::sync::Arc;
 
 /// Writes a null byte to a cbor encoded byte stream.
 pub fn write_null<W: Write>(w: &mut W) -> Result<()> {
@@ -263,5 +265,11 @@ impl Encode<DagCbor> for Ipld {
             Self::Map(m) => m.encode(c, w),
             Self::Link(cid) => cid.encode(c, w),
         }
+    }
+}
+
+impl<T: Encode<DagCbor>> Encode<DagCbor> for Arc<T> {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        self.deref().encode(c, w)
     }
 }

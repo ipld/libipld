@@ -7,9 +7,11 @@ use libipld_core::cid::Cid;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
+use libipld_core::link::Link;
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
@@ -352,6 +354,12 @@ impl TryReadCbor for Cid {
 }
 impl_decode!(Cid);
 
+impl<T> TryReadCbor for Link<T> {
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        Ok(Cid::try_read_cbor(r, major)?.map(Into::into))
+    }
+}
+
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -558,3 +566,14 @@ impl References<DagCbor> for Ipld {
         Ok(())
     }
 }
+
+impl<T: TryReadCbor> TryReadCbor for Arc<T> {
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(res) = T::try_read_cbor(r, major)? {
+            Ok(Some(Arc::new(res)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+impl_decode!(Arc<T>);
