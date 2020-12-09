@@ -18,7 +18,10 @@ pub struct Link<T> {
 impl<T> Link<T> {
     /// Creates a new `Link`.
     pub fn new(cid: Cid) -> Self {
-        Self { cid, _marker: PhantomData }
+        Self {
+            cid,
+            _marker: PhantomData,
+        }
     }
 
     /// Returns a reference to the cid.
@@ -35,7 +38,10 @@ impl<T> std::fmt::Display for Link<T> {
 
 impl<T> Clone for Link<T> {
     fn clone(&self) -> Self {
-        Self { cid: self.cid, _marker: self._marker }
+        Self {
+            cid: self.cid,
+            _marker: self._marker,
+        }
     }
 }
 
