@@ -7,8 +7,11 @@ use libipld_core::cid::Cid;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
+use libipld_core::link::Link;
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
+use std::str::FromStr;
+use std::sync::Arc;
 
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
@@ -98,12 +101,16 @@ pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeMap<String, T>> {
-    let mut map: BTreeMap<String, T> = BTreeMap::new();
+pub fn read_map<R: Read, K, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeMap<K, T>>
+where
+    K: FromStr + Ord,
+    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
+    let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = read(r)?;
+        let key: String = read(r)?;
         let value = read(r)?;
-        map.insert(key, value);
+        map.insert(key.parse()?, value);
     }
     Ok(map)
 }
@@ -173,7 +180,11 @@ macro_rules! impl_decode {
         }
     };
     ($ty:ident<$param:ident, T>) => {
-        impl<T: TryReadCbor> Decode<DagCbor> for $ty<$param, T> {
+        impl<$param, T: TryReadCbor> Decode<DagCbor> for $ty<$param, T>
+        where
+            $param: FromStr + Ord,
+            <$param as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+        {
             fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
@@ -343,6 +354,12 @@ impl TryReadCbor for Cid {
 }
 impl_decode!(Cid);
 
+impl<T> TryReadCbor for Link<T> {
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        Ok(Cid::try_read_cbor(r, major)?.map(Into::into))
+    }
+}
+
 impl TryReadCbor for Box<[u8]> {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
@@ -386,7 +403,11 @@ impl<T: TryReadCbor> TryReadCbor for Vec<T> {
 }
 impl_decode!(Vec<T>);
 
-impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
+impl<K, T: TryReadCbor> TryReadCbor for BTreeMap<K, T>
+where
+    K: FromStr + Ord,
+    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xa0..=0xbb => {
@@ -397,7 +418,7 @@ impl<T: TryReadCbor> TryReadCbor for BTreeMap<String, T> {
         }
     }
 }
-impl_decode!(BTreeMap<String, T>);
+impl_decode!(BTreeMap<K, T>);
 
 impl TryReadCbor for Ipld {
     fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
@@ -545,3 +566,14 @@ impl References<DagCbor> for Ipld {
         Ok(())
     }
 }
+
+impl<T: TryReadCbor> TryReadCbor for Arc<T> {
+    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if let Some(res) = T::try_read_cbor(r, major)? {
+            Ok(Some(Arc::new(res)))
+        } else {
+            Ok(None)
+        }
+    }
+}
+impl_decode!(Arc<T>);
