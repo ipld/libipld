@@ -1,7 +1,6 @@
 use libipld::cbor::{DagCborCodec, Result};
 use libipld::codec::{Decode, Encode};
-use libipld::ipld::Ipld;
-use libipld::{ipld, DagCbor};
+use libipld::{ipld, DagCbor, Ipld};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]

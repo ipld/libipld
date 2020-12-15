@@ -17,6 +17,13 @@ enum KindedRepr {
     B { a: u32 },
 }
 
+#[derive(Clone, Debug, PartialEq, DagCbor)]
+#[ipld(repr = "string")]
+enum KindedRepr2 {
+    A,
+    B,
+}
+
 macro_rules! test_case {
     ($data:expr, $ty:ty, $ipld:expr) => {
         let data = $data;
@@ -46,6 +53,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         KindedRepr::B { a: 42 },
         KindedRepr,
         ipld!({ "a": 42 })
+    }
+
+    test_case! {
+        KindedRepr2::B,
+        KindedRepr2,
+        ipld!("b")
     }
 
     Ok(())
