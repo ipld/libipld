@@ -10,8 +10,11 @@ mod gen;
 mod parse;
 
 fn dag_cbor_derive(s: Structure) -> TokenStream {
-    let encode = gen::encode(&s);
-    let try_read_cbor = gen::decode(&s);
+    let ast = parse::parse(&s);
+    let ipld = gen::gen(ast);
+    /*
+    let encode = gen::encode(&ast);
+    let try_read_cbor = gen::decode(&ast);
     s.gen_impl(quote! {
         use libipld::cbor::{DagCborCodec, Result};
         use libipld::error::Error;
@@ -35,7 +38,8 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
                 read(r)
             }
         }
-    })
+    })*/
+    quote!()
 }
 
 /*#[cfg(test)]

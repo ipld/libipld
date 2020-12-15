@@ -1,5 +1,23 @@
-use proc_macro2::Span;
+use proc_macro2::TokenStream;
 
+#[derive(Clone, Debug)]
+pub struct TokenStreamEq(pub TokenStream);
+
+impl std::ops::Deref for TokenStreamEq {
+    type Target = TokenStream;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq for TokenStreamEq {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.to_string() == other.0.to_string()
+    }
+}
+
+impl Eq for TokenStreamEq {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SchemaType {
     Struct(Struct),
@@ -12,6 +30,7 @@ pub struct Struct {
     pub name: syn::Ident,
     pub fields: Vec<StructField>,
     pub repr: StructRepr,
+    pub pat: TokenStreamEq,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -22,34 +41,7 @@ pub struct StructField {
     pub optional: bool,
     pub implicit: Option<syn::Expr>,
     pub default: Option<syn::Expr>,
-}
-
-impl StructField {
-    pub fn new(member: syn::Member) -> Self {
-        Self {
-            name: member,
-            rename: None,
-            nullable: false,
-            optional: false,
-            implicit: None,
-            default: None,
-        }
-    }
-}
-
-impl From<syn::Ident> for StructField {
-    fn from(ident: syn::Ident) -> Self {
-        Self::new(syn::Member::Named(ident))
-    }
-}
-
-impl From<usize> for StructField {
-    fn from(i: usize) -> Self {
-        Self::new(syn::Member::Unnamed(syn::Index {
-            index: i as _,
-            span: Span::call_site(),
-        }))
-    }
+    pub binding: syn::Ident,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -82,6 +74,7 @@ pub struct Enum {
 pub struct EnumValue {
     pub name: syn::Ident,
     pub rename: Option<String>,
+    pub pat: TokenStreamEq,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
