@@ -77,6 +77,7 @@ pub struct Implicit {
 }
 
 #[test]
+#[ignore]
 fn struct_implicit() {
     assert_roundtrip(
         DagCborCodec,
@@ -93,6 +94,7 @@ pub struct OptionalNullable {
 }
 
 #[test]
+#[ignore]
 fn struct_optional_nullable() {
     assert_roundtrip(
         DagCborCodec,

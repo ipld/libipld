@@ -6,7 +6,6 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
     let (ident, body) = match ast {
         SchemaType::Struct(s) => (&s.name, gen_encode_struct(&s)),
         SchemaType::Union(u) => (&u.name, gen_encode_union(&u)),
-        SchemaType::Enum(e) => (&e.name, gen_encode_enum(&e)),
     };
 
     quote! {
@@ -17,7 +16,7 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
                 w: &mut W,
             ) -> libipld::Result<()> {
                 use libipld::codec::Encode;
-                use libipld::cbor::encode::write_u64;
+                use libipld::cbor::encode::{write_null, write_u64};
                 #body
             }
         }
@@ -28,7 +27,6 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
     let ident = match ast {
         SchemaType::Struct(s) => &s.name,
         SchemaType::Union(u) => &u.name,
-        SchemaType::Enum(e) => &e.name,
     };
 
     quote! {
@@ -47,7 +45,6 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
     let (ident, body) = match ast {
         SchemaType::Struct(s) => (&s.name, gen_try_read_cbor_struct(&s)),
         SchemaType::Union(u) => (&u.name, gen_try_read_cbor_union(&u)),
-        SchemaType::Enum(e) => (&e.name, gen_try_read_cbor_enum(&e)),
     };
     quote! {
         impl libipld::cbor::decode::TryReadCbor for #ident {
@@ -163,62 +160,66 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
                 },
             )
         }
+        StructRepr::Null => {
+            assert_eq!(s.fields.len(), 0);
+            quote!(write_null(w)?;)
+        }
     }
 }
 
 fn gen_encode_union(u: &Union) -> TokenStream {
-    let arms = u.variants.iter().map(|s| {
-        let pat = &*s.pat;
-        let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
-        let value = gen_encode_struct_body(s);
-        match u.repr {
-            UnionRepr::Keyed => {
-                quote! {
-                    #pat => {
-                        write_u64(w, 5, 1)?;
-                        Encode::encode(#key, c, w)?;
-                        #value
+    let arms = u
+        .variants
+        .iter()
+        .map(|s| {
+            let pat = &*s.pat;
+            let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
+            let value = gen_encode_struct_body(s);
+            match u.repr {
+                UnionRepr::Keyed => {
+                    quote! {
+                        #pat => {
+                            write_u64(w, 5, 1)?;
+                            Encode::encode(#key, c, w)?;
+                            #value
+                        }
                     }
                 }
+                UnionRepr::Kinded => {
+                    quote!(#pat => { #value })
+                }
+                UnionRepr::String => {
+                    assert_eq!(s.repr, StructRepr::Null);
+                    quote!(#pat => Encode::encode(#key, c, w)?)
+                }
+                UnionRepr::Int => {
+                    assert_eq!(s.repr, StructRepr::Null);
+                    quote!()
+                }
             }
-            UnionRepr::Kinded => {
-                quote!(#pat => { #value })
-            }
-        }
-    });
-    gen_encode_match(arms)
-}
-
-fn gen_try_read_cbor_union(_u: &Union) -> TokenStream {
-    quote!(Ok(None))
-}
-
-fn gen_encode_enum(e: &Enum) -> TokenStream {
-    match e.repr {
-        EnumRepr::String => {
-            let arms = e.values.iter().map(|v| {
-                let pat = &*v.pat;
-                let value = rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref());
-                quote!(#pat => Encode::encode(#value, c, w)?)
-            });
-            gen_encode_match(arms)
-        }
-        EnumRepr::Int => {
-            quote!(Encode::encode(&(*self as u64), c, w))
-        }
+        })
+        .collect::<Vec<_>>();
+    if u.repr == UnionRepr::Int {
+        quote!(Encode::encode(&(*self as u64), c, w))
+    } else {
+        gen_encode_match(arms.into_iter())
     }
 }
 
-fn gen_try_read_cbor_enum(e: &Enum) -> TokenStream {
-    let (expr, expr_ref) = match e.repr {
-        EnumRepr::String => (try_read_cbor(quote!(String)), quote!(key.as_str())),
-        EnumRepr::Int => (try_read_cbor(quote!(u64)), quote!(key)),
+fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
+    let (expr, expr_ref) = match u.repr {
+        UnionRepr::Keyed => return quote!(Ok(None)),
+        UnionRepr::Kinded => return quote!(Ok(None)),
+        UnionRepr::String => (try_read_cbor(quote!(String)), quote!(key.as_str())),
+        UnionRepr::Int => (try_read_cbor(quote!(u64)), quote!(key)),
     };
-    let arms = e.values.iter().map(|v| {
+    let arms = u.variants.iter().map(|v| {
         let pat = &*v.pat;
-        let value = match e.repr {
-            EnumRepr::String => rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref()),
-            EnumRepr::Int => {
+        let value = match u.repr {
+            UnionRepr::Keyed => unimplemented!(),
+            UnionRepr::Kinded => unimplemented!(),
+            UnionRepr::String => rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref()),
+            UnionRepr::Int => {
                 quote!(x if x == #pat as u64)
             }
         };

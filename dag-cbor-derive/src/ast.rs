@@ -22,7 +22,6 @@ impl Eq for TokenStreamEq {}
 pub enum SchemaType {
     Struct(Struct),
     Union(Union),
-    Enum(Enum),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -47,6 +46,7 @@ pub enum StructRepr {
     Map,
     Tuple,
     Value,
+    Null,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -60,24 +60,6 @@ pub struct Union {
 pub enum UnionRepr {
     Keyed,
     Kinded,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Enum {
-    pub name: syn::Ident,
-    pub values: Vec<EnumValue>,
-    pub repr: EnumRepr,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EnumValue {
-    pub name: syn::Ident,
-    pub rename: Option<String>,
-    pub pat: TokenStreamEq,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum EnumRepr {
     String,
     Int,
 }

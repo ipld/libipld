@@ -25,11 +25,11 @@ fn union_keyed() {
     assert_roundtrip(DagCborCodec, &Keyed::B(true), &ipld!({"b": true}));
     assert_roundtrip(DagCborCodec, &Keyed::B(false), &ipld!({"b": false}));
     assert_roundtrip(DagCborCodec, &Keyed::C { n: 1 }, &ipld!({"C": 1}));
-    assert_roundtrip(DagCborCodec, &Keyed::D(true), &ipld!({"C": [true]}));
+    assert_roundtrip(DagCborCodec, &Keyed::D(true), &ipld!({"D": [true]}));
     assert_roundtrip(
         DagCborCodec,
         &Keyed::E { boolean: true },
-        &ipld!({"C": { "boolean": true }}),
+        &ipld!({"E": { "boolean": true }}),
     );
 }
 

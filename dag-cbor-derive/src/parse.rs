@@ -7,14 +7,7 @@ use synstructure::{BindingInfo, Structure, VariantInfo};
 pub fn parse(s: &Structure) -> SchemaType {
     match &s.ast().data {
         syn::Data::Struct(_) => SchemaType::Struct(parse_struct(&s.variants()[0])),
-        syn::Data::Enum(_) => match parse_rust_enum_repr(&s.ast().attrs) {
-            RustEnumRepr::Union(repr) => {
-                SchemaType::Union(parse_union(&s.ast().ident, s.variants(), repr))
-            }
-            RustEnumRepr::Enum(repr) => {
-                SchemaType::Enum(parse_enum(&s.ast().ident, s.variants(), repr))
-            }
-        },
+        syn::Data::Enum(_) => SchemaType::Union(parse_union(s)),
         syn::Data::Union(_) => unimplemented!(),
     }
 }
@@ -40,30 +33,26 @@ fn parse_struct_repr(ast: &[syn::Attribute]) -> Option<StructRepr> {
             "map" => StructRepr::Map,
             "tuple" => StructRepr::Tuple,
             "value" => StructRepr::Value,
+            "null" => StructRepr::Null,
             repr => panic!("unknown struct representation {}", repr),
         })
     }
     repr
 }
 
-enum RustEnumRepr {
-    Union(UnionRepr),
-    Enum(EnumRepr),
-}
-
-fn parse_rust_enum_repr(ast: &[syn::Attribute]) -> RustEnumRepr {
+fn parse_union_repr(ast: &[syn::Attribute]) -> UnionRepr {
     let attrs = parse_attrs::<DeriveAttr>(ast);
     let mut repr = None;
     for DeriveAttr::Repr(attr) in attrs {
         repr = Some(match attr.value.value().as_str() {
-            "keyed" => RustEnumRepr::Union(UnionRepr::Keyed),
-            "kinded" => RustEnumRepr::Union(UnionRepr::Kinded),
-            "string" => RustEnumRepr::Enum(EnumRepr::String),
-            "int" => RustEnumRepr::Enum(EnumRepr::Int),
+            "keyed" => UnionRepr::Keyed,
+            "kinded" => UnionRepr::Kinded,
+            "string" => UnionRepr::String,
+            "int" => UnionRepr::Int,
             repr => panic!("unknown enum representation {}", repr),
         })
     }
-    repr.unwrap_or(RustEnumRepr::Union(UnionRepr::Keyed))
+    repr.unwrap_or(UnionRepr::Keyed)
 }
 
 fn parse_struct(v: &VariantInfo) -> Struct {
@@ -77,21 +66,21 @@ fn parse_struct(v: &VariantInfo) -> Struct {
             .enumerate()
             .map(|(i, binding)| parse_field(i, binding))
             .collect(),
-        repr: repr.unwrap_or_else(|| {
-            if let syn::Fields::Named(_) = &v.ast().fields {
-                StructRepr::Map
-            } else {
-                StructRepr::Tuple
-            }
+        repr: repr.unwrap_or_else(|| match &v.ast().fields {
+            syn::Fields::Named(_) => StructRepr::Map,
+            syn::Fields::Unnamed(_) => StructRepr::Tuple,
+            syn::Fields::Unit => StructRepr::Null,
         }),
         pat: TokenStreamEq(v.pat()),
     }
 }
 
-fn parse_union(ident: &syn::Ident, v: &[VariantInfo], repr: UnionRepr) -> Union {
+fn parse_union(s: &Structure) -> Union {
+    let repr = parse_union_repr(&s.ast().attrs);
     Union {
-        name: ident.clone(),
-        variants: v
+        name: s.ast().ident.clone(),
+        variants: s
+            .variants()
             .iter()
             .map(|v| {
                 let mut s = parse_struct(v);
@@ -102,31 +91,6 @@ fn parse_union(ident: &syn::Ident, v: &[VariantInfo], repr: UnionRepr) -> Union 
                     }
                 }
                 s
-            })
-            .collect(),
-        repr,
-    }
-}
-
-fn parse_enum(ident: &syn::Ident, v: &[VariantInfo], repr: EnumRepr) -> Enum {
-    Enum {
-        name: ident.clone(),
-        values: v
-            .iter()
-            .map(|v| {
-                assert_eq!(*v.ast().fields, syn::Fields::Unit);
-                let mut value = EnumValue {
-                    name: v.ast().ident.clone(),
-                    rename: None,
-                    pat: TokenStreamEq(v.pat()),
-                };
-                for attr in parse_attrs::<FieldAttr>(&v.ast().attrs) {
-                    match attr {
-                        FieldAttr::Rename(attr) => value.rename = Some(attr.value.value()),
-                        _ => unimplemented!(),
-                    }
-                }
-                value
             })
             .collect(),
         repr,
@@ -242,7 +206,7 @@ pub mod tests {
                 name: format_ident!("Map"),
                 rename: None,
                 fields: Default::default(),
-                repr: StructRepr::Tuple,
+                repr: StructRepr::Null,
                 pat: TokenStreamEq(quote!(Map)),
             })
         );
@@ -269,7 +233,7 @@ pub mod tests {
                         name: format_ident!("Unit"),
                         rename: Some("unit".into()),
                         fields: vec![],
-                        repr: StructRepr::Tuple,
+                        repr: StructRepr::Null,
                         pat: TokenStreamEq(quote!(Union::Unit)),
                     },
                     Struct {
@@ -315,14 +279,16 @@ pub mod tests {
 
         assert_eq!(
             ast,
-            SchemaType::Enum(Enum {
+            SchemaType::Union(Union {
                 name: format_ident!("Enum"),
-                values: vec![EnumValue {
+                variants: vec![Struct {
                     name: format_ident!("Variant"),
                     rename: Some("test".into()),
+                    fields: vec![],
+                    repr: StructRepr::Null,
                     pat: TokenStreamEq(quote!(Enum::Variant)),
                 }],
-                repr: EnumRepr::String,
+                repr: UnionRepr::String,
             })
         );
     }

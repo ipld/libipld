@@ -1,7 +1,7 @@
 //! `Ipld` codecs.
 use crate::cid::Cid;
-use crate::ipld::Ipld;
 use crate::error::{Result, UnsupportedCodec};
+use crate::ipld::Ipld;
 use core::convert::TryFrom;
 use std::io::{Cursor, Read, Seek, Write};
 
