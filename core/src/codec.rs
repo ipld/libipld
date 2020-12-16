@@ -1,5 +1,6 @@
 //! `Ipld` codecs.
 use crate::cid::Cid;
+use crate::ipld::Ipld;
 use crate::error::{Result, UnsupportedCodec};
 use core::convert::TryFrom;
 use std::io::{Cursor, Read, Seek, Write};
@@ -64,6 +65,23 @@ pub trait References<C: Codec>: Sized {
     /// It takes a specific codec as parameter, so that the [`References`] can be generic over an
     /// enum that contains multiple codecs.
     fn references<R: Read + Seek, E: Extend<Cid>>(c: C, r: &mut R, set: &mut E) -> Result<()>;
+}
+
+/// Utility for testing codecs.
+///
+/// Encodes the `data` using the codec `c` and checks that it matches the `ipld`.
+pub fn assert_roundtrip<C, T>(c: C, data: &T, ipld: &Ipld)
+where
+    C: Codec,
+    T: Decode<C> + Encode<C> + std::fmt::Debug + Eq,
+    Ipld: Decode<C>,
+{
+    let mut bytes = Vec::new();
+    data.encode(c, &mut bytes).unwrap();
+    let ipld2: Ipld = Decode::decode(c, &mut bytes.as_slice()).unwrap();
+    assert_eq!(&ipld2, ipld);
+    let data2: T = Decode::decode(c, &mut bytes.as_slice()).unwrap();
+    assert_eq!(&data2, data);
 }
 
 #[cfg(test)]

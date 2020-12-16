@@ -148,7 +148,7 @@ fn parse_field(i: usize, b: &BindingInfo) -> StructField {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use proc_macro2::TokenStream;
     use quote::{format_ident, quote};
@@ -162,7 +162,7 @@ mod tests {
         };
     }
 
-    fn ast(ts: TokenStream) -> SchemaType {
+    pub fn ast(ts: TokenStream) -> SchemaType {
         let d = syn::parse2(ts).unwrap();
         let s = Structure::new(&d);
         parse(&s)
@@ -220,7 +220,7 @@ mod tests {
                     binding: format_ident!("__binding_0"),
                 }],
                 repr: StructRepr::Tuple,
-                pat: TokenStreamEq(quote!(Tuple(ref __binding_0,))),
+                pat: TokenStreamEq(quote! { Tuple(ref __binding_0,) }),
             })
         );
     }
@@ -277,7 +277,7 @@ mod tests {
                             binding: format_ident!("__binding_0"),
                         }],
                         repr: StructRepr::Tuple,
-                        pat: TokenStreamEq(quote!(Union::Tuple(ref __binding_0,))),
+                        pat: TokenStreamEq(quote! { Union::Tuple(ref __binding_0,) }),
                     },
                     Struct {
                         name: format_ident!("Struct"),

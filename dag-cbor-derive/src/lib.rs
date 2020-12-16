@@ -11,7 +11,14 @@ mod parse;
 
 fn dag_cbor_derive(s: Structure) -> TokenStream {
     let ast = parse::parse(&s);
-    let ipld = gen::gen(ast);
+    let encode = gen::gen_encode(&ast);
+    let decode = gen::gen_decode(&ast);
+    let try_read_cbor = gen::gen_try_read_cbor(&ast);
+    quote! {
+        #encode
+        #decode
+        #try_read_cbor
+    }
     /*
     let encode = gen::encode(&ast);
     let try_read_cbor = gen::decode(&ast);
@@ -39,7 +46,6 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
             }
         }
     })*/
-    quote!()
 }
 
 /*#[cfg(test)]
