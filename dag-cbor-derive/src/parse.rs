@@ -39,7 +39,8 @@ fn parse_struct_repr(ast: &[syn::Attribute]) -> Option<StructRepr> {
         repr = Some(match attr.value.value().as_str() {
             "map" => StructRepr::Map,
             "tuple" => StructRepr::Tuple,
-            _ => unimplemented!(),
+            "value" => StructRepr::Value,
+            repr => panic!("unknown struct representation {}", repr),
         })
     }
     repr
@@ -59,7 +60,7 @@ fn parse_rust_enum_repr(ast: &[syn::Attribute]) -> RustEnumRepr {
             "kinded" => RustEnumRepr::Union(UnionRepr::Kinded),
             "string" => RustEnumRepr::Enum(EnumRepr::String),
             "int" => RustEnumRepr::Enum(EnumRepr::Int),
-            _ => unimplemented!(),
+            repr => panic!("unknown enum representation {}", repr),
         })
     }
     repr.unwrap_or(RustEnumRepr::Union(UnionRepr::Keyed))
@@ -69,6 +70,7 @@ fn parse_struct(v: &VariantInfo) -> Struct {
     let repr = parse_struct_repr(&v.ast().attrs);
     Struct {
         name: v.ast().ident.clone(),
+        rename: None,
         fields: v
             .bindings()
             .iter()
@@ -89,7 +91,19 @@ fn parse_struct(v: &VariantInfo) -> Struct {
 fn parse_union(ident: &syn::Ident, v: &[VariantInfo], repr: UnionRepr) -> Union {
     Union {
         name: ident.clone(),
-        variants: v.iter().map(|v| parse_struct(v)).collect(),
+        variants: v
+            .iter()
+            .map(|v| {
+                let mut s = parse_struct(v);
+                for attr in parse_attrs::<FieldAttr>(&v.ast().attrs) {
+                    match attr {
+                        FieldAttr::Rename(attr) => s.rename = Some(attr.value.value()),
+                        _ => {}
+                    }
+                }
+                s
+            })
+            .collect(),
         repr,
     }
 }
@@ -129,18 +143,12 @@ fn parse_field(i: usize, b: &BindingInfo) -> StructField {
             }),
         },
         rename: None,
-        nullable: false,
-        optional: false,
-        implicit: None,
         default: None,
         binding: b.binding.clone(),
     };
     for attr in parse_attrs::<FieldAttr>(&b.ast().attrs) {
         match attr {
             FieldAttr::Rename(attr) => field.rename = Some(attr.value.value()),
-            FieldAttr::Nullable(_) => field.nullable = true,
-            FieldAttr::Optional(_) => field.optional = true,
-            FieldAttr::Implicit(attr) => field.implicit = Some(attr.value),
             FieldAttr::Default(attr) => field.default = Some(attr.value),
         }
     }
@@ -183,13 +191,11 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Map"),
+                rename: None,
                 fields: vec![StructField {
                     name: syn::Member::Named(format_ident!("field")),
                     rename: Some("other".to_string()),
                     default: Some(syn::parse2(quote!(false)).unwrap()),
-                    nullable: false,
-                    optional: false,
-                    implicit: None,
                     binding: format_ident!("__binding_0"),
                 }],
                 repr: StructRepr::Map,
@@ -210,13 +216,11 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Tuple"),
+                rename: None,
                 fields: vec![StructField {
                     name: syn::Member::Unnamed(format_index!(0)),
                     rename: None,
                     default: None,
-                    nullable: false,
-                    optional: false,
-                    implicit: None,
                     binding: format_ident!("__binding_0"),
                 }],
                 repr: StructRepr::Tuple,
@@ -236,6 +240,7 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Map"),
+                rename: None,
                 fields: Default::default(),
                 repr: StructRepr::Tuple,
                 pat: TokenStreamEq(quote!(Map)),
@@ -248,6 +253,7 @@ pub mod tests {
         let ast = ast(quote! {
             #[derive(DagCbor)]
             enum Union {
+                #[ipld(rename = "unit")]
                 Unit,
                 Tuple(bool),
                 Struct { value: bool },
@@ -261,19 +267,18 @@ pub mod tests {
                 variants: vec![
                     Struct {
                         name: format_ident!("Unit"),
+                        rename: Some("unit".into()),
                         fields: vec![],
                         repr: StructRepr::Tuple,
                         pat: TokenStreamEq(quote!(Union::Unit)),
                     },
                     Struct {
                         name: format_ident!("Tuple"),
+                        rename: None,
                         fields: vec![StructField {
                             name: syn::Member::Unnamed(format_index!(0)),
                             rename: None,
                             default: None,
-                            nullable: false,
-                            optional: false,
-                            implicit: None,
                             binding: format_ident!("__binding_0"),
                         }],
                         repr: StructRepr::Tuple,
@@ -281,13 +286,11 @@ pub mod tests {
                     },
                     Struct {
                         name: format_ident!("Struct"),
+                        rename: None,
                         fields: vec![StructField {
                             name: syn::Member::Named(format_ident!("value")),
                             rename: None,
                             default: None,
-                            nullable: false,
-                            optional: false,
-                            implicit: None,
                             binding: format_ident!("__binding_0"),
                         }],
                         repr: StructRepr::Map,

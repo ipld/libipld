@@ -7,9 +7,6 @@ mod kw {
     custom_keyword!(repr);
 
     custom_keyword!(rename);
-    custom_keyword!(nullable);
-    custom_keyword!(optional);
-    custom_keyword!(implicit);
     custom_keyword!(default);
 }
 
@@ -63,9 +60,6 @@ impl Parse for DeriveAttr {
 #[derive(Debug)]
 pub enum FieldAttr {
     Rename(Attr<kw::rename, syn::LitStr>),
-    Nullable(kw::nullable),
-    Optional(kw::optional),
-    Implicit(Attr<kw::implicit, syn::Expr>),
     Default(Attr<kw::default, syn::Expr>),
 }
 
@@ -73,12 +67,6 @@ impl Parse for FieldAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(kw::rename) {
             Ok(FieldAttr::Rename(input.parse()?))
-        } else if input.peek(kw::nullable) {
-            Ok(FieldAttr::Nullable(input.parse()?))
-        } else if input.peek(kw::optional) {
-            Ok(FieldAttr::Optional(input.parse()?))
-        } else if input.peek(kw::implicit) {
-            Ok(FieldAttr::Implicit(input.parse()?))
         } else if input.peek(kw::default) {
             Ok(FieldAttr::Default(input.parse()?))
         } else {

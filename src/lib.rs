@@ -24,6 +24,7 @@ pub use libipld_pb as pb;
 pub use block::Block;
 pub use cid::Cid;
 pub use codec_impl::IpldCodec;
+pub use error::Result;
 pub use ipld::Ipld;
 pub use link::Link;
 pub use multihash::Multihash;

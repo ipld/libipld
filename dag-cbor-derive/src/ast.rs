@@ -28,6 +28,7 @@ pub enum SchemaType {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Struct {
     pub name: syn::Ident,
+    pub rename: Option<String>,
     pub fields: Vec<StructField>,
     pub repr: StructRepr,
     pub pat: TokenStreamEq,
@@ -37,9 +38,6 @@ pub struct Struct {
 pub struct StructField {
     pub name: syn::Member,
     pub rename: Option<String>,
-    pub nullable: bool,
-    pub optional: bool,
-    pub implicit: Option<syn::Expr>,
     pub default: Option<syn::Expr>,
     pub binding: syn::Ident,
 }
@@ -48,6 +46,7 @@ pub struct StructField {
 pub enum StructRepr {
     Map,
     Tuple,
+    Value,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
