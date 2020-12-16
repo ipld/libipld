@@ -20,7 +20,7 @@ pub enum Keyed {
 }
 
 #[test]
-fn keyed() {
+fn union_keyed() {
     assert_roundtrip(DagCborCodec, &Keyed::A, &ipld!({ "A": null }));
     assert_roundtrip(DagCborCodec, &Keyed::B(true), &ipld!({"b": true}));
     assert_roundtrip(DagCborCodec, &Keyed::B(false), &ipld!({"b": false}));
@@ -51,7 +51,7 @@ pub enum Kinded {
 }
 
 #[test]
-fn kinded() {
+fn union_kinded() {
     assert_roundtrip(DagCborCodec, &Kinded::A, &ipld!(null));
     assert_roundtrip(DagCborCodec, &Kinded::B(true), &ipld!(true));
     assert_roundtrip(DagCborCodec, &Kinded::B(false), &ipld!(false));

@@ -9,7 +9,7 @@ pub struct Map {
 }
 
 #[test]
-fn map() {
+fn struct_map() {
     assert_roundtrip(
         DagCborCodec,
         &Map { boolean: true },
@@ -29,7 +29,7 @@ pub struct Rename {
 }
 
 #[test]
-fn rename() {
+fn struct_rename() {
     assert_roundtrip(
         DagCborCodec,
         &Rename { boolean: true },
@@ -48,7 +48,7 @@ pub struct Nullable {
 }
 
 #[test]
-fn nullable() {
+fn struct_nullable() {
     assert_roundtrip(
         DagCborCodec,
         &Nullable {
@@ -77,7 +77,7 @@ pub struct Implicit {
 }
 
 #[test]
-fn implicit() {
+fn struct_implicit() {
     assert_roundtrip(
         DagCborCodec,
         &Implicit { default: true },
@@ -93,7 +93,7 @@ pub struct OptionalNullable {
 }
 
 #[test]
-fn optional_nullable() {
+fn struct_optional_nullable() {
     assert_roundtrip(
         DagCborCodec,
         &OptionalNullable {
@@ -120,7 +120,7 @@ fn optional_nullable() {
 pub struct Tuple(bool);
 
 #[test]
-fn tuple() {
+fn struct_tuple() {
     assert_roundtrip(DagCborCodec, &Tuple(true), &ipld!([true]));
     assert_roundtrip(DagCborCodec, &Tuple(false), &ipld!([false]));
 }
@@ -129,7 +129,7 @@ fn tuple() {
 pub struct TupleNullable(Option<bool>);
 
 #[test]
-fn tuple_nullable() {
+fn struct_tuple_nullable() {
     assert_roundtrip(DagCborCodec, &TupleNullable(Some(true)), &ipld!([true]));
     assert_roundtrip(DagCborCodec, &TupleNullable(Some(false)), &ipld!([false]));
     assert_roundtrip(DagCborCodec, &TupleNullable(None), &ipld!([null]));
@@ -140,7 +140,7 @@ fn tuple_nullable() {
 pub struct Value(bool);
 
 #[test]
-fn value() {
+fn struct_value() {
     assert_roundtrip(DagCborCodec, &Value(true), &ipld!(true));
     assert_roundtrip(DagCborCodec, &Value(false), &ipld!(false));
 }

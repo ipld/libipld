@@ -19,33 +19,6 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
         #decode
         #try_read_cbor
     }
-    /*
-    let encode = gen::encode(&ast);
-    let try_read_cbor = gen::decode(&ast);
-    s.gen_impl(quote! {
-        use libipld::cbor::{DagCborCodec, Result};
-        use libipld::error::Error;
-        use libipld::cbor::encode::write_u64;
-        use libipld::cbor::error::LengthOutOfRange;
-        use libipld::cbor::decode::{read, read_u8, read_key, TryReadCbor};
-        use libipld::codec::{Encode, Decode};
-        use libipld::error::{TypeError, TypeErrorType};
-        use std::io::{Read, Write};
-
-        gen impl Encode<DagCborCodec> for @Self {
-            #encode
-        }
-
-        gen impl TryReadCbor for @Self {
-            #try_read_cbor
-        }
-
-        gen impl Decode<DagCborCodec> for @Self {
-            fn decode<R: Read>(c: DagCborCodec, r: &mut R) -> Result<Self> {
-                read(r)
-            }
-        }
-    })*/
 }
 
 /*#[cfg(test)]

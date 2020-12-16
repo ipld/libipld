@@ -24,6 +24,43 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
     }
 }
 
+pub fn gen_decode(ast: &SchemaType) -> TokenStream {
+    let ident = match ast {
+        SchemaType::Struct(s) => &s.name,
+        SchemaType::Union(u) => &u.name,
+        SchemaType::Enum(e) => &e.name,
+    };
+
+    quote! {
+        impl libipld::codec::Decode<libipld::cbor::DagCborCodec> for #ident {
+            fn decode<R: std::io::Read>(
+                c: libipld::cbor::DagCborCodec,
+                r: &mut R,
+            ) -> libipld::Result<Self> {
+                libipld::cbor::decode::read(r)
+            }
+        }
+    }
+}
+
+pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
+    let (ident, body) = match ast {
+        SchemaType::Struct(s) => (&s.name, gen_try_read_cbor_struct(&s)),
+        SchemaType::Union(u) => (&u.name, gen_try_read_cbor_union(&u)),
+        SchemaType::Enum(e) => (&e.name, gen_try_read_cbor_enum(&e)),
+    };
+    quote! {
+        impl libipld::cbor::decode::TryReadCbor for #ident {
+            fn try_read_cbor<R: std::io::Read>(
+                r: &mut R,
+                major: u8,
+            ) -> libipld::Result<Option<Self>> {
+                #body
+            }
+        }
+    }
+}
+
 fn rename(name: &syn::Member, rename: Option<&String>) -> TokenStream {
     if let Some(rename) = rename {
         quote!(#rename)
@@ -57,10 +94,24 @@ fn gen_encode_match(arms: impl Iterator<Item = TokenStream>) -> TokenStream {
     }
 }
 
+fn try_read_cbor(ty: TokenStream) -> TokenStream {
+    quote! {{
+        if let Some(t) = #ty::try_read_cbor(r, major)? {
+            t
+        } else {
+            return Ok(None);
+        }
+    }}
+}
+
 fn gen_encode_struct(s: &Struct) -> TokenStream {
     let pat = &*s.pat;
     let body = gen_encode_struct_body(s);
     gen_encode_match(std::iter::once(quote!(#pat => { #body })))
+}
+
+fn gen_try_read_cbor_struct(_s: &Struct) -> TokenStream {
+    quote!(Ok(None))
 }
 
 fn gen_encode_struct_body(s: &Struct) -> TokenStream {
@@ -116,7 +167,6 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
 }
 
 fn gen_encode_union(u: &Union) -> TokenStream {
-    let name = &u.name;
     let arms = u.variants.iter().map(|s| {
         let pat = &*s.pat;
         let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
@@ -139,6 +189,10 @@ fn gen_encode_union(u: &Union) -> TokenStream {
     gen_encode_match(arms)
 }
 
+fn gen_try_read_cbor_union(_u: &Union) -> TokenStream {
+    quote!(Ok(None))
+}
+
 fn gen_encode_enum(e: &Enum) -> TokenStream {
     match e.repr {
         EnumRepr::String => {
@@ -153,61 +207,6 @@ fn gen_encode_enum(e: &Enum) -> TokenStream {
             quote!(Encode::encode(&(*self as u64), c, w))
         }
     }
-}
-
-pub fn gen_decode(ast: &SchemaType) -> TokenStream {
-    let ident = match ast {
-        SchemaType::Struct(s) => &s.name,
-        SchemaType::Union(u) => &u.name,
-        SchemaType::Enum(e) => &e.name,
-    };
-
-    quote! {
-        impl libipld::codec::Decode<libipld::cbor::DagCborCodec> for #ident {
-            fn decode<R: std::io::Read>(
-                c: libipld::cbor::DagCborCodec,
-                r: &mut R,
-            ) -> libipld::Result<Self> {
-                libipld::cbor::decode::read(r)
-            }
-        }
-    }
-}
-
-pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
-    let (ident, body) = match ast {
-        SchemaType::Struct(s) => (&s.name, gen_try_read_cbor_struct(&s)),
-        SchemaType::Union(u) => (&u.name, gen_try_read_cbor_union(&u)),
-        SchemaType::Enum(e) => (&e.name, gen_try_read_cbor_enum(&e)),
-    };
-    quote! {
-        impl libipld::cbor::decode::TryReadCbor for #ident {
-            fn try_read_cbor<R: std::io::Read>(
-                r: &mut R,
-                major: u8,
-            ) -> libipld::Result<Option<Self>> {
-                #body
-            }
-        }
-    }
-}
-
-fn try_read_cbor(ty: TokenStream) -> TokenStream {
-    quote! {{
-        if let Some(t) = #ty::try_read_cbor(r, major)? {
-            t
-        } else {
-            return Ok(None);
-        }
-    }}
-}
-
-fn gen_try_read_cbor_struct(e: &Struct) -> TokenStream {
-    quote!(Ok(None))
-}
-
-fn gen_try_read_cbor_union(e: &Union) -> TokenStream {
-    quote!(Ok(None))
 }
 
 fn gen_try_read_cbor_enum(e: &Enum) -> TokenStream {
