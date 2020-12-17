@@ -168,6 +168,7 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
     }
 }
 
+#[allow(clippy::needless_collect)]
 fn gen_encode_union(u: &Union) -> TokenStream {
     let arms = u
         .variants

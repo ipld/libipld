@@ -58,15 +58,25 @@ fn parse_union_repr(ast: &[syn::Attribute]) -> UnionRepr {
 
 fn parse_struct(v: &VariantInfo) -> Struct {
     let repr = parse_struct_repr(&v.ast().attrs);
+    let mut fields: Vec<_> = v
+        .bindings()
+        .iter()
+        .enumerate()
+        .map(|(i, binding)| parse_field(i, binding))
+        .collect();
+    fields.sort_by(|f1, f2| match (&f1.name, &f2.name) {
+        (syn::Member::Named(ident1), syn::Member::Named(ident2)) => {
+            ident1.to_string().cmp(&ident2.to_string())
+        }
+        (syn::Member::Unnamed(index1), syn::Member::Unnamed(index2)) => {
+            index1.index.cmp(&index2.index)
+        }
+        _ => unreachable!(),
+    });
     Struct {
         name: v.ast().ident.clone(),
         rename: None,
-        fields: v
-            .bindings()
-            .iter()
-            .enumerate()
-            .map(|(i, binding)| parse_field(i, binding))
-            .collect(),
+        fields,
         repr: repr.unwrap_or_else(|| match &v.ast().fields {
             syn::Fields::Named(_) => StructRepr::Map,
             syn::Fields::Unnamed(_) => StructRepr::Tuple,
@@ -90,10 +100,8 @@ fn parse_union(s: &Structure) -> Union {
             .map(|v| {
                 let mut s = parse_struct(v);
                 for attr in parse_attrs::<FieldAttr>(&v.ast().attrs) {
-                    match attr {
-                        FieldAttr::Rename(attr) => s.rename = Some(attr.value.value()),
-                        _ => {}
-                    }
+                    let FieldAttr::Rename(attr) = attr;
+                    s.rename = Some(attr.value.value());
                 }
                 s
             })

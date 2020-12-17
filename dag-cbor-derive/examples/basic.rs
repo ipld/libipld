@@ -36,7 +36,7 @@ struct Nested {
 }
 
 fn main() {
-    /*assert_roundtrip(
+    assert_roundtrip(
         DagCborCodec,
         &NamedStruct::default(),
         &ipld!({
@@ -47,8 +47,8 @@ fn main() {
             "bytes": [],
             "list": [],
             "map": {},
-        })
-    );*/
+        }),
+    );
 
     assert_roundtrip(DagCborCodec, &TupleStruct::default(), &ipld!([false, 0]));
 
