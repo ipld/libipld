@@ -21,7 +21,7 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
     }
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     #[test]
     fn test() {
@@ -30,4 +30,4 @@ mod tests {
         t.pass("examples/name_attr.rs");
         t.pass("examples/repr_attr.rs");
     }
-}*/
+}

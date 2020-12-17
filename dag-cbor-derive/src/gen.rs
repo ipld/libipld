@@ -52,10 +52,10 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
                 r: &mut R,
                 major: u8,
             ) -> libipld::Result<Option<Self>> {
-                use libipld::cbor::decode::{read_key, read_len, TryReadCbor};
+                use libipld::cbor::decode::{read_key, read_len, read_u8, TryReadCbor};
                 use libipld::cbor::error::LengthOutOfRange;
                 use libipld::codec::Decode;
-                use libipld::error::{TypeError, TypeErrorType};
+                use libipld::error::{Result, TypeError, TypeErrorType};
                 let c = DagCborCodec;
                 #body
             }
@@ -228,7 +228,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                             return Err(LengthOutOfRange.into());
                         }
                         #(#fields)*
-                        Ok(Some(#construct))
+                        return Ok(Some(#construct));
                     }
                     _ => Ok(None),
                 }
@@ -249,7 +249,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                             return Err(LengthOutOfRange.into());
                         }
                         #(#fields)*
-                        Ok(Some(#construct))
+                        return Ok(Some(#construct));
                     }
                     _ => Ok(None),
                 }
@@ -258,10 +258,12 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
         StructRepr::Value => {
             assert_eq!(s.fields.len(), 1);
             let binding = &s.fields[0].binding;
-            let parse = try_read_cbor(quote!(TryReadCbor));
             quote! {
-                let #binding = #parse;
-                Ok(Some(#construct))
+                if let Some(#binding) = TryReadCbor::try_read_cbor(r, major)? {
+                    return Ok(Some(#construct));
+                } else {
+                    Ok(None)
+                }
             }
         }
         StructRepr::Null => {
@@ -269,7 +271,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
             quote! {
                 match major {
                     0xf6..=0xf7 => {
-                        Ok(Some(#construct))
+                        return Ok(Some(#construct));
                     }
                     _ => Ok(None),
                 }
@@ -279,31 +281,71 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
 }
 
 fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
-    let (expr, expr_ref) = match u.repr {
-        UnionRepr::Keyed => return quote!(Ok(None)),
-        UnionRepr::Kinded => return quote!(Ok(None)),
-        UnionRepr::String => (try_read_cbor(quote!(String)), quote!(key.as_str())),
-        UnionRepr::Int => (try_read_cbor(quote!(u64)), quote!(key)),
-    };
-    let arms = u.variants.iter().map(|v| {
-        let pat = &*v.pat;
-        let value = match u.repr {
-            UnionRepr::Keyed => unimplemented!(),
-            UnionRepr::Kinded => unimplemented!(),
-            UnionRepr::String => rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref()),
-            UnionRepr::Int => {
-                quote!(x if x == #pat as u64)
+    match u.repr {
+        UnionRepr::Keyed => {
+            let variants = u.variants.iter().map(|s| {
+                let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
+                let parse = gen_try_read_cbor_struct(s);
+                quote! {
+                    if key.as_str() == #key {
+                        let major = read_u8(r)?;
+                        let res: Result<Option<Self>> = #parse;
+                        res?;
+                    }
+                }
+            });
+            quote! {
+                if major != 0xa1 {
+                    return Ok(None);
+                }
+                let key: String = Decode::decode(c, r)?;
+                #(#variants;)*
+                Err(TypeError::new(TypeErrorType::Key(key), TypeErrorType::Null).into())
             }
-        };
-        quote!(#value => #pat)
-    });
-    quote! {
-        let key = #expr;
-        let key_ref = #expr_ref;
-        let res = match key_ref {
-            #(#arms,)*
-            _ => return Err(TypeError::new(TypeErrorType::Key(key.to_string()), TypeErrorType::Null).into()),
-        };
-        Ok(Some(res))
+        }
+        UnionRepr::Kinded => {
+            let variants = u.variants.iter().map(|s| {
+                let parse = gen_try_read_cbor_struct(s);
+                quote! {
+                    let res: Result<Option<Self>> = #parse;
+                    res?;
+                }
+            });
+            quote! {
+                #(#variants;)*
+                Err(TypeError::new(TypeErrorType::Null, TypeErrorType::Null).into())
+            }
+        }
+        UnionRepr::String => {
+            let arms = u.variants.iter().map(|v| {
+                let pat = &*v.pat;
+                let value = rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref());
+                quote!(#value => #pat)
+            });
+            let parse = try_read_cbor(quote!(String));
+            quote! {
+                let key = #parse;
+                let res = match key.as_str() {
+                    #(#arms,)*
+                    _ => return Err(TypeError::new(TypeErrorType::Key(key.to_string()), TypeErrorType::Null).into()),
+                };
+                Ok(Some(res))
+            }
+        }
+        UnionRepr::Int => {
+            let arms = u.variants.iter().map(|v| {
+                let pat = &*v.pat;
+                quote!(x if x == #pat as u64 => #pat)
+            });
+            let parse = try_read_cbor(quote!(u64));
+            quote! {
+                let key = #parse;
+                let res = match key {
+                    #(#arms,)*
+                    _ => return Err(TypeError::new(TypeErrorType::Key(key.to_string()), TypeErrorType::Null).into()),
+                };
+                Ok(Some(res))
+            }
+        }
     }
 }

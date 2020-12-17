@@ -73,7 +73,7 @@ pub trait References<C: Codec>: Sized {
 pub fn assert_roundtrip<C, T>(c: C, data: &T, ipld: &Ipld)
 where
     C: Codec,
-    T: Decode<C> + Encode<C> + std::fmt::Debug + Eq,
+    T: Decode<C> + Encode<C> + std::fmt::Debug + PartialEq,
     Ipld: Decode<C> + Encode<C>,
 {
     let mut bytes = Vec::new();

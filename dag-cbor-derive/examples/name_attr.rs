@@ -5,7 +5,7 @@ use libipld::{ipld, DagCbor};
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 struct RenameFields {
-    #[ipld(name = "hashAlg")]
+    #[ipld(rename = "hashAlg")]
     hash_alg: String,
 }
 
