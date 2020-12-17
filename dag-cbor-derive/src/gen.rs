@@ -52,6 +52,11 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
                 r: &mut R,
                 major: u8,
             ) -> libipld::Result<Option<Self>> {
+                use libipld::cbor::decode::{read_key, read_len, TryReadCbor};
+                use libipld::cbor::error::LengthOutOfRange;
+                use libipld::codec::Decode;
+                use libipld::error::{TypeError, TypeErrorType};
+                let c = DagCborCodec;
                 #body
             }
         }
@@ -105,10 +110,6 @@ fn gen_encode_struct(s: &Struct) -> TokenStream {
     let pat = &*s.pat;
     let body = gen_encode_struct_body(s);
     gen_encode_match(std::iter::once(quote!(#pat => { #body })))
-}
-
-fn gen_try_read_cbor_struct(_s: &Struct) -> TokenStream {
-    quote!(Ok(None))
 }
 
 fn gen_encode_struct_body(s: &Struct) -> TokenStream {
@@ -206,6 +207,77 @@ fn gen_encode_union(u: &Union) -> TokenStream {
     }
 }
 
+fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
+    let len = s.fields.len();
+    let construct = &*s.construct;
+    match s.repr {
+        StructRepr::Map => {
+            let fields = s.fields.iter().map(|field| {
+                let key = rename(&field.name, field.rename.as_ref());
+                let binding = &field.binding;
+                quote! {
+                    read_key(r, #key)?;
+                    let #binding = Decode::decode(c, r)?;
+                }
+            });
+            quote! {
+                match major {
+                    0xa0..=0xbb => {
+                        let len = read_len(r, major - 0xa0)?;
+                        if len != #len {
+                            return Err(LengthOutOfRange.into());
+                        }
+                        #(#fields)*
+                        Ok(Some(#construct))
+                    }
+                    _ => Ok(None),
+                }
+            }
+        }
+        StructRepr::Tuple => {
+            let fields = s.fields.iter().map(|field| {
+                let binding = &field.binding;
+                quote! {
+                    let #binding = Decode::decode(c, r)?;
+                }
+            });
+            quote! {
+                match major {
+                    0x80..=0x9b => {
+                        let len = read_len(r, major - 0x80)?;
+                        if len != #len {
+                            return Err(LengthOutOfRange.into());
+                        }
+                        #(#fields)*
+                        Ok(Some(#construct))
+                    }
+                    _ => Ok(None),
+                }
+            }
+        }
+        StructRepr::Value => {
+            assert_eq!(s.fields.len(), 1);
+            let binding = &s.fields[0].binding;
+            let parse = try_read_cbor(quote!(TryReadCbor));
+            quote! {
+                let #binding = #parse;
+                Ok(Some(#construct))
+            }
+        }
+        StructRepr::Null => {
+            assert_eq!(s.fields.len(), 0);
+            quote! {
+                match major {
+                    0xf6..=0xf7 => {
+                        Ok(Some(#construct))
+                    }
+                    _ => Ok(None),
+                }
+            }
+        }
+    }
+}
+
 fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
     let (expr, expr_ref) = match u.repr {
         UnionRepr::Keyed => return quote!(Ok(None)),
@@ -226,7 +298,6 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
         quote!(#value => #pat)
     });
     quote! {
-        use libipld::error::{TypeError, TypeErrorType};
         let key = #expr;
         let key_ref = #expr_ref;
         let res = match key_ref {

@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::attr::{Attrs, DeriveAttr, FieldAttr};
+use quote::quote;
 use syn::parse::Parse;
 use syn::spanned::Spanned;
 use synstructure::{BindingInfo, Structure, VariantInfo};
@@ -72,6 +73,10 @@ fn parse_struct(v: &VariantInfo) -> Struct {
             syn::Fields::Unit => StructRepr::Null,
         }),
         pat: TokenStreamEq(v.pat()),
+        construct: TokenStreamEq(v.construct(|_, i| {
+            let binding = &v.bindings()[i];
+            quote!(#binding)
+        })),
     }
 }
 
@@ -163,7 +168,8 @@ pub mod tests {
                     binding: format_ident!("__binding_0"),
                 }],
                 repr: StructRepr::Map,
-                pat: TokenStreamEq(quote!(Map { field: ref __binding_0, })),
+                pat: TokenStreamEq(quote! { Map { field: ref __binding_0, }}),
+                construct: TokenStreamEq(quote! { Map { field: __binding_0, }}),
             })
         );
     }
@@ -189,6 +195,7 @@ pub mod tests {
                 }],
                 repr: StructRepr::Tuple,
                 pat: TokenStreamEq(quote! { Tuple(ref __binding_0,) }),
+                construct: TokenStreamEq(quote! { Tuple(__binding_0,) }),
             })
         );
     }
@@ -208,6 +215,7 @@ pub mod tests {
                 fields: Default::default(),
                 repr: StructRepr::Null,
                 pat: TokenStreamEq(quote!(Map)),
+                construct: TokenStreamEq(quote!(Map)),
             })
         );
     }
@@ -235,6 +243,7 @@ pub mod tests {
                         fields: vec![],
                         repr: StructRepr::Null,
                         pat: TokenStreamEq(quote!(Union::Unit)),
+                        construct: TokenStreamEq(quote!(Union::Unit)),
                     },
                     Struct {
                         name: format_ident!("Tuple"),
@@ -247,6 +256,7 @@ pub mod tests {
                         }],
                         repr: StructRepr::Tuple,
                         pat: TokenStreamEq(quote! { Union::Tuple(ref __binding_0,) }),
+                        construct: TokenStreamEq(quote! { Union::Tuple(__binding_0,) }),
                     },
                     Struct {
                         name: format_ident!("Struct"),
@@ -258,7 +268,8 @@ pub mod tests {
                             binding: format_ident!("__binding_0"),
                         }],
                         repr: StructRepr::Map,
-                        pat: TokenStreamEq(quote!(Union::Struct { value: ref __binding_0, })),
+                        pat: TokenStreamEq(quote! { Union::Struct { value: ref __binding_0, } }),
+                        construct: TokenStreamEq(quote! { Union::Struct { value: __binding_0, } }),
                     }
                 ],
                 repr: UnionRepr::Keyed,
@@ -287,6 +298,7 @@ pub mod tests {
                     fields: vec![],
                     repr: StructRepr::Null,
                     pat: TokenStreamEq(quote!(Enum::Variant)),
+                    construct: TokenStreamEq(quote!(Enum::Variant)),
                 }],
                 repr: UnionRepr::String,
             })

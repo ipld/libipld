@@ -31,6 +31,7 @@ pub struct Struct {
     pub fields: Vec<StructField>,
     pub repr: StructRepr,
     pub pat: TokenStreamEq,
+    pub construct: TokenStreamEq,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

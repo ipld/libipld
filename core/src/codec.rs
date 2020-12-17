@@ -74,10 +74,13 @@ pub fn assert_roundtrip<C, T>(c: C, data: &T, ipld: &Ipld)
 where
     C: Codec,
     T: Decode<C> + Encode<C> + std::fmt::Debug + Eq,
-    Ipld: Decode<C>,
+    Ipld: Decode<C> + Encode<C>,
 {
     let mut bytes = Vec::new();
     data.encode(c, &mut bytes).unwrap();
+    let mut bytes2 = Vec::new();
+    ipld.encode(c, &mut bytes2).unwrap();
+    assert_eq!(bytes, bytes2);
     let ipld2: Ipld = Decode::decode(c, &mut bytes.as_slice()).unwrap();
     assert_eq!(&ipld2, ipld);
     let data2: T = Decode::decode(c, &mut bytes.as_slice()).unwrap();
