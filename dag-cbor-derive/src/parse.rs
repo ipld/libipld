@@ -126,7 +126,7 @@ fn parse_field(i: usize, b: &BindingInfo) -> StructField {
     for attr in parse_attrs::<FieldAttr>(&b.ast().attrs) {
         match attr {
             FieldAttr::Rename(attr) => field.rename = Some(attr.value.value()),
-            FieldAttr::Default(attr) => field.default = Some(attr.value),
+            //FieldAttr::Default(attr) => field.default = Some(attr.value),
         }
     }
     field
@@ -159,7 +159,8 @@ pub mod tests {
             #[derive(DagCbor)]
             #[ipld(repr = "map")]
             struct Map {
-                #[ipld(rename = "other", default = false)]
+                //#[ipld(rename = "other", default = false)]
+                #[ipld(rename = "other")]
                 field: bool,
             }
         });
@@ -172,7 +173,8 @@ pub mod tests {
                 fields: vec![StructField {
                     name: syn::Member::Named(format_ident!("field")),
                     rename: Some("other".to_string()),
-                    default: Some(syn::parse2(quote!(false)).unwrap()),
+                    //default: Some(syn::parse2(quote!(false)).unwrap()),
+                    default: None,
                     binding: format_ident!("__binding_0"),
                 }],
                 repr: StructRepr::Map,
