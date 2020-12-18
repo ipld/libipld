@@ -1,6 +1,6 @@
 [package]
 name = "libipld"
-version = "0.8.2"
+version = "0.9.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -10,24 +10,24 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 [dependencies]
 async-lock = "2.3.0"
 async-trait = "0.1.42"
-cached = { version = "0.21.0", default-features = false }
+cached = { version = "0.22.0", default-features = false }
 fnv = "1.0.7"
-libipld-cbor = { version = "0.8.0", path = "dag-cbor", optional = true }
-libipld-cbor-derive = { version = "0.8.0", path = "dag-cbor-derive", optional = true }
-libipld-core = { version = "0.8.0", path = "core" }
-libipld-json = { version = "0.8.0", path = "dag-json", optional = true }
-libipld-macro = { version = "0.8.0", path = "macro" }
-libipld-pb = { version = "0.8.0", path = "dag-pb", optional = true }
+libipld-cbor = { version = "0.9.0", path = "dag-cbor", optional = true }
+libipld-cbor-derive = { version = "0.9.0", path = "dag-cbor-derive", optional = true }
+libipld-core = { version = "0.9.0", path = "core" }
+libipld-json = { version = "0.9.0", path = "dag-json", optional = true }
+libipld-macro = { version = "0.9.0", path = "macro" }
+libipld-pb = { version = "0.9.0", path = "dag-pb", optional = true }
 log = "0.4.11"
-multihash = { version = "0.13.1", default-features = false, features = ["multihash-impl"] }
+multihash = { version = "0.13.2", default-features = false, features = ["multihash-impl"] }
 thiserror = "1.0.22"
 
 [dev-dependencies]
-async-std = { version = "1.7.0", features = ["attributes"] }
+async-std = { version = "1.8.0", features = ["attributes"] }
 criterion = "0.3.3"
 proptest = "0.10.1"
 model = "0.1.2"
-multihash = "0.13.1"
+multihash = "0.13.2"
 
 [features]
 default = ["all", "derive"]

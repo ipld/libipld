@@ -1,6 +1,6 @@
 [package]
 name = "libipld-cbor-derive"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -13,9 +13,9 @@ proc-macro = true
 [dependencies]
 proc-macro2 = "1.0.24"
 quote = "1.0.7"
-syn = "1.0.53"
+syn = "1.0.54"
 synstructure = "0.12.4"
 
 [dev-dependencies]
 libipld = { path = ".." }
-trybuild = "1.0.35"
+trybuild = "1.0.37"

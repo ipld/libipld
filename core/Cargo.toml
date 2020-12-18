@@ -1,6 +1,6 @@
 [package]
 name = "libipld-core"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -8,11 +8,11 @@ description = "Base traits and definitions used by ipld codecs."
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-anyhow = "1.0.34"
+anyhow = "1.0.35"
 cid = { version = "0.6.0", default-features = false, features = ["std"] }
 multibase = "0.9.1"
-multihash = { version = "0.13.1", default-features = false, features = ["std"] }
+multihash = { version = "0.13.2", default-features = false, features = ["std"] }
 thiserror = "1.0.22"
 
 [dev-dependencies]
-multihash = "0.13.1"
+multihash = "0.13.2"

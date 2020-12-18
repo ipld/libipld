@@ -1,6 +1,6 @@
 [package]
 name = "libipld-pb"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ description = "ipld protobuf codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-core = { version = "0.8.0", path = "../core" }
+libipld-core = { version = "0.9.0", path = "../core" }
 prost = "0.6.1"
 thiserror = "1.0.22"
 
@@ -17,4 +17,4 @@ prost-build = "0.6.1"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
-multihash = "0.13.1"
+multihash = "0.13.2"
