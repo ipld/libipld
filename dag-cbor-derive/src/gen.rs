@@ -52,8 +52,8 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
                 r: &mut R,
                 major: u8,
             ) -> libipld::Result<Option<Self>> {
-                use libipld::cbor::decode::{read_key, read_len, read_u8, TryReadCbor};
-                use libipld::cbor::error::LengthOutOfRange;
+                use libipld::cbor::decode::{read_len, read_u8, TryReadCbor};
+                use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedKey};
                 use libipld::codec::Decode;
                 use libipld::error::{Result, TypeError, TypeErrorType};
                 let c = DagCborCodec;
@@ -113,15 +113,28 @@ fn gen_encode_struct(s: &Struct) -> TokenStream {
 }
 
 fn gen_encode_struct_body(s: &Struct) -> TokenStream {
-    let len = s.fields.len() as u64;
     match s.repr {
         StructRepr::Map => {
+            let len = s.fields.len() as u64;
+            let dfields = s.fields.iter().filter_map(|field| {
+                if let Some(default) = field.default.as_ref() {
+                    let binding = &field.binding;
+                    let default = &*default;
+                    Some(quote! {
+                        if #binding == &#default {
+                            len -= 1;
+                        }
+                    })
+                } else {
+                    None
+                }
+            });
             let fields = s.fields.iter().map(|field| {
                 let key = rename(&field.name, field.rename.as_ref());
                 let binding = &field.binding;
                 default(
                     binding,
-                    field.default.as_ref(),
+                    field.default.as_deref(),
                     quote! {
                         Encode::encode(#key, c, w)?;
                         Encode::encode(#binding, c, w)?;
@@ -129,20 +142,19 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
                 )
             });
             quote! {
-                write_u64(w, 5, #len)?;
+                let mut len = #len;
+                #(#dfields)*
+                write_u64(w, 5, len)?;
                 #(#fields)*
             }
         }
         StructRepr::Tuple => {
+            let len = s.fields.len() as u64;
             let fields = s.fields.iter().map(|field| {
                 let binding = &field.binding;
-                default(
-                    binding,
-                    field.default.as_ref(),
-                    quote! {
-                        Encode::encode(#binding, c, w)?;
-                    },
-                )
+                quote! {
+                    Encode::encode(#binding, c, w)?;
+                }
             });
             quote! {
                 write_u64(w, 4, #len)?;
@@ -155,7 +167,7 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
             let binding = &field.binding;
             default(
                 binding,
-                field.default.as_ref(),
+                field.default.as_deref(),
                 quote! {
                     Encode::encode(#binding, c, w)?;
                 },
@@ -213,22 +225,38 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
     let construct = &*s.construct;
     match s.repr {
         StructRepr::Map => {
+            let binding: Vec<_> = s.fields.iter().map(|field| &field.binding).collect();
+            let key = s
+                .fields
+                .iter()
+                .map(|field| rename(&field.name, field.rename.as_ref()));
             let fields = s.fields.iter().map(|field| {
-                let key = rename(&field.name, field.rename.as_ref());
                 let binding = &field.binding;
-                quote! {
-                    read_key(r, #key)?;
-                    let #binding = Decode::decode(c, r)?;
+                let key = rename(&field.name, field.rename.as_ref());
+                if let Some(default) = field.default.as_ref() {
+                    quote!(let #binding = #binding.unwrap_or(#default);)
+                } else {
+                    quote!(let #binding = #binding.ok_or(MissingKey(#key))?;)
                 }
             });
             quote! {
                 match major {
                     0xa0..=0xbb => {
                         let len = read_len(r, major - 0xa0)?;
-                        if len != #len {
+                        if len > #len {
                             return Err(LengthOutOfRange.into());
                         }
+                        #(let mut #binding = None;)*
+                        for _ in 0..len {
+                            let mut key: String = Decode::decode(c, r)?;
+                            match key.as_str() {
+                                #(#key => { #binding = Some(Decode::decode(c, r)?); })*
+                                _ => return Err(UnexpectedKey(key).into()),
+                            }
+                        }
+
                         #(#fields)*
+
                         return Ok(Some(#construct));
                     }
                     _ => Ok(None),
@@ -301,7 +329,7 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
                 }
                 let key: String = Decode::decode(c, r)?;
                 #(#variants;)*
-                Err(TypeError::new(TypeErrorType::Key(key), TypeErrorType::Null).into())
+                Err(UnexpectedKey(key).into())
             }
         }
         UnionRepr::Kinded => {
@@ -328,7 +356,7 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
                 let key = #parse;
                 let res = match key.as_str() {
                     #(#arms,)*
-                    _ => return Err(TypeError::new(TypeErrorType::Key(key.to_string()), TypeErrorType::Null).into()),
+                    _ => return Err(UnexpectedKey(key.to_string()).into()),
                 };
                 Ok(Some(res))
             }
@@ -343,7 +371,7 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
                 let key = #parse;
                 let res = match key {
                     #(#arms,)*
-                    _ => return Err(TypeError::new(TypeErrorType::Key(key.to_string()), TypeErrorType::Null).into()),
+                    _ => return Err(UnexpectedKey(key.to_string()).into()),
                 };
                 Ok(Some(res))
             }

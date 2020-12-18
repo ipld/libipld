@@ -1,5 +1,5 @@
 //! CBOR decoder
-use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedKey, UnknownTag};
+use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnknownTag};
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
@@ -65,20 +65,7 @@ pub fn read_bytes<R: Read>(r: &mut R, len: usize) -> Result<Vec<u8>> {
 /// Reads `len` number of bytes from a byte stream and converts them to a string.
 pub fn read_str<R: Read>(r: &mut R, len: usize) -> Result<String> {
     let bytes = read_bytes(r, len)?;
-    let string = std::str::from_utf8(&bytes)?;
-    Ok(string.to_string())
-}
-
-/// Reads bytes from a byte stream and matches them with the key. If the key
-/// doesn't match the read bytes it returns an `UnexpectedKey` error.
-pub fn read_key<R: Read>(r: &mut R, key: &str) -> Result<()> {
-    let key_bytes = key.as_bytes();
-    let bytes = read_bytes(r, key.len() + 1)?;
-    if key_bytes == &bytes[1..] {
-        Ok(())
-    } else {
-        Err(UnexpectedKey.into())
-    }
+    Ok(String::from_utf8(bytes)?)
 }
 
 /// Reads any type that implements `TryReadCbor` from a stream of cbor encoded bytes.

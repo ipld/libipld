@@ -23,8 +23,13 @@ pub struct UnknownTag;
 
 /// Unexpected key.
 #[derive(Debug, Error)]
-#[error("Wrong key.")]
-pub struct UnexpectedKey;
+#[error("Unexpected key {0}.")]
+pub struct UnexpectedKey(pub String);
+
+/// Missing key.
+#[derive(Debug, Error)]
+#[error("Missing key {0}.")]
+pub struct MissingKey(pub &'static str);
 
 /// Unexpected eof.
 #[derive(Debug, Error)]
