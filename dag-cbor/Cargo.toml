@@ -11,6 +11,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 byteorder = "1.3.4"
 libipld-core = { version = "0.8.0", path = "../core" }
 thiserror = "1.0.22"
+unicode-normalization = "0.1.16"
 
 [dev-dependencies]
 hex = "0.4.2"
