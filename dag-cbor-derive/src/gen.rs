@@ -56,7 +56,7 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
                 use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedKey};
                 use libipld::codec::Decode;
                 use libipld::error::{Result, TypeError, TypeErrorType};
-                let c = DagCborCodec;
+                let c = libipld::cbor::DagCborCodec;
                 #body
             }
         }
