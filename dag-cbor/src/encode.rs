@@ -200,12 +200,12 @@ impl Encode<DagCbor> for i128 {
     fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         if *self < 0 {
             if -(*self + 1) > u64::max_value() as i128 {
-                return Err(NumberOutOfRange.into());
+                return Err(NumberOutOfRange::new::<i128>().into());
             }
             write_u64(w, 1, -(*self + 1) as u64)?;
         } else {
             if *self > u64::max_value() as i128 {
-                return Err(NumberOutOfRange.into());
+                return Err(NumberOutOfRange::new::<i128>().into());
             }
             write_u64(w, 0, *self as u64)?;
         }

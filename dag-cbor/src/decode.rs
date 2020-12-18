@@ -74,7 +74,7 @@ pub fn read<R: Read, T: TryReadCbor>(r: &mut R) -> Result<T> {
     if let Some(res) = T::try_read_cbor(r, major)? {
         Ok(res)
     } else {
-        Err(UnexpectedCode.into())
+        Err(UnexpectedCode::new::<T>(major).into())
     }
 }
 
@@ -83,6 +83,23 @@ pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T
     let mut list: Vec<T> = Vec::with_capacity(len);
     for _ in 0..len {
         list.push(read(r)?);
+    }
+    Ok(list)
+}
+
+/// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
+pub fn read_list_il<R: Read, T: TryReadCbor>(r: &mut R) -> Result<Vec<T>> {
+    let mut list: Vec<T> = Vec::new();
+    loop {
+        let major = read_u8(r)?;
+        if major == 0xff {
+            break;
+        }
+        if let Some(v) = T::try_read_cbor(r, major)? {
+            list.push(v);
+        } else {
+            return Err(UnexpectedCode::new::<T>(major).into());
+        }
     }
     Ok(list)
 }
@@ -102,19 +119,41 @@ where
     Ok(map)
 }
 
+/// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
+pub fn read_map_il<R: Read, K, T: TryReadCbor>(r: &mut R) -> Result<BTreeMap<K, T>>
+where
+    K: FromStr + Ord,
+    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+{
+    let mut map: BTreeMap<K, T> = BTreeMap::new();
+    loop {
+        let major = read_u8(r)?;
+        if major == 0xff {
+            break;
+        }
+        if let Some(key) = String::try_read_cbor(r, major)? {
+            let value = read(r)?;
+            map.insert(key.parse()?, value);
+        } else {
+            return Err(UnexpectedCode::new::<T>(major).into());
+        }
+    }
+    Ok(map)
+}
+
 /// Reads a cid from a stream of cbor encoded bytes.
 pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
     let tag = read_u8(r)?;
     if tag != 42 {
-        return Err(UnknownTag.into());
+        return Err(UnknownTag(tag).into());
     }
     let ty = read_u8(r)?;
     if ty != 0x58 {
-        return Err(UnknownTag.into());
+        return Err(UnknownTag(ty).into());
     }
     let len = read_u8(r)?;
     if len == 0 {
-        return Err(LengthOutOfRange.into());
+        return Err(LengthOutOfRange::new::<Cid>().into());
     }
     let bytes = read_bytes(r, len as usize)?;
     if bytes[0] != 0 {
@@ -136,11 +175,11 @@ pub fn read_len<R: Read>(r: &mut R, major: u8) -> Result<usize> {
         0x1b => {
             let len = read_u64(r)?;
             if len > usize::max_value() as u64 {
-                return Err(LengthOutOfRange.into());
+                return Err(LengthOutOfRange::new::<usize>().into());
             }
             len as usize
         }
-        _ => return Err(UnexpectedCode.into()),
+        major => return Err(UnexpectedCode::new::<usize>(major).into()),
     })
 }
 
@@ -384,6 +423,7 @@ impl<T: TryReadCbor> TryReadCbor for Vec<T> {
                 let len = read_len(r, major - 0x80)?;
                 Ok(Some(read_list(r, len)?))
             }
+            0x9f => Ok(Some(read_list_il(r)?)),
             _ => Ok(None),
         }
     }
@@ -401,6 +441,7 @@ where
                 let len = read_len(r, major - 0xa0)?;
                 Ok(Some(read_map(r, len)?))
             }
+            0xbf => Ok(Some(read_map_il(r)?)),
             _ => Ok(None),
         }
     }
@@ -445,10 +486,22 @@ impl TryReadCbor for Ipld {
                 Self::List(list)
             }
 
+            // Major type 4: an array of data items (indefinite length)
+            0x9f => {
+                let list = read_list_il(r)?;
+                Self::List(list)
+            }
+
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
                 let map = read_map(r, len as usize)?;
+                Self::Map(map)
+            }
+
+            // Major type 5: a map of pairs of data items (indefinite length)
+            0xbf => {
+                let map = read_map_il(r)?;
                 Self::Map(map)
             }
 
@@ -548,7 +601,7 @@ impl References<DagCbor> for Ipld {
             0xfb => {
                 r.seek(SeekFrom::Current(8))?;
             }
-            _ => return Err(UnexpectedCode.into()),
+            major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
         };
         Ok(())
     }
@@ -564,3 +617,31 @@ impl<T: TryReadCbor> TryReadCbor for Arc<T> {
     }
 }
 impl_decode!(Arc<T>);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::DagCborCodec;
+    use libipld_core::codec::Codec;
+    use libipld_macro::ipld;
+
+    #[test]
+    fn il_map() {
+        let bytes = [
+            0xBF, // Start indefinite-length map
+            0x63, // First key, UTF-8 string length 3
+            0x46, 0x75, 0x6e, // "Fun"
+            0xF5, // First value, true
+            0x63, // Second key, UTF-8 string length 3
+            0x41, 0x6d, 0x74, // "Amt"
+            0x21, // Second value, -2
+            0xFF, // "break"
+        ];
+        let ipld = ipld!({
+            "Fun": true,
+            "Amt": -2,
+        });
+        let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
+        assert_eq!(ipld, ipld2);
+    }
+}

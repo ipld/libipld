@@ -1,35 +1,105 @@
 //! CBOR error types.
+use std::any::type_name;
 use thiserror::Error;
 
 /// Number larger than u64.
 #[derive(Debug, Error)]
-#[error("Number larger than u64.")]
-pub struct NumberOutOfRange;
+#[error("Number larger than {ty}.")]
+pub struct NumberOutOfRange {
+    /// Type.
+    pub ty: &'static str,
+}
+
+impl NumberOutOfRange {
+    /// Creates a new `NumberOutOfRange` error.
+    pub fn new<T>() -> Self {
+        Self {
+            ty: type_name::<T>(),
+        }
+    }
+}
 
 /// Length larger than usize or too small, for example zero length cid field.
 #[derive(Debug, Error)]
-#[error("Length out of range.")]
-pub struct LengthOutOfRange;
+#[error("Length out of range when decoding {ty}.")]
+pub struct LengthOutOfRange {
+    /// Type.
+    pub ty: &'static str,
+}
+
+impl LengthOutOfRange {
+    /// Creates a new `LengthOutOfRange` error.
+    pub fn new<T>() -> Self {
+        Self {
+            ty: type_name::<T>(),
+        }
+    }
+}
 
 /// Unexpected cbor code.
 #[derive(Debug, Error)]
-#[error("Unexpected cbor code.")]
-pub struct UnexpectedCode;
+#[error("Unexpected cbor code `{code}` when decoding `{ty}`.")]
+pub struct UnexpectedCode {
+    /// Code.
+    pub code: u8,
+    /// Type.
+    pub ty: &'static str,
+}
 
-/// Unknown cbor tag.
-#[derive(Debug, Error)]
-#[error("Unkown cbor tag.")]
-pub struct UnknownTag;
+impl UnexpectedCode {
+    /// Creates a new `UnexpectedCode` error.
+    pub fn new<T>(code: u8) -> Self {
+        Self {
+            code,
+            ty: type_name::<T>(),
+        }
+    }
+}
 
 /// Unexpected key.
 #[derive(Debug, Error)]
-#[error("Unexpected key {0}.")]
-pub struct UnexpectedKey(pub String);
+#[error("Unexpected key `{key}` when decoding `{ty}`.")]
+pub struct UnexpectedKey {
+    /// Key.
+    pub key: String,
+    /// Type.
+    pub ty: &'static str,
+}
+
+impl UnexpectedKey {
+    /// Creates a new `UnexpectedKey` error.
+    pub fn new<T>(key: String) -> Self {
+        Self {
+            key,
+            ty: type_name::<T>(),
+        }
+    }
+}
 
 /// Missing key.
 #[derive(Debug, Error)]
-#[error("Missing key {0}.")]
-pub struct MissingKey(pub &'static str);
+#[error("Missing key `{key}` for decoding `{ty}`.")]
+pub struct MissingKey {
+    /// Key.
+    pub key: &'static str,
+    /// Type.
+    pub ty: &'static str,
+}
+
+impl MissingKey {
+    /// Creates a new `MissingKey` error.
+    pub fn new<T>(key: &'static str) -> Self {
+        Self {
+            key,
+            ty: type_name::<T>(),
+        }
+    }
+}
+
+/// Unknown cbor tag.
+#[derive(Debug, Error)]
+#[error("Unkown cbor tag `{0}`.")]
+pub struct UnknownTag(pub u8);
 
 /// Unexpected eof.
 #[derive(Debug, Error)]
