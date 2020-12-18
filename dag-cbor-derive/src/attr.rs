@@ -7,7 +7,7 @@ mod kw {
     custom_keyword!(repr);
 
     custom_keyword!(rename);
-    //custom_keyword!(default);
+    custom_keyword!(default);
 }
 
 #[derive(Debug)]
@@ -60,15 +60,15 @@ impl Parse for DeriveAttr {
 #[derive(Debug)]
 pub enum FieldAttr {
     Rename(Attr<kw::rename, syn::LitStr>),
-    //Default(Attr<kw::default, syn::Expr>),
+    Default(Attr<kw::default, Box<syn::Expr>>),
 }
 
 impl Parse for FieldAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(kw::rename) {
             Ok(FieldAttr::Rename(input.parse()?))
-        //} else if input.peek(kw::default) {
-        //    Ok(FieldAttr::Default(input.parse()?))
+        } else if input.peek(kw::default) {
+            Ok(FieldAttr::Default(input.parse()?))
         } else {
             Err(syn::Error::new(input.span(), "unknown attribute"))
         }

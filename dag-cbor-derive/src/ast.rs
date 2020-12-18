@@ -38,7 +38,7 @@ pub struct Struct {
 pub struct StructField {
     pub name: syn::Member,
     pub rename: Option<String>,
-    pub default: Option<syn::Expr>,
+    pub default: Option<Box<syn::Expr>>,
     pub binding: syn::Ident,
 }
 
