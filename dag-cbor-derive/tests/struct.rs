@@ -1,4 +1,4 @@
-use libipld::cbor::DagCborCodec;
+use libipld::cbor::{DagCbor, DagCborCodec};
 use libipld::codec::{assert_roundtrip, Codec};
 use libipld::{ipld, DagCbor};
 
@@ -168,3 +168,6 @@ fn serde_cbor_compat() {
     let il_map: IlMap = DagCborCodec.decode(&bytes).unwrap();
     assert_eq!(il_map, IlMap { fun: true, amt: -2 });
 }
+
+#[derive(DagCbor)]
+pub struct Generic<T: DagCbor>(T);

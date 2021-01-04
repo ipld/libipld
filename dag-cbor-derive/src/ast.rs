@@ -27,6 +27,7 @@ pub enum SchemaType {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Struct {
     pub name: syn::Ident,
+    pub generics: Option<syn::Generics>,
     pub rename: Option<String>,
     pub fields: Vec<StructField>,
     pub repr: StructRepr,
@@ -53,6 +54,7 @@ pub enum StructRepr {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Union {
     pub name: syn::Ident,
+    pub generics: syn::Generics,
     pub variants: Vec<Struct>,
     pub repr: UnionRepr,
 }

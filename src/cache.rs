@@ -1,7 +1,7 @@
 //! Cache
 use crate::block::Block;
 use crate::cid::Cid;
-use crate::codec::{Codec, Decode, Encode};
+use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::store::{Store, StoreParams};
@@ -48,13 +48,7 @@ impl<S: Store, C, T> IpldCache<S, C, T> {
 
 /// Cache trait.
 #[async_trait]
-pub trait Cache<S, C, T>
-where
-    S: Store,
-    <S::Params as StoreParams>::Codecs: Into<C>,
-    C: Codec + Into<<S::Params as StoreParams>::Codecs>,
-    T: Decode<C> + Encode<C> + Clone + Send + Sync,
-{
+pub trait Cache<S: Store, C, T> {
     /// Returns a decoded block.
     async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T>;
 
@@ -69,7 +63,7 @@ where
     <S::Params as StoreParams>::Codecs: Into<C>,
     C: Codec + Into<<S::Params as StoreParams>::Codecs>,
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
-    Ipld: Decode<<S::Params as StoreParams>::Codecs>,
+    Ipld: References<<S::Params as StoreParams>::Codecs>,
 {
     async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T> {
         if let Some(value) = self.cache.lock().await.cache_get(cid).cloned() {
@@ -101,7 +95,7 @@ macro_rules! derive_cache {
             S: $crate::store::Store,
             <S::Params as $crate::store::StoreParams>::Codecs: From<$codec> + Into<$codec>,
             $crate::ipld::Ipld:
-                $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
+                $crate::codec::References<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
             async fn get(
                 &self,
