@@ -135,12 +135,12 @@ mod tests {
         let leaf = ipld!({"name": "John Doe"});
         let leaf_block = Block::encode(DagCborCodec, Code::Blake3_256, &leaf).unwrap();
         let root = ipld!({ "list": [leaf_block.cid()] });
-        store.insert(&leaf_block).await.unwrap();
+        store.insert(&leaf_block, None).await.unwrap();
         let root_block = Block::encode(DagCborCodec, Code::Blake3_256, &root).unwrap();
-        store.insert(&root_block).await.unwrap();
+        store.insert(&root_block, None).await.unwrap();
         let path = DagPath::new(root_block.cid(), "list/0/name");
         assert_eq!(
-            store.query(&path).await.unwrap(),
+            store.query(&path, None).await.unwrap(),
             Ipld::String("John Doe".to_string())
         );
         Ok(())

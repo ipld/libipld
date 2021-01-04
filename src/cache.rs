@@ -103,12 +103,20 @@ macro_rules! derive_cache {
             $crate::ipld::Ipld:
                 $crate::codec::Decode<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
-            async fn get(&self, cid: &$crate::cid::Cid) -> $crate::error::Result<$type> {
-                self.$field.get(cid).await
+            async fn get(
+                &self,
+                cid: &$crate::cid::Cid,
+                tmp: Option<&S::TempPin>,
+            ) -> $crate::error::Result<$type> {
+                self.$field.get(cid, tmp).await
             }
 
-            async fn insert(&self, payload: $type) -> $crate::error::Result<$crate::cid::Cid> {
-                self.$field.insert(payload).await
+            async fn insert(
+                &self,
+                payload: $type,
+                tmp: Option<&S::TempPin>,
+            ) -> $crate::error::Result<$crate::cid::Cid> {
+                self.$field.insert(payload, tmp).await
             }
         }
     };
@@ -145,8 +153,9 @@ mod tests {
             store: store.clone(),
             number: IpldCache::new(store, DagCborCodec, Code::Blake3_256, 1),
         };
-        let cid = client.insert(42).await.unwrap();
-        let res = client.get(&cid).await.unwrap();
+        let tmp = client.temp_pin().await.unwrap();
+        let cid = client.insert(42, Some(&tmp)).await.unwrap();
+        let res = client.get(&cid, Some(&tmp)).await.unwrap();
         assert_eq!(res, 42);
     }
 }
