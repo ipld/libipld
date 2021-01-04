@@ -50,20 +50,20 @@ impl<S: Store, C, T> IpldCache<S, C, T> {
 #[async_trait]
 pub trait Cache<S, C, T>
 where
-    S: StoreParams,
-    S::Codecs: Into<C>,
-    C: Codec + Into<S::Codecs>,
+    S: Store,
+    <S::Params as StoreParams>::Codecs: Into<C>,
+    C: Codec + Into<<S::Params as StoreParams>::Codecs>,
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
 {
     /// Returns a decoded block.
-    async fn get(&self, cid: &Cid) -> Result<T>;
+    async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T>;
 
     /// Encodes and inserts a block.
-    async fn insert(&self, payload: T) -> Result<Cid>;
+    async fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid>;
 }
 
 #[async_trait]
-impl<S, C, T> Cache<S::Params, C, T> for IpldCache<S, C, T>
+impl<S, C, T> Cache<S, C, T> for IpldCache<S, C, T>
 where
     S: Store,
     <S::Params as StoreParams>::Codecs: Into<C>,
@@ -71,20 +71,20 @@ where
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
     Ipld: Decode<<S::Params as StoreParams>::Codecs>,
 {
-    async fn get(&self, cid: &Cid) -> Result<T> {
+    async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T> {
         if let Some(value) = self.cache.lock().await.cache_get(cid).cloned() {
             return Ok(value);
         }
-        let block = self.store.get(cid).await?;
+        let block = self.store.get(cid, tmp).await?;
         let value: T = block.decode::<C, _>()?;
         let (cid, _) = block.into_inner();
         self.cache.lock().await.cache_set(cid, value.clone());
         Ok(value)
     }
 
-    async fn insert(&self, payload: T) -> Result<Cid> {
+    async fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid> {
         let block = Block::encode(self.codec, self.hash, &payload)?;
-        self.store.insert(&block).await?;
+        self.store.insert(&block, tmp).await?;
         let mut cache = self.cache.lock().await;
         cache.cache_set(*block.cid(), payload);
         Ok(*block.cid())
@@ -96,7 +96,7 @@ where
 macro_rules! derive_cache {
     ($struct:tt, $field:ident, $codec:ty, $type:ty) => {
         #[async_trait::async_trait]
-        impl<S> $crate::cache::Cache<S::Params, $codec, $type> for $struct<S>
+        impl<S> $crate::cache::Cache<S, $codec, $type> for $struct<S>
         where
             S: $crate::store::Store,
             <S::Params as $crate::store::StoreParams>::Codecs: From<$codec> + Into<$codec>,

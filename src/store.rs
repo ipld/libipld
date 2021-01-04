@@ -36,39 +36,55 @@ impl StoreParams for DefaultParams {
 pub trait Store: Clone + Send + Sync {
     /// Store parameters.
     type Params: StoreParams;
+    /// Temp pin.
+    type TempPin: Clone + Send + Sync;
+
+    /// Creates a new temporary pin.
+    async fn temp_pin(&self) -> Result<Self::TempPin>;
+
+    /// Returns true if the store contains the block.
+    async fn contains(&self, cid: &Cid) -> Result<bool>;
 
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network and inserts it into the store. Dropping the
     /// future cancels the request.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
-    async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
+    async fn get(&self, cid: &Cid, tmp: Option<&Self::TempPin>) -> Result<Block<Self::Params>>;
 
     /// Inserts a block into the store and publishes the block on the network.
-    async fn insert(&self, block: &Block<Self::Params>) -> Result<()>;
+    async fn insert(&self, block: &Block<Self::Params>, tmp: Option<&Self::TempPin>) -> Result<()>;
 
     /// Resolves a path recursively and returns the ipld.
-    async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
+    async fn query(&self, path: &DagPath<'_>, tmp: Option<&Self::TempPin>) -> Result<Ipld>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
-        let mut ipld = self.get(path.root()).await?.ipld()?;
+        let mut ipld = self.get(path.root(), tmp).await?.ipld()?;
         for segment in path.path().iter() {
             ipld = ipld.take(segment)?;
             if let Ipld::Link(cid) = ipld {
-                ipld = self.get(&cid).await?.ipld()?;
+                ipld = self.get(&cid, tmp).await?.ipld()?;
             }
         }
         Ok(ipld)
     }
 
-    /// Creates an alias for a `Cid`. To alias a block all it's recursive references
-    /// must be in the store. If blocks are missing, they will be fetched from the network. If
-    /// they aren't found, it will return a `BlockNotFound` error.
+    /// Fetches all missing blocks recursively from the network. If a block isn't found it
+    /// returns a `BlockNotFound` error.
+    async fn sync(&self, cid: &Cid, tmp: Option<&Self::TempPin>) -> Result<()>;
+
+    /// Creates an alias for a `Cid`.
     async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
 
     /// Resolves an alias for a `Cid`.
     async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>>;
+
+    /// Returns all the aliases that are keeping the block around.
+    async fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>>;
+
+    /// Flushes the store.
+    async fn flush(&self) -> Result<()>;
 }
 
 /// Creates a static alias concatenating the module path with an identifier.
