@@ -9,6 +9,7 @@ use async_lock::Mutex;
 use async_trait::async_trait;
 use cached::stores::SizedCache;
 use cached::Cached;
+use std::ops::Deref;
 
 /// Cache for ipld blocks.
 #[derive(Debug)]
@@ -17,6 +18,14 @@ pub struct IpldCache<S: Store, C, T> {
     codec: C,
     hash: <S::Params as StoreParams>::Hashes,
     cache: Mutex<SizedCache<Cid, T>>,
+}
+
+impl<S: Store, C, T> Deref for IpldCache<S, C, T> {
+    type Target = S;
+
+    fn deref(&self) -> &Self::Target {
+        &self.store
+    }
 }
 
 impl<S: Store + Default, C: Default, T> Default for IpldCache<S, C, T>
