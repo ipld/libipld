@@ -1,4 +1,21 @@
 //! Store traits.
+//!
+//! ## Aliases
+//! An alias is a named root of a dag. When a root is aliased, none of the leaves of the dag
+//! pointed to by the root will be collected by gc. However, a root being aliased does not
+//! mean that the dag must be complete.
+//!
+//! ## Temporary pin
+//! A temporary pin is an unnamed set of roots of a dag, that is just for the purpose of protecting
+//! blocks from gc while a large tree is constructed. While an alias maps a single name to a
+//! single root, a temporary alias can be assigned to an arbitrary number of blocks before the
+//! dag is finished.
+//!
+//! ## Garbage collection (GC)
+//! GC refers to the process of removing unaliased blocks. When it runs is implementation defined.
+//! However it is intended to run only when the configured size is exceeded at when it will start
+//! incrementally deleting unaliased blocks until the size target is no longer exceeded. It is
+//! implementation defined in which order unaliased blocks get removed.
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode};
@@ -40,7 +57,10 @@ pub trait Store: Clone + Send + Sync {
     type TempPin: Clone + Send + Sync;
 
     /// Creates a new temporary pin.
-    async fn temp_pin(&self) -> Result<Self::TempPin>;
+    async fn create_temp_pin(&self) -> Result<Self::TempPin>;
+
+    /// Adds a block to a temp pin.
+    async fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()>;
 
     /// Returns true if the store contains the block.
     async fn contains(&self, cid: &Cid) -> Result<bool>;
@@ -50,21 +70,21 @@ pub trait Store: Clone + Send + Sync {
     /// future cancels the request.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
-    async fn get(&self, cid: &Cid, tmp: Option<&Self::TempPin>) -> Result<Block<Self::Params>>;
+    async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
     /// Inserts a block into the store and publishes the block on the network.
-    async fn insert(&self, block: &Block<Self::Params>, tmp: Option<&Self::TempPin>) -> Result<()>;
+    async fn insert(&self, block: &Block<Self::Params>) -> Result<()>;
 
     /// Resolves a path recursively and returns the ipld.
-    async fn query(&self, path: &DagPath<'_>, tmp: Option<&Self::TempPin>) -> Result<Ipld>
+    async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
-        let mut ipld = self.get(path.root(), tmp).await?.ipld()?;
+        let mut ipld = self.get(path.root()).await?.ipld()?;
         for segment in path.path().iter() {
             ipld = ipld.take(segment)?;
             if let Ipld::Link(cid) = ipld {
-                ipld = self.get(&cid, tmp).await?.ipld()?;
+                ipld = self.get(&cid).await?.ipld()?;
             }
         }
         Ok(ipld)
@@ -72,7 +92,7 @@ pub trait Store: Clone + Send + Sync {
 
     /// Fetches all missing blocks recursively from the network. If a block isn't found it
     /// returns a `BlockNotFound` error.
-    async fn sync(&self, cid: &Cid, tmp: Option<&Self::TempPin>) -> Result<()>;
+    async fn sync(&self, cid: &Cid) -> Result<()>;
 
     /// Creates an alias for a `Cid`.
     async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
@@ -135,12 +155,12 @@ mod tests {
         let leaf = ipld!({"name": "John Doe"});
         let leaf_block = Block::encode(DagCborCodec, Code::Blake3_256, &leaf).unwrap();
         let root = ipld!({ "list": [leaf_block.cid()] });
-        store.insert(&leaf_block, None).await.unwrap();
+        store.insert(&leaf_block).await.unwrap();
         let root_block = Block::encode(DagCborCodec, Code::Blake3_256, &root).unwrap();
-        store.insert(&root_block, None).await.unwrap();
+        store.insert(&root_block).await.unwrap();
         let path = DagPath::new(root_block.cid(), "list/0/name");
         assert_eq!(
-            store.query(&path, None).await.unwrap(),
+            store.query(&path).await.unwrap(),
             Ipld::String("John Doe".to_string())
         );
         Ok(())

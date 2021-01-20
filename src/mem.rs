@@ -1,5 +1,4 @@
 //! Reference store implementation.
-#![allow(warnings)]
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::References;
@@ -92,13 +91,23 @@ impl<S: StoreParams> LocalStore<S> {
         self.data.contains_key(&id)
     }
 
-    fn temp_pin(&mut self) -> TempPin {
+    fn create_temp_pin(&mut self) -> TempPin {
         let id = self.next_temp_pin;
         self.next_temp_pin += 1;
         TempPin(Arc::new(InnerTempPin {
             id,
             temp_pins: self.temp_pins.clone(),
         }))
+    }
+
+    fn temp_pin(&mut self, tmp: &TempPin, cid: &Cid) {
+        let id = self.lookup(cid);
+        self.temp_pins
+            .lock()
+            .unwrap()
+            .entry(tmp.0.id)
+            .or_default()
+            .push(id);
     }
 
     fn hit(&mut self, id: Id) {
@@ -119,26 +128,19 @@ impl<S: StoreParams> LocalStore<S> {
         Some(Block::new_unchecked(cid, data))
     }
 
-    fn insert(&mut self, block: Block<S>, tmp: Option<&TempPin>)
+    fn insert(&mut self, block: Block<S>) -> Result<()>
     where
         Ipld: References<S::Codecs>,
     {
         let id = self.lookup(block.cid());
         let mut refs = FnvHashSet::default();
-        block.references(&mut refs);
-        let (cid, data) = block.into_inner();
+        block.references(&mut refs)?;
+        let (_cid, data) = block.into_inner();
         let ids = refs.iter().map(|id| self.lookup(id)).collect();
         self.refs.insert(id, ids);
         self.data.insert(id, data);
         self.hit(id);
-        if let Some(tmp) = tmp {
-            self.temp_pins
-                .lock()
-                .unwrap()
-                .entry(tmp.0.id)
-                .or_default()
-                .push(id);
-        }
+        Ok(())
     }
 
     pub fn resolve<T: AsRef<[u8]>>(&mut self, alias: T) -> Option<Cid> {
@@ -204,10 +206,10 @@ impl<S: StoreParams> LocalStore<S> {
 
     pub fn roots(&self) -> Vec<Id> {
         let mut roots = vec![];
-        for (_, id) in &self.aliases {
+        for id in self.aliases.values() {
             roots.push(*id);
         }
-        for (_, ids) in self.temp_pins.lock().unwrap().iter() {
+        for ids in self.temp_pins.lock().unwrap().values() {
             for id in ids {
                 roots.push(*id);
             }
@@ -277,15 +279,19 @@ impl<S: StoreParams> SharedStore<S> {
         }
     }
 
-    pub fn temp_pin(&mut self) -> TempPin {
-        self.local.temp_pin()
+    pub fn create_temp_pin(&mut self) -> TempPin {
+        self.local.create_temp_pin()
+    }
+
+    pub fn temp_pin(&mut self, tmp: &TempPin, cid: &Cid) {
+        self.local.temp_pin(tmp, cid)
     }
 
     pub fn contains(&mut self, cid: &Cid) -> bool {
         self.local.contains(cid)
     }
 
-    pub fn get(&mut self, cid: &Cid, tmp: Option<&TempPin>) -> Result<Block<S>>
+    pub fn get(&mut self, cid: &Cid) -> Result<Block<S>>
     where
         Ipld: References<S::Codecs>,
     {
@@ -293,14 +299,14 @@ impl<S: StoreParams> SharedStore<S> {
             return Ok(block);
         }
         if let Some(block) = self.network.get(cid) {
-            self.local.insert(block.clone(), tmp);
+            self.local.insert(block.clone())?;
             Ok(block)
         } else {
             Err(BlockNotFound(*cid).into())
         }
     }
 
-    pub fn sync(&mut self, cid: &Cid, tmp: Option<&TempPin>) -> Result<()>
+    pub fn sync(&mut self, cid: &Cid) -> Result<()>
     where
         Ipld: References<S::Codecs>,
     {
@@ -309,7 +315,7 @@ impl<S: StoreParams> SharedStore<S> {
         while let Some(id) = missing.pop() {
             if !self.local.data.contains_key(&id) {
                 let cid = *self.local.cid.get(&id).unwrap();
-                self.get(&cid, tmp)?;
+                self.get(&cid)?;
             }
             for id in self.local.refs.get(&id).unwrap() {
                 missing.push(*id);
@@ -318,12 +324,13 @@ impl<S: StoreParams> SharedStore<S> {
         Ok(())
     }
 
-    pub fn insert(&mut self, block: Block<S>, tmp: Option<&TempPin>)
+    pub fn insert(&mut self, block: Block<S>) -> Result<()>
     where
         Ipld: References<S::Codecs>,
     {
-        self.local.insert(block.clone(), tmp);
+        self.local.insert(block.clone())?;
         self.network.insert(block);
+        Ok(())
     }
 
     pub fn resolve<T: AsRef<[u8]>>(&mut self, alias: T) -> Option<Cid> {
@@ -362,6 +369,16 @@ impl<S: StoreParams> MemStore<S> {
     pub fn new(network: GlobalStore<S>, cache_size: usize) -> Self {
         Self(Arc::new(Mutex::new(SharedStore::new(network, cache_size))))
     }
+
+    /// Evicts blocks from the memstore.
+    pub fn evict(&self) {
+        self.0.lock().unwrap().evict();
+    }
+
+    /// Checks if a block is pinned.
+    pub fn pinned(&self, cid: &Cid) -> Option<bool> {
+        self.0.lock().unwrap().pinned(cid)
+    }
 }
 
 #[async_trait]
@@ -372,24 +389,29 @@ where
     type Params = S;
     type TempPin = TempPin;
 
-    async fn temp_pin(&self) -> Result<Self::TempPin> {
-        Ok(self.0.lock().unwrap().temp_pin())
+    async fn create_temp_pin(&self) -> Result<Self::TempPin> {
+        Ok(self.0.lock().unwrap().create_temp_pin())
+    }
+
+    async fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()> {
+        self.0.lock().unwrap().temp_pin(tmp, cid);
+        Ok(())
     }
 
     async fn contains(&self, cid: &Cid) -> Result<bool> {
         Ok(self.0.lock().unwrap().contains(cid))
     }
 
-    async fn get(&self, cid: &Cid, tmp: Option<&TempPin>) -> Result<Block<S>> {
-        self.0.lock().unwrap().get(cid, tmp)
+    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
+        self.0.lock().unwrap().get(cid)
     }
 
-    async fn sync(&self, cid: &Cid, tmp: Option<&TempPin>) -> Result<()> {
-        self.0.lock().unwrap().sync(cid, tmp)
+    async fn sync(&self, cid: &Cid) -> Result<()> {
+        self.0.lock().unwrap().sync(cid)
     }
 
-    async fn insert(&self, block: &Block<S>, tmp: Option<&TempPin>) -> Result<()> {
-        Ok(self.0.lock().unwrap().insert(block.clone(), tmp))
+    async fn insert(&self, block: &Block<S>) -> Result<()> {
+        self.0.lock().unwrap().insert(block.clone())
     }
 
     async fn flush(&self) -> Result<()> {
@@ -397,7 +419,8 @@ where
     }
 
     async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()> {
-        Ok(self.0.lock().unwrap().alias(alias, cid))
+        self.0.lock().unwrap().alias(alias, cid);
+        Ok(())
     }
 
     async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>> {
@@ -440,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_store_evict() {
+    fn test_store_evict() -> Result<()> {
         let mut store = LocalStore::new(2);
         let blocks = [
             create_block(&ipld!(0)),
@@ -448,35 +471,36 @@ mod tests {
             create_block(&ipld!(2)),
             create_block(&ipld!(3)),
         ];
-        store.insert(blocks[0].clone(), None);
+        store.insert(blocks[0].clone())?;
         assert_unpinned!(store, &blocks[0]);
-        store.insert(blocks[1].clone(), None);
+        store.insert(blocks[1].clone())?;
         assert_unpinned!(store, &blocks[1]);
-        store.insert(blocks[2].clone(), None);
+        store.insert(blocks[2].clone())?;
         store.evict();
         assert_evicted!(store, &blocks[0]);
         assert_unpinned!(store, &blocks[1]);
         assert_unpinned!(store, &blocks[2]);
         store.get(&blocks[1]);
-        store.insert(blocks[3].clone(), None);
+        store.insert(blocks[3].clone())?;
         store.evict();
         assert_unpinned!(store, &blocks[1]);
         assert_evicted!(store, &blocks[2]);
         assert_unpinned!(store, &blocks[3]);
+        Ok(())
     }
 
     #[test]
     #[allow(clippy::many_single_char_names)]
-    fn test_store_unpin() {
+    fn test_store_unpin() -> Result<()> {
         let mut store = LocalStore::new(3);
         let a = create_block(&ipld!({ "a": [] }));
         let b = create_block(&ipld!({ "b": [a.cid()] }));
         let c = create_block(&ipld!({ "c": [a.cid()] }));
         let x = alias!(x);
         let y = alias!(y);
-        store.insert(a.clone(), None);
-        store.insert(b.clone(), None);
-        store.insert(c.clone(), None);
+        store.insert(a.clone())?;
+        store.insert(b.clone())?;
+        store.insert(c.clone())?;
         store.alias(x, Some(b.cid()));
         store.alias(y, Some(c.cid()));
         assert_pinned!(store, &a);
@@ -490,18 +514,19 @@ mod tests {
         assert_unpinned!(store, &a);
         assert_unpinned!(store, &b);
         assert_unpinned!(store, &c);
+        Ok(())
     }
 
     #[test]
     #[allow(clippy::many_single_char_names)]
-    fn test_store_unpin2() {
+    fn test_store_unpin2() -> Result<()> {
         let mut store = LocalStore::new(3);
         let a = create_block(&ipld!({ "a": [] }));
         let b = create_block(&ipld!({ "b": [a.cid()] }));
         let x = alias!(x);
         let y = alias!(y);
-        store.insert(a.clone(), None);
-        store.insert(b.clone(), None);
+        store.insert(a.clone())?;
+        store.insert(b.clone())?;
         store.alias(x, Some(b.cid()));
         store.alias(y, Some(b.cid()));
         assert_pinned!(store, &a);
@@ -512,10 +537,11 @@ mod tests {
         store.alias(y, None);
         assert_unpinned!(store, &a);
         assert_unpinned!(store, &b);
+        Ok(())
     }
 
     #[test]
-    fn test_sync() {
+    fn test_sync() -> Result<()> {
         let network = GlobalStore::default();
         let mut local1 = SharedStore::new(network.clone(), 5);
         let mut local2 = SharedStore::new(network, 5);
@@ -526,22 +552,22 @@ mod tests {
         let c2 = create_block(&ipld!({ "c": [a1.cid(), b2.cid()] }));
         let x = alias!(x);
 
-        local1.insert(a1.clone(), None);
-        local1.insert(b1.clone(), None);
-        local1.insert(c1.clone(), None);
+        local1.insert(a1.clone())?;
+        local1.insert(b1.clone())?;
+        local1.insert(c1.clone())?;
         local1.alias(x, Some(c1.cid()));
         assert_pinned!(local1, &a1);
         assert_pinned!(local1, &b1);
         assert_pinned!(local1, &c1);
 
         local2.alias(x, Some(c1.cid()));
-        local2.sync(c1.cid(), None).unwrap();
+        local2.sync(c1.cid()).unwrap();
         assert_pinned!(local2, &a1);
         assert_pinned!(local2, &b1);
         assert_pinned!(local2, &c1);
 
-        local2.insert(b2.clone(), None);
-        local2.insert(c2.clone(), None);
+        local2.insert(b2.clone())?;
+        local2.insert(c2.clone())?;
         local2.alias(x, Some(c2.cid()));
         assert_pinned!(local2, &a1);
         assert_unpinned!(local2, &b1);
@@ -550,7 +576,7 @@ mod tests {
         assert_pinned!(local2, &c2);
 
         local1.alias(x, Some(c2.cid()));
-        local1.sync(c2.cid(), None).unwrap();
+        local1.sync(c2.cid()).unwrap();
         assert_pinned!(local1, &a1);
         assert_unpinned!(local1, &b1);
         assert_unpinned!(local1, &c1);
@@ -570,5 +596,6 @@ mod tests {
         assert_unpinned!(local1, &c1);
         assert_unpinned!(local1, &b2);
         assert_unpinned!(local1, &c2);
+        Ok(())
     }
 }

@@ -78,7 +78,10 @@ where
         if let Some(value) = self.cache.lock().await.cache_get(cid).cloned() {
             return Ok(value);
         }
-        let block = self.store.get(cid, tmp).await?;
+        if let Some(tmp) = tmp {
+            self.store.temp_pin(tmp, cid).await?;
+        }
+        let block = self.store.get(cid).await?;
         let value: T = block.decode::<C, _>()?;
         let (cid, _) = block.into_inner();
         self.cache.lock().await.cache_set(cid, value.clone());
@@ -87,7 +90,10 @@ where
 
     async fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid> {
         let block = Block::encode(self.codec, self.hash, &payload)?;
-        self.store.insert(&block, tmp).await?;
+        if let Some(tmp) = tmp {
+            self.store.temp_pin(tmp, block.cid()).await?;
+        }
+        self.store.insert(&block).await?;
         let mut cache = self.cache.lock().await;
         cache.cache_set(*block.cid(), payload);
         Ok(*block.cid())
@@ -156,7 +162,7 @@ mod tests {
             store: store.clone(),
             number: IpldCache::new(store, DagCborCodec, Code::Blake3_256, 1),
         };
-        let tmp = client.temp_pin().await.unwrap();
+        let tmp = client.create_temp_pin().await.unwrap();
         let cid = client.insert(42, Some(&tmp)).await.unwrap();
         let res = client.get(&cid, Some(&tmp)).await.unwrap();
         assert_eq!(res, 42);
