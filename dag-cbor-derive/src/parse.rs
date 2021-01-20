@@ -7,7 +7,10 @@ use synstructure::{BindingInfo, Structure, VariantInfo};
 
 pub fn parse(s: &Structure) -> SchemaType {
     match &s.ast().data {
-        syn::Data::Struct(_) => SchemaType::Struct(parse_struct(&s.variants()[0])),
+        syn::Data::Struct(_) => SchemaType::Struct(parse_struct(
+            &s.variants()[0],
+            Some(s.ast().generics.clone()),
+        )),
         syn::Data::Enum(_) => SchemaType::Union(parse_union(s)),
         syn::Data::Union(_) => unimplemented!(),
     }
@@ -56,7 +59,7 @@ fn parse_union_repr(ast: &[syn::Attribute]) -> UnionRepr {
     repr.unwrap_or(UnionRepr::Keyed)
 }
 
-fn parse_struct(v: &VariantInfo) -> Struct {
+fn parse_struct(v: &VariantInfo, generics: Option<syn::Generics>) -> Struct {
     let repr = parse_struct_repr(&v.ast().attrs);
     let mut fields: Vec<_> = v
         .bindings()
@@ -75,6 +78,7 @@ fn parse_struct(v: &VariantInfo) -> Struct {
     });
     Struct {
         name: v.ast().ident.clone(),
+        generics,
         rename: None,
         fields,
         repr: repr.unwrap_or_else(|| match &v.ast().fields {
@@ -94,11 +98,12 @@ fn parse_union(s: &Structure) -> Union {
     let repr = parse_union_repr(&s.ast().attrs);
     Union {
         name: s.ast().ident.clone(),
+        generics: s.ast().generics.clone(),
         variants: s
             .variants()
             .iter()
             .map(|v| {
-                let mut s = parse_struct(v);
+                let mut s = parse_struct(v, None);
                 for attr in parse_attrs::<FieldAttr>(&v.ast().attrs) {
                     if let FieldAttr::Rename(attr) = attr {
                         s.rename = Some(attr.value.value());
@@ -169,6 +174,7 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Map"),
+                generics: Some(Default::default()),
                 rename: None,
                 fields: vec![StructField {
                     name: syn::Member::Named(format_ident!("field")),
@@ -195,6 +201,7 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Tuple"),
+                generics: Some(Default::default()),
                 rename: None,
                 fields: vec![StructField {
                     name: syn::Member::Unnamed(format_index!(0)),
@@ -220,6 +227,7 @@ pub mod tests {
             ast,
             SchemaType::Struct(Struct {
                 name: format_ident!("Map"),
+                generics: Some(Default::default()),
                 rename: None,
                 fields: Default::default(),
                 repr: StructRepr::Null,
@@ -245,9 +253,11 @@ pub mod tests {
             ast,
             SchemaType::Union(Union {
                 name: format_ident!("Union"),
+                generics: Default::default(),
                 variants: vec![
                     Struct {
                         name: format_ident!("Unit"),
+                        generics: None,
                         rename: Some("unit".into()),
                         fields: vec![],
                         repr: StructRepr::Null,
@@ -256,6 +266,7 @@ pub mod tests {
                     },
                     Struct {
                         name: format_ident!("Tuple"),
+                        generics: None,
                         rename: None,
                         fields: vec![StructField {
                             name: syn::Member::Unnamed(format_index!(0)),
@@ -269,6 +280,7 @@ pub mod tests {
                     },
                     Struct {
                         name: format_ident!("Struct"),
+                        generics: None,
                         rename: None,
                         fields: vec![StructField {
                             name: syn::Member::Named(format_ident!("value")),
@@ -301,8 +313,10 @@ pub mod tests {
             ast,
             SchemaType::Union(Union {
                 name: format_ident!("Enum"),
+                generics: Default::default(),
                 variants: vec![Struct {
                     name: format_ident!("Variant"),
+                    generics: None,
                     rename: Some("test".into()),
                     fields: vec![],
                     repr: StructRepr::Null,

@@ -3,13 +3,15 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 pub fn gen_encode(ast: &SchemaType) -> TokenStream {
-    let (ident, body) = match ast {
-        SchemaType::Struct(s) => (&s.name, gen_encode_struct(&s)),
-        SchemaType::Union(u) => (&u.name, gen_encode_union(&u)),
+    let (ident, generics, body) = match ast {
+        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_encode_struct(&s)),
+        SchemaType::Union(u) => (&u.name, &u.generics, gen_encode_union(&u)),
     };
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let trait_name = quote!(libipld::codec::Encode<libipld::cbor::DagCborCodec>);
 
     quote! {
-        impl libipld::codec::Encode<libipld::cbor::DagCborCodec> for #ident {
+        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn encode<W: std::io::Write>(
                 &self,
                 c: libipld::cbor::DagCborCodec,
@@ -24,13 +26,15 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
 }
 
 pub fn gen_decode(ast: &SchemaType) -> TokenStream {
-    let ident = match ast {
-        SchemaType::Struct(s) => &s.name,
-        SchemaType::Union(u) => &u.name,
+    let (ident, generics) = match ast {
+        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap()),
+        SchemaType::Union(u) => (&u.name, &u.generics),
     };
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let trait_name = quote!(libipld::codec::Decode<libipld::cbor::DagCborCodec>);
 
     quote! {
-        impl libipld::codec::Decode<libipld::cbor::DagCborCodec> for #ident {
+        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn decode<R: std::io::Read>(
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
@@ -42,12 +46,19 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
 }
 
 pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
-    let (ident, body) = match ast {
-        SchemaType::Struct(s) => (&s.name, gen_try_read_cbor_struct(&s)),
-        SchemaType::Union(u) => (&u.name, gen_try_read_cbor_union(&u)),
+    let (ident, generics, body) = match ast {
+        SchemaType::Struct(s) => (
+            &s.name,
+            s.generics.as_ref().unwrap(),
+            gen_try_read_cbor_struct(&s),
+        ),
+        SchemaType::Union(u) => (&u.name, &u.generics, gen_try_read_cbor_union(&u)),
     };
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let trait_name = quote!(libipld::cbor::decode::TryReadCbor);
+
     quote! {
-        impl libipld::cbor::decode::TryReadCbor for #ident {
+        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn try_read_cbor<R: std::io::Read>(
                 r: &mut R,
                 major: u8,

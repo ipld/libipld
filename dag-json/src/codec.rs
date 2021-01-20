@@ -8,7 +8,6 @@ use serde_json::Error;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{Read, Write};
-use std::iter::FromIterator;
 
 const LINK_KEY: &str = "/";
 
@@ -181,8 +180,9 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
 
         let unwrapped = values
             .into_iter()
-            .map(|(key, WrapperOwned(value))| (key, value));
-        Ok(Ipld::Map(BTreeMap::from_iter(unwrapped)))
+            .map(|(key, WrapperOwned(value))| (key, value))
+            .collect();
+        Ok(Ipld::Map(unwrapped))
     }
 
     fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>

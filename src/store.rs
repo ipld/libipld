@@ -1,4 +1,21 @@
 //! Store traits.
+//!
+//! ## Aliases
+//! An alias is a named root of a dag. When a root is aliased, none of the leaves of the dag
+//! pointed to by the root will be collected by gc. However, a root being aliased does not
+//! mean that the dag must be complete.
+//!
+//! ## Temporary pin
+//! A temporary pin is an unnamed set of roots of a dag, that is just for the purpose of protecting
+//! blocks from gc while a large tree is constructed. While an alias maps a single name to a
+//! single root, a temporary alias can be assigned to an arbitrary number of blocks before the
+//! dag is finished.
+//!
+//! ## Garbage collection (GC)
+//! GC refers to the process of removing unaliased blocks. When it runs is implementation defined.
+//! However it is intended to run only when the configured size is exceeded at when it will start
+//! incrementally deleting unaliased blocks until the size target is no longer exceeded. It is
+//! implementation defined in which order unaliased blocks get removed.
 use crate::block::Block;
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode};
@@ -36,6 +53,17 @@ impl StoreParams for DefaultParams {
 pub trait Store: Clone + Send + Sync {
     /// Store parameters.
     type Params: StoreParams;
+    /// Temp pin.
+    type TempPin: Clone + Send + Sync;
+
+    /// Creates a new temporary pin.
+    async fn create_temp_pin(&self) -> Result<Self::TempPin>;
+
+    /// Adds a block to a temp pin.
+    async fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()>;
+
+    /// Returns true if the store contains the block.
+    async fn contains(&self, cid: &Cid) -> Result<bool>;
 
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network and inserts it into the store. Dropping the
@@ -62,13 +90,21 @@ pub trait Store: Clone + Send + Sync {
         Ok(ipld)
     }
 
-    /// Creates an alias for a `Cid`. To alias a block all it's recursive references
-    /// must be in the store. If blocks are missing, they will be fetched from the network. If
-    /// they aren't found, it will return a `BlockNotFound` error.
+    /// Fetches all missing blocks recursively from the network. If a block isn't found it
+    /// returns a `BlockNotFound` error.
+    async fn sync(&self, cid: &Cid) -> Result<()>;
+
+    /// Creates an alias for a `Cid`.
     async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
 
     /// Resolves an alias for a `Cid`.
     async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>>;
+
+    /// Returns all the aliases that are keeping the block around.
+    async fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>>;
+
+    /// Flushes the store.
+    async fn flush(&self) -> Result<()>;
 }
 
 /// Creates a static alias concatenating the module path with an identifier.
