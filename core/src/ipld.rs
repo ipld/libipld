@@ -20,10 +20,14 @@ pub enum Ipld {
     Bytes(Vec<u8>),
     /// Represents a list.
     List(Vec<Ipld>),
-    /// Represents a map.
-    Map(BTreeMap<String, Ipld>),
+    /// Represents a map of strings.
+    StringMap(BTreeMap<String, Ipld>),
+    /// Represents a map of integers.
+    IntegerMap(BTreeMap<i128, Ipld>),
     /// Represents a link to an Ipld node.
     Link(Cid),
+    /// A cbor tag.
+    Tag(u64, Box<Ipld>),
 }
 
 /// An index into ipld
@@ -56,51 +60,65 @@ impl<'a> From<&'a str> for IpldIndex<'a> {
 
 impl Ipld {
     /// Destructs an ipld list or map
-    pub fn take<'a, T: Into<IpldIndex<'a>>>(self, index: T) -> Result<Self, TypeError> {
+    pub fn take<'a, T: Into<IpldIndex<'a>>>(mut self, index: T) -> Result<Self, TypeError> {
         let index = index.into();
-        let type_err = |index, ipld| TypeError::new(index, ipld);
-        match self {
-            Ipld::List(mut l) => match index {
+        if let Ipld::Tag(_, inner) = self {
+            return inner.take(index);
+        }
+        let ipld = match &mut self {
+            Ipld::List(ref mut l) => match index {
                 IpldIndex::List(i) => Some(i),
                 IpldIndex::Map(ref key) => key.parse().ok(),
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .map(|i: usize| l.remove(i))
-            .ok_or_else(|| type_err(index, Ipld::List(l))),
-            Ipld::Map(mut m) => match index {
-                IpldIndex::Map(ref key) => m.remove(key),
-                IpldIndex::MapRef(key) => m.remove(key),
-                IpldIndex::List(i) => m.remove(&i.to_string()),
+            .map(|i: usize| if i < l.len() { Some(l.swap_remove(i)) } else { None }),
+            Ipld::IntegerMap(ref mut m) => match index {
+                IpldIndex::List(i) => Some(i as _),
+                IpldIndex::Map(ref key) => key.parse().ok(),
+                IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .ok_or_else(|| type_err(index, Ipld::Map(m))),
-            a => Err(TypeError::new(index, a)),
-        }
+            .map(|i: i128| m.remove(&i)),
+            Ipld::StringMap(ref mut m) => match index {
+                IpldIndex::Map(ref key) => Some(m.remove(key)),
+                IpldIndex::MapRef(key) => Some(m.remove(key)),
+                IpldIndex::List(i) => Some(m.remove(&i.to_string())),
+            }
+            _ => None,
+        };
+        ipld
+            .unwrap_or_default()
+            .ok_or_else(|| TypeError::new(index, self))
     }
+
     /// Indexes into an ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
         let index = index.into();
+        if let Ipld::Tag(_, inner) = self {
+            return inner.get(index);
+        }
         let ipld = match self {
             Ipld::List(l) => match index {
-                IpldIndex::List(i) => l.get(i),
-                IpldIndex::Map(ref key) => key
-                    .parse()
-                    .ok()
-                    .map(|i: usize| l.get(i))
-                    .unwrap_or_default(),
-                IpldIndex::MapRef(key) => key
-                    .parse()
-                    .ok()
-                    .map(|i: usize| l.get(i))
-                    .unwrap_or_default(),
-            },
-            Ipld::Map(m) => match index {
-                IpldIndex::Map(ref key) => m.get(key),
-                IpldIndex::MapRef(key) => m.get(key),
-                IpldIndex::List(i) => m.get(&i.to_string()),
-            },
+                IpldIndex::List(i) => Some(i),
+                IpldIndex::Map(ref key) => key.parse().ok(),
+                IpldIndex::MapRef(key) => key.parse().ok(),
+            }
+            .map(|i: usize| l.get(i)),
+            Ipld::IntegerMap(m) => match index {
+                IpldIndex::List(i) => Some(i as _),
+                IpldIndex::Map(ref key) => key.parse().ok(),
+                IpldIndex::MapRef(key) => key.parse().ok(),
+            }
+            .map(|i: i128| m.get(&i)),
+            Ipld::StringMap(m) => match index {
+                IpldIndex::Map(ref key) => Some(m.get(key)),
+                IpldIndex::MapRef(key) => Some(m.get(key)),
+                IpldIndex::List(i) => Some(m.get(&i.to_string())),
+            }
             _ => None,
         };
-        ipld.ok_or_else(|| TypeError::new(index, self))
+        ipld
+            .unwrap_or_default()
+            .ok_or_else(|| TypeError::new(index, self))
     }
 
     /// Returns an iterator.
@@ -136,7 +154,10 @@ impl<'a> Iterator for IpldIter<'a> {
                         Ipld::List(list) => {
                             self.stack.push(Box::new(list.iter()));
                         }
-                        Ipld::Map(map) => {
+                        Ipld::StringMap(map) => {
+                            self.stack.push(Box::new(map.values()));
+                        }
+                        Ipld::IntegerMap(map) => {
                             self.stack.push(Box::new(map.values()));
                         }
                         _ => {}
@@ -224,7 +245,7 @@ mod tests {
         map.insert("a".to_string(), Ipld::Integer(0));
         map.insert("b".to_string(), Ipld::Integer(1));
         map.insert("c".to_string(), Ipld::Integer(2));
-        let ipld = Ipld::Map(map);
+        let ipld = Ipld::StringMap(map);
         assert_eq!(ipld.take("a").unwrap(), Ipld::Integer(0));
     }
 
@@ -239,7 +260,7 @@ mod tests {
         map.insert("a".to_string(), Ipld::Integer(0));
         map.insert("b".to_string(), Ipld::Integer(1));
         map.insert("c".to_string(), Ipld::Integer(2));
-        let ipld = Ipld::Map(map);
+        let ipld = Ipld::StringMap(map);
         assert_eq!(ipld.get("a").unwrap(), &Ipld::Integer(0));
     }
 }

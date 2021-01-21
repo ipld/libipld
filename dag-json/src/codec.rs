@@ -34,9 +34,17 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
             let wrapped = list.iter().map(|ipld| Wrapper(ipld));
             ser.collect_seq(wrapped)
         }
-        Ipld::Map(map) => {
+        Ipld::StringMap(map) => {
             let wrapped = map.iter().map(|(key, ipld)| (key, Wrapper(ipld)));
             ser.collect_map(wrapped)
+        }
+        Ipld::IntegerMap(_) => {
+            // TODO: how to return an error here?
+            unimplemented!()
+        }
+        Ipld::Tag(_, _) => {
+            // TODO: how to return an error here?
+            unimplemented!()
         }
         Ipld::Link(link) => {
             let value = base64::encode(&link.to_bytes());
@@ -182,7 +190,7 @@ impl<'de> de::Visitor<'de> for JSONVisitor {
             .into_iter()
             .map(|(key, WrapperOwned(value))| (key, value))
             .collect();
-        Ok(Ipld::Map(unwrapped))
+        Ok(Ipld::StringMap(unwrapped))
     }
 
     fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
