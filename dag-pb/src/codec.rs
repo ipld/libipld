@@ -9,6 +9,7 @@ mod dag_pb {
 }
 
 /// A protobuf ipld link.
+#[derive(Debug)]
 pub struct PbLink {
     /// Content identifier.
     pub cid: Cid,
@@ -19,6 +20,7 @@ pub struct PbLink {
 }
 
 /// A protobuf ipld node.
+#[derive(Debug)]
 pub struct PbNode {
     /// List of protobuf ipld links.
     pub links: Vec<PbLink>,
