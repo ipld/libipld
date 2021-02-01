@@ -23,7 +23,7 @@ pub enum Ipld {
     /// Represents a map of strings.
     StringMap(BTreeMap<String, Ipld>),
     /// Represents a map of integers.
-    IntegerMap(BTreeMap<i128, Ipld>),
+    IntegerMap(BTreeMap<i64, Ipld>),
     /// Represents a link to an Ipld node.
     Link(Cid),
     /// A cbor tag.
@@ -71,22 +71,27 @@ impl Ipld {
                 IpldIndex::Map(ref key) => key.parse().ok(),
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .map(|i: usize| if i < l.len() { Some(l.swap_remove(i)) } else { None }),
+            .map(|i| {
+                if i < l.len() {
+                    Some(l.swap_remove(i))
+                } else {
+                    None
+                }
+            }),
             Ipld::IntegerMap(ref mut m) => match index {
                 IpldIndex::List(i) => Some(i as _),
                 IpldIndex::Map(ref key) => key.parse().ok(),
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .map(|i: i128| m.remove(&i)),
+            .map(|i| m.remove(&i)),
             Ipld::StringMap(ref mut m) => match index {
                 IpldIndex::Map(ref key) => Some(m.remove(key)),
                 IpldIndex::MapRef(key) => Some(m.remove(key)),
                 IpldIndex::List(i) => Some(m.remove(&i.to_string())),
-            }
+            },
             _ => None,
         };
-        ipld
-            .unwrap_or_default()
+        ipld.unwrap_or_default()
             .ok_or_else(|| TypeError::new(index, self))
     }
 
@@ -102,22 +107,21 @@ impl Ipld {
                 IpldIndex::Map(ref key) => key.parse().ok(),
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .map(|i: usize| l.get(i)),
+            .map(|i| l.get(i)),
             Ipld::IntegerMap(m) => match index {
                 IpldIndex::List(i) => Some(i as _),
                 IpldIndex::Map(ref key) => key.parse().ok(),
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
-            .map(|i: i128| m.get(&i)),
+            .map(|i| m.get(&i)),
             Ipld::StringMap(m) => match index {
                 IpldIndex::Map(ref key) => Some(m.get(key)),
                 IpldIndex::MapRef(key) => Some(m.get(key)),
                 IpldIndex::List(i) => Some(m.get(&i.to_string())),
-            }
+            },
             _ => None,
         };
-        ipld
-            .unwrap_or_default()
+        ipld.unwrap_or_default()
             .ok_or_else(|| TypeError::new(index, self))
     }
 

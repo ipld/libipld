@@ -35,7 +35,7 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
 
     quote! {
         impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
-            fn decode<R: std::io::Read>(
+            fn decode<R: std::io::Read + std::io::Seek>(
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
             ) -> libipld::Result<Self> {
@@ -59,7 +59,7 @@ pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
 
     quote! {
         impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
-            fn try_read_cbor<R: std::io::Read>(
+            fn try_read_cbor<R: std::io::Read + std::io::Seek>(
                 r: &mut R,
                 major: u8,
             ) -> libipld::Result<Option<Self>> {

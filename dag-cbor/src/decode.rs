@@ -10,66 +10,65 @@ use libipld_core::ipld::Ipld;
 use libipld_core::link::Link;
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
-use std::str::FromStr;
 use std::sync::Arc;
 
 /// Reads a u8 from a byte stream.
-pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
+pub fn read_u8<R: Read + Seek>(r: &mut R) -> Result<u8> {
     let mut buf = [0; 1];
     r.read_exact(&mut buf)?;
     Ok(buf[0])
 }
 
 /// Reads a u16 from a byte stream.
-pub fn read_u16<R: Read>(r: &mut R) -> Result<u16> {
+pub fn read_u16<R: Read + Seek>(r: &mut R) -> Result<u16> {
     let mut buf = [0; 2];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u16(&buf))
 }
 
 /// Reads a u32 from a byte stream.
-pub fn read_u32<R: Read>(r: &mut R) -> Result<u32> {
+pub fn read_u32<R: Read + Seek>(r: &mut R) -> Result<u32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u32(&buf))
 }
 
 /// Reads a u64 from a byte stream.
-pub fn read_u64<R: Read>(r: &mut R) -> Result<u64> {
+pub fn read_u64<R: Read + Seek>(r: &mut R) -> Result<u64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u64(&buf))
 }
 
 /// Reads a f32 from a byte stream.
-pub fn read_f32<R: Read>(r: &mut R) -> Result<f32> {
+pub fn read_f32<R: Read + Seek>(r: &mut R) -> Result<f32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f32(&buf))
 }
 
 /// Reads a f64 from a byte stream.
-pub fn read_f64<R: Read>(r: &mut R) -> Result<f64> {
+pub fn read_f64<R: Read + Seek>(r: &mut R) -> Result<f64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f64(&buf))
 }
 
 /// Reads `len` number of bytes from a byte stream.
-pub fn read_bytes<R: Read>(r: &mut R, len: usize) -> Result<Vec<u8>> {
+pub fn read_bytes<R: Read + Seek>(r: &mut R, len: usize) -> Result<Vec<u8>> {
     let mut buf = vec![0; len];
     r.read_exact(&mut buf)?;
     Ok(buf)
 }
 
 /// Reads `len` number of bytes from a byte stream and converts them to a string.
-pub fn read_str<R: Read>(r: &mut R, len: usize) -> Result<String> {
+pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
     let bytes = read_bytes(r, len)?;
     Ok(String::from_utf8(bytes)?)
 }
 
 /// Reads any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read<R: Read, T: TryReadCbor>(r: &mut R) -> Result<T> {
+pub fn read<R: Read + Seek, T: TryReadCbor>(r: &mut R) -> Result<T> {
     let major = crate::decode::read_u8(r)?;
     if let Some(res) = T::try_read_cbor(r, major)? {
         Ok(res)
@@ -79,7 +78,7 @@ pub fn read<R: Read, T: TryReadCbor>(r: &mut R) -> Result<T> {
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub fn read_list<R: Read + Seek, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::with_capacity(len);
     for _ in 0..len {
         list.push(read(r)?);
@@ -88,7 +87,7 @@ pub fn read_list<R: Read, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read, T: TryReadCbor>(r: &mut R) -> Result<Vec<T>> {
+pub fn read_list_il<R: Read + Seek, T: TryReadCbor>(r: &mut R) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::new();
     loop {
         let major = read_u8(r)?;
@@ -105,35 +104,32 @@ pub fn read_list_il<R: Read, T: TryReadCbor>(r: &mut R) -> Result<Vec<T>> {
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map<R: Read, K, T: TryReadCbor>(r: &mut R, len: usize) -> Result<BTreeMap<K, T>>
-where
-    K: FromStr + Ord,
-    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
+pub fn read_map<R: Read + Seek, K: TryReadCbor + Ord, T: TryReadCbor>(
+    r: &mut R,
+    len: usize,
+) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key: String = read(r)?;
+        let key = read(r)?;
         let value = read(r)?;
-        map.insert(key.parse()?, value);
+        map.insert(key, value);
     }
     Ok(map)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read, K, T: TryReadCbor>(r: &mut R) -> Result<BTreeMap<K, T>>
-where
-    K: FromStr + Ord,
-    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
+pub fn read_map_il<R: Read + Seek, K: TryReadCbor + Ord, T: TryReadCbor>(
+    r: &mut R,
+) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     loop {
         let major = read_u8(r)?;
         if major == 0xff {
             break;
         }
-        if let Some(key) = String::try_read_cbor(r, major)? {
+        if let Some(key) = K::try_read_cbor(r, major)? {
             let value = read(r)?;
-            map.insert(key.parse()?, value);
+            map.insert(key, value);
         } else {
             return Err(UnexpectedCode::new::<T>(major).into());
         }
@@ -142,11 +138,7 @@ where
 }
 
 /// Reads a cid from a stream of cbor encoded bytes.
-pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
-    let tag = read_u8(r)?;
-    if tag != 42 {
-        return Err(UnknownTag(tag).into());
-    }
+pub fn read_link<R: Read + Seek>(r: &mut R) -> Result<Cid> {
     let ty = read_u8(r)?;
     if ty != 0x58 {
         return Err(UnknownTag(ty).into());
@@ -166,7 +158,7 @@ pub fn read_link<R: Read>(r: &mut R) -> Result<Cid> {
 }
 
 /// Reads the len given a base.
-pub fn read_len<R: Read>(r: &mut R, major: u8) -> Result<usize> {
+pub fn read_len<R: Read + Seek>(r: &mut R, major: u8) -> Result<usize> {
     Ok(match major {
         0x00..=0x17 => major as usize,
         0x18 => read_u8(r)? as usize,
@@ -187,38 +179,34 @@ pub fn read_len<R: Read>(r: &mut R, major: u8) -> Result<usize> {
 pub trait TryReadCbor: Sized {
     /// Takes the read major code and tries to parse from a byte stream. If parsing fails the
     /// byte stream must not be advanced.
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>>;
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>>;
 }
 
 macro_rules! impl_decode {
     ($ty:ident) => {
         impl Decode<DagCbor> for $ty {
-            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
+            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<T>) => {
         impl<T: TryReadCbor> Decode<DagCbor> for $ty<T> {
-            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
+            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<$param:ident, T>) => {
-        impl<$param, T: TryReadCbor> Decode<DagCbor> for $ty<$param, T>
-        where
-            $param: FromStr + Ord,
-            <$param as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-        {
-            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
+        impl<$param: TryReadCbor + Ord, T: TryReadCbor> Decode<DagCbor> for $ty<$param, T> {
+            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
     };
     ($ty:ident<[u8]>) => {
         impl Decode<DagCbor> for $ty<[u8]> {
-            fn decode<R: Read>(_: DagCbor, r: &mut R) -> Result<Self> {
+            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
                 read(r)
             }
         }
@@ -226,7 +214,7 @@ macro_rules! impl_decode {
 }
 
 impl TryReadCbor for bool {
-    fn try_read_cbor<R: Read>(_: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(_: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xf4 => Ok(Some(false)),
             0xf5 => Ok(Some(true)),
@@ -237,7 +225,7 @@ impl TryReadCbor for bool {
 impl_decode!(bool);
 
 impl TryReadCbor for u8 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major)),
             0x18 => Ok(Some(read_u8(r)?)),
@@ -248,7 +236,7 @@ impl TryReadCbor for u8 {
 impl_decode!(u8);
 
 impl TryReadCbor for u16 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major as u16)),
             0x18 => Ok(Some(read_u8(r)? as u16)),
@@ -260,7 +248,7 @@ impl TryReadCbor for u16 {
 impl_decode!(u16);
 
 impl TryReadCbor for u32 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major as u32)),
             0x18 => Ok(Some(read_u8(r)? as u32)),
@@ -273,7 +261,7 @@ impl TryReadCbor for u32 {
 impl_decode!(u32);
 
 impl TryReadCbor for u64 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x00..=0x17 => Ok(Some(major as u64)),
             0x18 => Ok(Some(read_u8(r)? as u64)),
@@ -287,7 +275,7 @@ impl TryReadCbor for u64 {
 impl_decode!(u64);
 
 impl TryReadCbor for i8 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i8)),
             0x38 => Ok(Some(-1 - read_u8(r)? as i8)),
@@ -298,7 +286,7 @@ impl TryReadCbor for i8 {
 impl_decode!(i8);
 
 impl TryReadCbor for i16 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i16)),
             0x38 => Ok(Some(-1 - read_u8(r)? as i16)),
@@ -310,7 +298,7 @@ impl TryReadCbor for i16 {
 impl_decode!(i16);
 
 impl TryReadCbor for i32 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i32)),
             0x38 => Ok(Some(-1 - read_u8(r)? as i32)),
@@ -323,7 +311,7 @@ impl TryReadCbor for i32 {
 impl_decode!(i32);
 
 impl TryReadCbor for i64 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i64)),
             0x38 => Ok(Some(-1 - read_u8(r)? as i64)),
@@ -337,7 +325,7 @@ impl TryReadCbor for i64 {
 impl_decode!(i64);
 
 impl TryReadCbor for f32 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xfa => Ok(Some(read_f32(r)?)),
             _ => Ok(None),
@@ -347,7 +335,7 @@ impl TryReadCbor for f32 {
 impl_decode!(f32);
 
 impl TryReadCbor for f64 {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xfa => Ok(Some(read_f32(r)? as f64)),
             0xfb => Ok(Some(read_f64(r)?)),
@@ -358,7 +346,7 @@ impl TryReadCbor for f64 {
 impl_decode!(f64);
 
 impl TryReadCbor for String {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x60..=0x7b => {
                 let len = read_len(r, major - 0x60)?;
@@ -371,23 +359,29 @@ impl TryReadCbor for String {
 impl_decode!(String);
 
 impl TryReadCbor for Cid {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0xd8 => Ok(Some(read_link(r)?)),
-            _ => Ok(None),
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
+        if major == 0xd8 {
+            if let Ok(tag) = read_u8(r) {
+                if tag == 42 {
+                    return Ok(Some(read_link(r)?));
+                }
+            } else {
+                r.seek(SeekFrom::Current(-1))?;
+            }
         }
+        Ok(None)
     }
 }
 impl_decode!(Cid);
 
 impl<T> TryReadCbor for Link<T> {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         Ok(Cid::try_read_cbor(r, major)?.map(Into::into))
     }
 }
 
 impl TryReadCbor for Box<[u8]> {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x40..=0x5b => {
                 let len = read_len(r, major - 0x40)?;
@@ -400,7 +394,7 @@ impl TryReadCbor for Box<[u8]> {
 impl_decode!(Box<[u8]>);
 
 impl<T: TryReadCbor> TryReadCbor for Option<T> {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xf6 => Ok(Some(None)),
             0xf7 => Ok(Some(None)),
@@ -417,7 +411,7 @@ impl<T: TryReadCbor> TryReadCbor for Option<T> {
 impl_decode!(Option<T>);
 
 impl<T: TryReadCbor> TryReadCbor for Vec<T> {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0x80..=0x9b => {
                 let len = read_len(r, major - 0x80)?;
@@ -430,12 +424,8 @@ impl<T: TryReadCbor> TryReadCbor for Vec<T> {
 }
 impl_decode!(Vec<T>);
 
-impl<K, T: TryReadCbor> TryReadCbor for BTreeMap<K, T>
-where
-    K: FromStr + Ord,
-    <K as FromStr>::Err: std::error::Error + Send + Sync + 'static,
-{
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+impl<K: TryReadCbor + Ord, T: TryReadCbor> TryReadCbor for BTreeMap<K, T> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         match major {
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -449,7 +439,7 @@ where
 impl_decode!(BTreeMap<K, T>);
 
 impl TryReadCbor for Ipld {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         let ipld = match major {
             // Major type 0: an unsigned integer
             0x00..=0x17 => Self::Integer(major as i128),
@@ -495,18 +485,31 @@ impl TryReadCbor for Ipld {
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
-                let map = read_map(r, len as usize)?;
-                Self::Map(map)
+                if let Ok(map) = read_map(r, len as usize) {
+                    Self::StringMap(map)
+                } else {
+                    Self::IntegerMap(read_map(r, len as usize)?)
+                }
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
             0xbf => {
-                let map = read_map_il(r)?;
-                Self::Map(map)
+                if let Ok(map) = read_map_il(r) {
+                    Self::StringMap(map)
+                } else {
+                    Self::IntegerMap(read_map_il(r)?)
+                }
             }
 
             // Major type 6: optional semantic tagging of other major types
-            0xd8 => Self::Link(read_link(r)?),
+            0xd8 => {
+                let tag = read_u8(r)?;
+                if tag == 42 {
+                    Self::Link(read_link(r)?)
+                } else {
+                    Self::Tag(tag as _, Box::new(Self::decode(DagCbor, r)?))
+                }
+            }
 
             // Major type 7: floating-point numbers and other simple data types that need no content
             0xf4 => Self::Bool(false),
@@ -590,7 +593,12 @@ impl References<DagCbor> for Ipld {
 
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {
-                set.extend(std::iter::once(read_link(r)?));
+                let tag = read_u8(r)?;
+                if tag == 42 {
+                    set.extend(std::iter::once(read_link(r)?));
+                } else {
+                    <Self as References<DagCbor>>::references(c, r, set)?;
+                }
             }
 
             // Major type 7: floating-point numbers and other simple data types that need no content
@@ -608,7 +616,7 @@ impl References<DagCbor> for Ipld {
 }
 
 impl<T: TryReadCbor> TryReadCbor for Arc<T> {
-    fn try_read_cbor<R: Read>(r: &mut R, major: u8) -> Result<Option<Self>> {
+    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
         if let Some(res) = T::try_read_cbor(r, major)? {
             Ok(Some(Arc::new(res)))
         } else {

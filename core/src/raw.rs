@@ -4,7 +4,7 @@ use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{Result, TypeError, TypeErrorType, UnsupportedCodec};
 use crate::ipld::Ipld;
 use core::convert::TryFrom;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use std::iter::Extend;
 
 /// Raw codec.
@@ -56,14 +56,14 @@ impl Encode<RawCodec> for Ipld {
 }
 
 impl Decode<RawCodec> for Box<[u8]> {
-    fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: RawCodec, r: &mut R) -> Result<Self> {
         let buf: Vec<u8> = Decode::decode(c, r)?;
         Ok(buf.into_boxed_slice())
     }
 }
 
 impl Decode<RawCodec> for Vec<u8> {
-    fn decode<R: Read>(_: RawCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(_: RawCodec, r: &mut R) -> Result<Self> {
         let mut buf = vec![];
         r.read_to_end(&mut buf)?;
         Ok(buf)
@@ -71,7 +71,7 @@ impl Decode<RawCodec> for Vec<u8> {
 }
 
 impl Decode<RawCodec> for Ipld {
-    fn decode<R: Read>(c: RawCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: RawCodec, r: &mut R) -> Result<Self> {
         let bytes: Vec<u8> = Decode::decode(c, r)?;
         Ok(Ipld::Bytes(bytes))
     }

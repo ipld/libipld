@@ -9,7 +9,7 @@ use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 
 mod codec;
 
@@ -40,13 +40,17 @@ impl Encode<DagJsonCodec> for Ipld {
 }
 
 impl Decode<DagJsonCodec> for Ipld {
-    fn decode<R: Read>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(_: DagJsonCodec, r: &mut R) -> Result<Self> {
         Ok(codec::decode(r)?)
     }
 }
 
 impl References<DagJsonCodec> for Ipld {
-    fn references<R: Read, E: Extend<Cid>>(c: DagJsonCodec, r: &mut R, set: &mut E) -> Result<()> {
+    fn references<R: Read + Seek, E: Extend<Cid>>(
+        c: DagJsonCodec,
+        r: &mut R,
+        set: &mut E,
+    ) -> Result<()> {
         Ipld::decode(c, r)?.references(set);
         Ok(())
     }
@@ -69,7 +73,7 @@ mod tests {
         let mut map = BTreeMap::new();
         map.insert("name".to_string(), Ipld::String("Hello World!".to_string()));
         map.insert("details".to_string(), Ipld::Link(cid));
-        let contact = Ipld::Map(map);
+        let contact = Ipld::StringMap(map);
 
         let contact_encoded = DagJsonCodec.encode(&contact).unwrap();
         println!("encoded: {:02x?}", contact_encoded);

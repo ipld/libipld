@@ -273,7 +273,7 @@ impl Encode<DagCbor> for Ipld {
             Self::IntegerMap(m) => m.encode(c, w),
             Self::Link(cid) => cid.encode(c, w),
             Self::Tag(tag, ipld) => {
-                tag.encode(c,w)?;
+                write_tag(w, *tag)?;
                 ipld.encode(c, w)
             }
         }

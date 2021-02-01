@@ -54,6 +54,6 @@ derive_to_ipld!(Bytes, Vec<u8>, into);
 derive_to_ipld!(Bytes, &[u8], to_vec);
 derive_to_ipld!(List, Vec<Ipld>, into);
 derive_to_ipld!(StringMap, BTreeMap<String, Ipld>, to_owned);
-derive_to_ipld!(IntegerMap, BTreeMap<i128, Ipld>, to_owned);
+derive_to_ipld!(IntegerMap, BTreeMap<i64, Ipld>, to_owned);
 derive_to_ipld_generic!(Link, Cid, clone);
 derive_to_ipld_generic!(Link, &Cid, to_owned);

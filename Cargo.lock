@@ -863,6 +863,7 @@ name = "libipld-macro"
 version = "0.9.0"
 dependencies = [
  "libipld-core",
+ "multihash",
 ]
 
 [[package]]
