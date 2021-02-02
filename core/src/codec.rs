@@ -17,8 +17,8 @@ pub trait Codec:
     }
 
     /// Decodes a decodable type.
-    fn decode<T: Decode<Self>>(&self, mut bytes: &[u8]) -> Result<T> {
-        T::decode(*self, &mut bytes)
+    fn decode<T: Decode<Self>>(&self, bytes: &[u8]) -> Result<T> {
+        T::decode(*self, &mut Cursor::new(bytes))
     }
 
     /// Scrapes the references.
@@ -52,7 +52,7 @@ pub trait Decode<C: Codec>: Sized {
     ///
     /// It takes a specific codec as parameter, so that the [`Decode`] can be generic over an enum
     /// that contains multiple codecs.
-    fn decode<R: Read>(c: C, r: &mut R) -> Result<Self>;
+    fn decode<R: Read + Seek>(c: C, r: &mut R) -> Result<Self>;
 }
 
 /// References trait.
@@ -81,9 +81,9 @@ where
     let mut bytes2 = Vec::new();
     ipld.encode(c, &mut bytes2).unwrap();
     assert_eq!(bytes, bytes2);
-    let ipld2: Ipld = Decode::decode(c, &mut bytes.as_slice()).unwrap();
+    let ipld2: Ipld = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(&ipld2, ipld);
-    let data2: T = Decode::decode(c, &mut bytes.as_slice()).unwrap();
+    let data2: T = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(&data2, data);
 }
 

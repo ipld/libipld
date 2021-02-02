@@ -2,6 +2,7 @@ use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;
 use libipld::{ipld, DagCbor};
+use std::io::Cursor;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]
 struct RenameFields {
@@ -15,12 +16,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut bytes = Vec::new();
     data.encode(DagCborCodec, &mut bytes)?;
-    let ipld: Ipld = Decode::decode(DagCborCodec, &mut bytes.as_slice())?;
+    let ipld: Ipld = Decode::decode(DagCborCodec, &mut Cursor::new(bytes.as_slice()))?;
     let expect = ipld!({
         "hashAlg": "murmur3",
     });
     assert_eq!(ipld, expect);
-    let data2 = RenameFields::decode(DagCborCodec, &mut bytes.as_slice())?;
+    let data2 = RenameFields::decode(DagCborCodec, &mut Cursor::new(bytes.as_slice()))?;
     assert_eq!(data, data2);
     Ok(())
 }

@@ -248,11 +248,11 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Vec<T> {
     }
 }
 
-impl<K: ToString, T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<K, T> {
+impl<K: Encode<DagCbor>, T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<K, T> {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, 5, self.len() as u64)?;
         for (k, v) in self {
-            k.to_string().encode(c, w)?;
+            k.encode(c, w)?;
             v.encode(c, w)?;
         }
         Ok(())
@@ -269,8 +269,15 @@ impl Encode<DagCbor> for Ipld {
             Self::Bytes(b) => b.as_slice().encode(c, w),
             Self::String(s) => s.encode(c, w),
             Self::List(l) => l.encode(c, w),
-            Self::Map(m) => m.encode(c, w),
+            Self::StringMap(m) => m.encode(c, w),
+            #[cfg(feature = "unleashed")]
+            Self::IntegerMap(m) => m.encode(c, w),
             Self::Link(cid) => cid.encode(c, w),
+            #[cfg(feature = "unleashed")]
+            Self::Tag(tag, ipld) => {
+                write_tag(w, *tag)?;
+                ipld.encode(c, w)
+            }
         }
     }
 }

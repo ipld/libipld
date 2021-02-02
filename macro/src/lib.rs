@@ -252,11 +252,11 @@ macro_rules! ipld_internal {
     };
 
     ({}) => {
-        $crate::Ipld::Map(std::collections::BTreeMap::new())
+        $crate::Ipld::StringMap(std::collections::BTreeMap::new())
     };
 
     ({ $($tt:tt)+ }) => {
-        $crate::Ipld::Map({
+        $crate::Ipld::StringMap({
             let mut object = std::collections::BTreeMap::new();
             ipld_internal!(@object object () ($($tt)+) ($($tt)+));
             object

@@ -8,7 +8,7 @@ use libipld_core::cid::Cid;
 use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 
 mod codec;
 
@@ -42,7 +42,7 @@ impl Encode<DagPbCodec> for Ipld {
 }
 
 impl Decode<DagPbCodec> for Ipld {
-    fn decode<R: Read>(_: DagPbCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(_: DagPbCodec, r: &mut R) -> Result<Self> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
         Ok(PbNode::from_bytes(&bytes)?.into())
@@ -50,7 +50,11 @@ impl Decode<DagPbCodec> for Ipld {
 }
 
 impl References<DagPbCodec> for Ipld {
-    fn references<R: Read, E: Extend<Cid>>(c: DagPbCodec, r: &mut R, set: &mut E) -> Result<()> {
+    fn references<R: Read + Seek, E: Extend<Cid>>(
+        c: DagPbCodec,
+        r: &mut R,
+        set: &mut E,
+    ) -> Result<()> {
         Ipld::decode(c, r)?.references(set);
         Ok(())
     }

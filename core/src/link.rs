@@ -4,7 +4,7 @@ use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 use std::marker::PhantomData;
 use std::ops::Deref;
 
@@ -86,7 +86,7 @@ impl<C: Codec, T> Decode<C> for Link<T>
 where
     Cid: Decode<C>,
 {
-    fn decode<R: Read>(c: C, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: C, r: &mut R) -> Result<Self> {
         Ok(Self::new(Cid::decode(c, r)?))
     }
 }
