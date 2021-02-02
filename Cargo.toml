@@ -30,12 +30,12 @@ model = "0.1.2"
 multihash = "0.13.2"
 
 [features]
-default = ["all", "derive"]
+default = ["dag-cbor", "dag-json", "dag-pb", "derive", "unleashed"]
 dag-cbor = ["libipld-cbor"]
 dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
-all = ["dag-cbor", "dag-json", "dag-pb", "derive"]
+unleashed = ["libipld-core/unleashed", "libipld-cbor/unleashed", "libipld-json/unleashed"]
 
 [workspace]
 members = [

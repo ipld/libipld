@@ -7,6 +7,9 @@ license = "MIT OR Apache-2.0"
 description = "Base traits and definitions used by ipld codecs."
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
+[features]
+unleashed = []
+
 [dependencies]
 anyhow = "1.0.35"
 cid = { version = "0.6.0", default-features = false, features = ["std"] }

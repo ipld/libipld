@@ -4,7 +4,7 @@ use crate::error::TypeError;
 use std::collections::BTreeMap;
 
 /// Ipld
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Ipld {
     /// Represents the absence of a value or the value undefined.
     Null,
@@ -23,11 +23,32 @@ pub enum Ipld {
     /// Represents a map of strings.
     StringMap(BTreeMap<String, Ipld>),
     /// Represents a map of integers.
+    #[cfg(feature = "unleashed")]
     IntegerMap(BTreeMap<i64, Ipld>),
     /// Represents a link to an Ipld node.
     Link(Cid),
     /// A cbor tag.
+    #[cfg(feature = "unleashed")]
     Tag(u64, Box<Ipld>),
+}
+
+impl std::fmt::Debug for Ipld {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use Ipld::*;
+        match self {
+            Null => write!(f, "null"),
+            Bool(b) => write!(f, "{}", b),
+            Integer(i) => write!(f, "{}", i),
+            Float(i) => write!(f, "{}", i),
+            String(s) => write!(f, "{}", s),
+            Bytes(b) => write!(f, "{:?}", b),
+            List(l) => write!(f, "{:?}", l),
+            StringMap(m) => write!(f, "{:?}", m),
+            IntegerMap(m) => write!(f, "{:?}", m),
+            Link(cid) => write!(f, "{}", cid),
+            Tag(tag, ipld) => write!(f, "({}, {:?})", tag, ipld),
+        }
+    }
 }
 
 /// An index into ipld
@@ -62,6 +83,7 @@ impl Ipld {
     /// Destructs an ipld list or map
     pub fn take<'a, T: Into<IpldIndex<'a>>>(mut self, index: T) -> Result<Self, TypeError> {
         let index = index.into();
+        #[cfg(feature = "unleashed")]
         if let Ipld::Tag(_, inner) = self {
             return inner.take(index);
         }
@@ -78,6 +100,7 @@ impl Ipld {
                     None
                 }
             }),
+            #[cfg(feature = "unleashed")]
             Ipld::IntegerMap(ref mut m) => match index {
                 IpldIndex::List(i) => Some(i as _),
                 IpldIndex::Map(ref key) => key.parse().ok(),
@@ -98,6 +121,7 @@ impl Ipld {
     /// Indexes into an ipld list or map.
     pub fn get<'a, T: Into<IpldIndex<'a>>>(&self, index: T) -> Result<&Self, TypeError> {
         let index = index.into();
+        #[cfg(feature = "unleashed")]
         if let Ipld::Tag(_, inner) = self {
             return inner.get(index);
         }
@@ -108,6 +132,7 @@ impl Ipld {
                 IpldIndex::MapRef(key) => key.parse().ok(),
             }
             .map(|i| l.get(i)),
+            #[cfg(feature = "unleashed")]
             Ipld::IntegerMap(m) => match index {
                 IpldIndex::List(i) => Some(i as _),
                 IpldIndex::Map(ref key) => key.parse().ok(),
@@ -161,8 +186,13 @@ impl<'a> Iterator for IpldIter<'a> {
                         Ipld::StringMap(map) => {
                             self.stack.push(Box::new(map.values()));
                         }
+                        #[cfg(feature = "unleashed")]
                         Ipld::IntegerMap(map) => {
                             self.stack.push(Box::new(map.values()));
+                        }
+                        #[cfg(feature = "unleashed")]
+                        Ipld::Tag(_, ipld) => {
+                            self.stack.push(Box::new(ipld.iter()));
                         }
                         _ => {}
                     }

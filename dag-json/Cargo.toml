@@ -7,6 +7,9 @@ license = "MIT OR Apache-2.0"
 description = "ipld json codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
+[features]
+unleashed = ["libipld-core/unleashed"]
+
 [dependencies]
 base64 = "0.13.0"
 libipld-core = { version = "0.9.0", path = "../core" }

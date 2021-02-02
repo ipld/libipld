@@ -97,8 +97,10 @@ impl From<&Ipld> for TypeErrorType {
             Ipld::Bytes(_) => Self::Bytes,
             Ipld::List(_) => Self::List,
             Ipld::StringMap(_) => Self::StringMap,
+            #[cfg(feature = "unleashed")]
             Ipld::IntegerMap(_) => Self::IntegerMap,
             Ipld::Link(_) => Self::Link,
+            #[cfg(feature = "unleashed")]
             Ipld::Tag(_, _) => Self::Tag,
         }
     }

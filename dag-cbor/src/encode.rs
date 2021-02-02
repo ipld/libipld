@@ -270,8 +270,10 @@ impl Encode<DagCbor> for Ipld {
             Self::String(s) => s.encode(c, w),
             Self::List(l) => l.encode(c, w),
             Self::StringMap(m) => m.encode(c, w),
+            #[cfg(feature = "unleashed")]
             Self::IntegerMap(m) => m.encode(c, w),
             Self::Link(cid) => cid.encode(c, w),
+            #[cfg(feature = "unleashed")]
             Self::Tag(tag, ipld) => {
                 write_tag(w, *tag)?;
                 ipld.encode(c, w)

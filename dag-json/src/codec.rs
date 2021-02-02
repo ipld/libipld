@@ -38,10 +38,12 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
             let wrapped = map.iter().map(|(key, ipld)| (key, Wrapper(ipld)));
             ser.collect_map(wrapped)
         }
+        #[cfg(feature = "unleashed")]
         Ipld::IntegerMap(_) => {
             // TODO: how to return an error here?
             unimplemented!()
         }
+        #[cfg(feature = "unleashed")]
         Ipld::Tag(_, _) => {
             // TODO: how to return an error here?
             unimplemented!()
