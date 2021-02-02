@@ -37,10 +37,10 @@ impl std::fmt::Debug for Ipld {
         use Ipld::*;
         match self {
             Null => write!(f, "null"),
-            Bool(b) => write!(f, "{}", b),
-            Integer(i) => write!(f, "{}", i),
-            Float(i) => write!(f, "{}", i),
-            String(s) => write!(f, "{}", s),
+            Bool(b) => write!(f, "{:?}", b),
+            Integer(i) => write!(f, "{:?}", i),
+            Float(i) => write!(f, "{:?}", i),
+            String(s) => write!(f, "{:?}", s),
             Bytes(b) => write!(f, "{:?}", b),
             List(l) => write!(f, "{:?}", l),
             StringMap(m) => write!(f, "{:?}", m),

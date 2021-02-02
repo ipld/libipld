@@ -487,23 +487,27 @@ impl TryReadCbor for Ipld {
                 let len = read_len(r, major - 0xa0)?;
                 #[cfg(feature = "unleashed")]
                 if let Ok(map) = read_map(r, len as usize) {
-                    return Ok(Some(Self::IntegerMap(map)));
+                    return Ok(Some(Self::StringMap(map)));
                 } else {
                     // TODO this is a hack
                     r.seek(SeekFrom::Current(-1))?;
+                    return Ok(Some(Self::IntegerMap(read_map(r, len as usize)?)));
                 }
-                Self::StringMap(read_map(r, len as usize)?)
+                #[cfg(not(feature = "unleashed"))]
+                Self::StringMap(read_map(r, len as usize))
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
             0xbf => {
                 #[cfg(feature = "unleashed")]
                 if let Ok(map) = read_map_il(r) {
-                    return Ok(Some(Self::IntegerMap(map)));
+                    return Ok(Some(Self::StringMap(map)));
                 } else {
                     // TODO this is a hack
                     r.seek(SeekFrom::Current(-1))?;
+                    return Ok(Some(Self::IntegerMap(read_map_il(r)?)));
                 }
+                #[cfg(not(feature = "unleashed"))]
                 Self::StringMap(read_map_il(r)?)
             }
 
