@@ -1,6 +1,6 @@
 [package]
 name = "libipld-macro"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -8,7 +8,7 @@ description = "ipld macro"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-core = { version = "0.9.0", path = "../core" }
+libipld-core = { version = "0.10.0", path = "../core" }
 
 [dev-dependencies]
 multihash = { version = "0.13.2", features = ["blake3"] }
