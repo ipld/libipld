@@ -596,7 +596,7 @@ impl References<DagCbor> for Ipld {
             }
 
             // Major type 5: a map of pairs of data items
-            0xa0..=0xb7 => {
+            0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
                 for _ in 0..len {
                     <Self as References<DagCbor>>::references(c, r, set)?;
