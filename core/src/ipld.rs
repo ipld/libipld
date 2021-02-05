@@ -44,8 +44,10 @@ impl std::fmt::Debug for Ipld {
             Bytes(b) => write!(f, "{:?}", b),
             List(l) => write!(f, "{:?}", l),
             StringMap(m) => write!(f, "{:?}", m),
+            #[cfg(feature = "unleashed")]
             IntegerMap(m) => write!(f, "{:?}", m),
             Link(cid) => write!(f, "{}", cid),
+            #[cfg(feature = "unleashed")]
             Tag(tag, ipld) => write!(f, "({}, {:?})", tag, ipld),
         }
     }

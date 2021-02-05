@@ -494,7 +494,7 @@ impl TryReadCbor for Ipld {
                     return Ok(Some(Self::IntegerMap(read_map(r, len as usize)?)));
                 }
                 #[cfg(not(feature = "unleashed"))]
-                Self::StringMap(read_map(r, len as usize))
+                Self::StringMap(read_map(r, len as usize)?)
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
@@ -603,6 +603,17 @@ impl References<DagCbor> for Ipld {
                     <Self as References<DagCbor>>::references(c, r, set)?;
                 }
             }
+
+            // Major type 5: a map of pairs of data items (indefinite length)
+            0xbf => loop {
+                let major = read_u8(r)?;
+                if major == 0xff {
+                    break;
+                }
+                r.seek(SeekFrom::Current(-1))?;
+                <Self as References<DagCbor>>::references(c, r, set)?;
+                <Self as References<DagCbor>>::references(c, r, set)?;
+            },
 
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {

@@ -296,6 +296,17 @@ impl<S: StoreParams> SharedStore<S> {
         Ipld: References<S::Codecs>,
     {
         if let Some(block) = self.local.get(cid) {
+            Ok(block)
+        } else {
+            Err(BlockNotFound(*cid).into())
+        }
+    }
+
+    pub fn fetch(&mut self, cid: &Cid) -> Result<Block<S>>
+    where
+        Ipld: References<S::Codecs>,
+    {
+        if let Some(block) = self.local.get(cid) {
             return Ok(block);
         }
         if let Some(block) = self.network.get(cid) {
@@ -315,7 +326,7 @@ impl<S: StoreParams> SharedStore<S> {
         while let Some(id) = missing.pop() {
             if !self.local.data.contains_key(&id) {
                 let cid = *self.local.cid.get(&id).unwrap();
-                self.get(&cid)?;
+                self.fetch(&cid)?;
             }
             for id in self.local.refs.get(&id).unwrap() {
                 missing.push(*id);
@@ -389,46 +400,50 @@ where
     type Params = S;
     type TempPin = TempPin;
 
-    async fn create_temp_pin(&self) -> Result<Self::TempPin> {
+    fn create_temp_pin(&self) -> Result<Self::TempPin> {
         Ok(self.0.lock().unwrap().create_temp_pin())
     }
 
-    async fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()> {
+    fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()> {
         self.0.lock().unwrap().temp_pin(tmp, cid);
         Ok(())
     }
 
-    async fn contains(&self, cid: &Cid) -> Result<bool> {
+    fn contains(&self, cid: &Cid) -> Result<bool> {
         Ok(self.0.lock().unwrap().contains(cid))
     }
 
-    async fn get(&self, cid: &Cid) -> Result<Block<S>> {
+    fn get(&self, cid: &Cid) -> Result<Block<S>> {
         self.0.lock().unwrap().get(cid)
+    }
+
+    fn insert(&self, block: &Block<S>) -> Result<()> {
+        self.0.lock().unwrap().insert(block.clone())
+    }
+
+    fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()> {
+        self.0.lock().unwrap().alias(alias, cid);
+        Ok(())
+    }
+
+    fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>> {
+        Ok(self.0.lock().unwrap().resolve(alias))
+    }
+
+    fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>> {
+        Ok(self.0.lock().unwrap().reverse_alias(cid))
+    }
+
+    async fn fetch(&self, cid: &Cid) -> Result<Block<S>> {
+        self.0.lock().unwrap().fetch(cid)
     }
 
     async fn sync(&self, cid: &Cid) -> Result<()> {
         self.0.lock().unwrap().sync(cid)
     }
 
-    async fn insert(&self, block: &Block<S>) -> Result<()> {
-        self.0.lock().unwrap().insert(block.clone())
-    }
-
     async fn flush(&self) -> Result<()> {
         Ok(())
-    }
-
-    async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()> {
-        self.0.lock().unwrap().alias(alias, cid);
-        Ok(())
-    }
-
-    async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>> {
-        Ok(self.0.lock().unwrap().resolve(alias))
-    }
-
-    async fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>> {
-        Ok(self.0.lock().unwrap().reverse_alias(cid))
     }
 }
 
