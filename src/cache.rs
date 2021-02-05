@@ -5,10 +5,10 @@ use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::Result;
 use crate::ipld::Ipld;
 use crate::store::{Store, StoreParams};
-use async_lock::Mutex;
 use async_trait::async_trait;
 use cached::stores::SizedCache;
 use cached::Cached;
+use parking_lot::Mutex;
 use std::ops::Deref;
 
 /// Cache for ipld blocks.
@@ -59,10 +59,13 @@ impl<S: Store, C, T> IpldCache<S, C, T> {
 #[async_trait]
 pub trait Cache<S: Store, C, T> {
     /// Returns a decoded block.
-    async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T>;
+    fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T>;
+
+    /// Returns a decoded block from the network.
+    async fn fetch(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T>;
 
     /// Encodes and inserts a block.
-    async fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid>;
+    fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid>;
 }
 
 #[async_trait]
@@ -74,27 +77,41 @@ where
     T: Decode<C> + Encode<C> + Clone + Send + Sync,
     Ipld: References<<S::Params as StoreParams>::Codecs>,
 {
-    async fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T> {
-        if let Some(value) = self.cache.lock().await.cache_get(cid).cloned() {
+    fn get(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T> {
+        if let Some(value) = self.cache.lock().cache_get(cid).cloned() {
             return Ok(value);
         }
         if let Some(tmp) = tmp {
-            self.store.temp_pin(tmp, cid).await?;
+            self.store.temp_pin(tmp, cid)?;
         }
-        let block = self.store.get(cid).await?;
+        let block = self.store.get(cid)?;
         let value: T = block.decode::<C, _>()?;
         let (cid, _) = block.into_inner();
-        self.cache.lock().await.cache_set(cid, value.clone());
+        self.cache.lock().cache_set(cid, value.clone());
         Ok(value)
     }
 
-    async fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid> {
+    async fn fetch(&self, cid: &Cid, tmp: Option<&S::TempPin>) -> Result<T> {
+        if let Some(value) = self.cache.lock().cache_get(cid).cloned() {
+            return Ok(value);
+        }
+        if let Some(tmp) = tmp {
+            self.store.temp_pin(tmp, cid)?;
+        }
+        let block = self.store.fetch(cid).await?;
+        let value: T = block.decode::<C, _>()?;
+        let (cid, _) = block.into_inner();
+        self.cache.lock().cache_set(cid, value.clone());
+        Ok(value)
+    }
+
+    fn insert(&self, payload: T, tmp: Option<&S::TempPin>) -> Result<Cid> {
         let block = Block::encode(self.codec, self.hash, &payload)?;
         if let Some(tmp) = tmp {
-            self.store.temp_pin(tmp, block.cid()).await?;
+            self.store.temp_pin(tmp, block.cid())?;
         }
-        self.store.insert(&block).await?;
-        let mut cache = self.cache.lock().await;
+        self.store.insert(&block)?;
+        let mut cache = self.cache.lock();
         cache.cache_set(*block.cid(), payload);
         Ok(*block.cid())
     }
@@ -112,20 +129,28 @@ macro_rules! derive_cache {
             $crate::ipld::Ipld:
                 $crate::codec::References<<S::Params as $crate::store::StoreParams>::Codecs>,
         {
-            async fn get(
+            fn get(
                 &self,
                 cid: &$crate::cid::Cid,
                 tmp: Option<&S::TempPin>,
             ) -> $crate::error::Result<$type> {
-                self.$field.get(cid, tmp).await
+                self.$field.get(cid, tmp)
             }
 
-            async fn insert(
+            async fn fetch(
+                &self,
+                cid: &$crate::cid::Cid,
+                tmp: Option<&S::TempPin>,
+            ) -> $crate::error::Result<$type> {
+                self.$field.fetch(cid, tmp).await
+            }
+
+            fn insert(
                 &self,
                 payload: $type,
                 tmp: Option<&S::TempPin>,
             ) -> $crate::error::Result<$crate::cid::Cid> {
-                self.$field.insert(payload, tmp).await
+                self.$field.insert(payload, tmp)
             }
         }
     };
@@ -162,9 +187,9 @@ mod tests {
             store: store.clone(),
             number: IpldCache::new(store, DagCborCodec, Code::Blake3_256, 1),
         };
-        let tmp = client.create_temp_pin().await.unwrap();
-        let cid = client.insert(42, Some(&tmp)).await.unwrap();
-        let res = client.get(&cid, Some(&tmp)).await.unwrap();
+        let tmp = client.create_temp_pin().unwrap();
+        let cid = client.insert(42, Some(&tmp)).unwrap();
+        let res = client.get(&cid, Some(&tmp)).unwrap();
         assert_eq!(res, 42);
     }
 }

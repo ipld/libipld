@@ -57,54 +57,58 @@ pub trait Store: Clone + Send + Sync {
     type TempPin: Clone + Send + Sync;
 
     /// Creates a new temporary pin.
-    async fn create_temp_pin(&self) -> Result<Self::TempPin>;
+    fn create_temp_pin(&self) -> Result<Self::TempPin>;
 
     /// Adds a block to a temp pin.
-    async fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()>;
+    fn temp_pin(&self, tmp: &Self::TempPin, cid: &Cid) -> Result<()>;
 
     /// Returns true if the store contains the block.
-    async fn contains(&self, cid: &Cid) -> Result<bool>;
+    fn contains(&self, cid: &Cid) -> Result<bool>;
+
+    /// Returns a block from the store. If the block wasn't found it returns a `BlockNotFound`
+    /// error.
+    fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
+
+    /// Inserts a block into the store and publishes the block on the network.
+    fn insert(&self, block: &Block<Self::Params>) -> Result<()>;
+
+    /// Creates an alias for a `Cid`.
+    fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
+
+    /// Resolves an alias for a `Cid`.
+    fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>>;
+
+    /// Returns all the aliases that are keeping the block around.
+    fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>>;
+
+    /// Flushes the store.
+    async fn flush(&self) -> Result<()>;
 
     /// Returns a block from the store. If the store supports networking and the block is not
     /// in the store it fetches it from the network and inserts it into the store. Dropping the
     /// future cancels the request.
     ///
     /// If the block wasn't found it returns a `BlockNotFound` error.
-    async fn get(&self, cid: &Cid) -> Result<Block<Self::Params>>;
+    async fn fetch(&self, cid: &Cid) -> Result<Block<Self::Params>>;
 
-    /// Inserts a block into the store and publishes the block on the network.
-    async fn insert(&self, block: &Block<Self::Params>) -> Result<()>;
+    /// Fetches all missing blocks recursively from the network. If a block isn't found it
+    /// returns a `BlockNotFound` error.
+    async fn sync(&self, cid: &Cid) -> Result<()>;
 
     /// Resolves a path recursively and returns the ipld.
     async fn query(&self, path: &DagPath<'_>) -> Result<Ipld>
     where
         Ipld: Decode<<Self::Params as StoreParams>::Codecs>,
     {
-        let mut ipld = self.get(path.root()).await?.ipld()?;
+        let mut ipld = self.fetch(path.root()).await?.ipld()?;
         for segment in path.path().iter() {
             ipld = ipld.take(segment)?;
             if let Ipld::Link(cid) = ipld {
-                ipld = self.get(&cid).await?.ipld()?;
+                ipld = self.fetch(&cid).await?.ipld()?;
             }
         }
         Ok(ipld)
     }
-
-    /// Fetches all missing blocks recursively from the network. If a block isn't found it
-    /// returns a `BlockNotFound` error.
-    async fn sync(&self, cid: &Cid) -> Result<()>;
-
-    /// Creates an alias for a `Cid`.
-    async fn alias<T: AsRef<[u8]> + Send + Sync>(&self, alias: T, cid: Option<&Cid>) -> Result<()>;
-
-    /// Resolves an alias for a `Cid`.
-    async fn resolve<T: AsRef<[u8]> + Send + Sync>(&self, alias: T) -> Result<Option<Cid>>;
-
-    /// Returns all the aliases that are keeping the block around.
-    async fn reverse_alias(&self, cid: &Cid) -> Result<Option<Vec<Vec<u8>>>>;
-
-    /// Flushes the store.
-    async fn flush(&self) -> Result<()>;
 }
 
 /// Creates a static alias concatenating the module path with an identifier.
@@ -155,9 +159,9 @@ mod tests {
         let leaf = ipld!({"name": "John Doe"});
         let leaf_block = Block::encode(DagCborCodec, Code::Blake3_256, &leaf).unwrap();
         let root = ipld!({ "list": [leaf_block.cid()] });
-        store.insert(&leaf_block).await.unwrap();
+        store.insert(&leaf_block).unwrap();
         let root_block = Block::encode(DagCborCodec, Code::Blake3_256, &root).unwrap();
-        store.insert(&root_block).await.unwrap();
+        store.insert(&root_block).unwrap();
         let path = DagPath::new(root_block.cid(), "list/0/name");
         assert_eq!(
             store.query(&path).await.unwrap(),
