@@ -604,6 +604,17 @@ impl References<DagCbor> for Ipld {
                 }
             }
 
+            // Major type 5: a map of pairs of data items (indefinite length)
+            0xbf => loop {
+                let major = read_u8(r)?;
+                if major == 0xff {
+                    break;
+                }
+                r.seek(SeekFrom::Current(-1))?;
+                <Self as References<DagCbor>>::references(c, r, set)?;
+                <Self as References<DagCbor>>::references(c, r, set)?;
+            },
+
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {
                 let tag = read_u8(r)?;
