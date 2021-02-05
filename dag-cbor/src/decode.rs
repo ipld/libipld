@@ -494,7 +494,7 @@ impl TryReadCbor for Ipld {
                     return Ok(Some(Self::IntegerMap(read_map(r, len as usize)?)));
                 }
                 #[cfg(not(feature = "unleashed"))]
-                Self::StringMap(read_map(r, len as usize))
+                Self::StringMap(read_map(r, len as usize)?)
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
