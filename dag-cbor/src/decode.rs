@@ -167,7 +167,6 @@ impl Decode<DagCbor> for bool {
             0xf4 => false,
             0xf5 => true,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -182,7 +181,6 @@ impl Decode<DagCbor> for u8 {
             0x00..=0x17 => major,
             0x18 => read_u8(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -198,7 +196,6 @@ impl Decode<DagCbor> for u16 {
             0x18 => read_u8(r)? as u16,
             0x19 => read_u16(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -215,7 +212,6 @@ impl Decode<DagCbor> for u32 {
             0x19 => read_u16(r)? as u32,
             0x1a => read_u32(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -233,7 +229,6 @@ impl Decode<DagCbor> for u64 {
             0x1a => read_u32(r)? as u64,
             0x1b => read_u64(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -248,7 +243,6 @@ impl Decode<DagCbor> for i8 {
             0x20..=0x37 => -1 - (major - 0x20) as i8,
             0x38 => -1 - read_u8(r)? as i8,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -264,7 +258,6 @@ impl Decode<DagCbor> for i16 {
             0x38 => -1 - read_u8(r)? as i16,
             0x39 => -1 - read_u16(r)? as i16,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -281,7 +274,6 @@ impl Decode<DagCbor> for i32 {
             0x39 => -1 - read_u16(r)? as i32,
             0x3a => -1 - read_u32(r)? as i32,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -299,7 +291,6 @@ impl Decode<DagCbor> for i64 {
             0x3a => -1 - read_u32(r)? as i64,
             0x3b => -1 - read_u64(r)? as i64,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -313,7 +304,6 @@ impl Decode<DagCbor> for f32 {
         let result = match major {
             0xfa => read_f32(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -328,7 +318,6 @@ impl Decode<DagCbor> for f64 {
             0xfa => read_f32(r)? as f64,
             0xfb => read_f64(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -345,7 +334,6 @@ impl Decode<DagCbor> for String {
                 read_str(r, len)?
             }
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -361,11 +349,8 @@ impl Decode<DagCbor> for Cid {
                 if tag == 42 {
                     return Ok(read_link(r)?);
                 }
-            } else {
-                r.seek(SeekFrom::Current(-1))?;
             }
         }
-        r.seek(SeekFrom::Current(-1))?;
         Err(UnexpectedCode::new::<Self>(major).into())
     }
 }
@@ -379,7 +364,6 @@ impl Decode<DagCbor> for Box<[u8]> {
                 read_bytes(r, len)?.into_boxed_slice()
             }
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -412,7 +396,6 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
             }
             0x9f => read_list_il(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
@@ -430,7 +413,6 @@ impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<
             }
             0xbf => read_map_il(r)?,
             _ => {
-                r.seek(SeekFrom::Current(-1))?;
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };

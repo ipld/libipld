@@ -268,7 +268,6 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                         return Ok(#construct);
                     }
                     _ => {
-                        r.seek(SeekFrom::Current(-1))?;
                         return Err(UnexpectedCode::new::<Self>(major).into());
                     }
                 }
@@ -293,7 +292,6 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                         return Ok(#construct);
                     }
                     _ => {
-                        r.seek(SeekFrom::Current(-1))?;
                         return Err(UnexpectedCode::new::<Self>(major).into());
                     }
                 }
@@ -316,7 +314,6 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                         return Ok(#construct);
                     }
                     _ => {
-                        r.seek(SeekFrom::Current(-1))?;
                         return Err(UnexpectedCode::new::<Self>(major).into());
                     }
                 }
@@ -340,7 +337,6 @@ fn gen_decode_union(u: &Union) -> TokenStream {
             quote! {
                 let major = read_u8(r)?;
                 if major != 0xa1 {
-                    r.seek(SeekFrom::Current(-1))?;
                     return Err(UnexpectedCode::new::<Self>(major).into());
                 }
                 let key: String = Decode::decode(c, r)?;
@@ -352,12 +348,15 @@ fn gen_decode_union(u: &Union) -> TokenStream {
             let variants = u.variants.iter().map(|s| {
                 let parse = gen_decode_struct(s);
                 quote! {
+                    let pos = r.seek(SeekFrom::Current(0))?;
                     let result: Result<Self> = (|| {
                         #parse
                     })();
                     match result {
                         Ok(res) => return Ok(res),
-                        Err(err) if err.downcast_ref::<UnexpectedCode>().is_some() => {}
+                        Err(err) if err.downcast_ref::<UnexpectedCode>().is_some() => {
+                            r.seek(SeekFrom::Start(pos))?;
+                        }
                         Err(err) => return Err(err),
                     };
                 }
