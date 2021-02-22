@@ -31,9 +31,9 @@ impl TryFrom<u64> for DagCborCodec {
 }
 
 /// Marker trait for types supporting the `DagCborCodec`.
-pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor {}
+pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> {}
 
-impl<T: Encode<DagCborCodec> + Decode<DagCborCodec> + decode::TryReadCbor> DagCbor for T {}
+impl<T: Encode<DagCborCodec> + Decode<DagCborCodec>> DagCbor for T {}
 
 #[cfg(test)]
 mod tests {
