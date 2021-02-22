@@ -347,7 +347,7 @@ impl Decode<DagCbor> for Cid {
         if major == 0xd8 {
             if let Ok(tag) = read_u8(r) {
                 if tag == 42 {
-                    return Ok(read_link(r)?);
+                    return read_link(r);
                 }
             }
         }
