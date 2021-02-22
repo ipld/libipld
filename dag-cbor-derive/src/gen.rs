@@ -26,9 +26,9 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
 }
 
 pub fn gen_decode(ast: &SchemaType) -> TokenStream {
-    let (ident, generics) = match ast {
-        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap()),
-        SchemaType::Union(u) => (&u.name, &u.generics),
+    let (ident, generics, body) = match ast {
+        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_decode_struct(&s)),
+        SchemaType::Union(u) => (&u.name, &u.generics, gen_decode_union(&u)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let trait_name = quote!(libipld::codec::Decode<libipld::cbor::DagCborCodec>);
@@ -39,35 +39,11 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
             ) -> libipld::Result<Self> {
-                libipld::cbor::decode::read(r)
-            }
-        }
-    }
-}
-
-pub fn gen_try_read_cbor(ast: &SchemaType) -> TokenStream {
-    let (ident, generics, body) = match ast {
-        SchemaType::Struct(s) => (
-            &s.name,
-            s.generics.as_ref().unwrap(),
-            gen_try_read_cbor_struct(&s),
-        ),
-        SchemaType::Union(u) => (&u.name, &u.generics, gen_try_read_cbor_union(&u)),
-    };
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let trait_name = quote!(libipld::cbor::decode::TryReadCbor);
-
-    quote! {
-        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
-            fn try_read_cbor<R: std::io::Read + std::io::Seek>(
-                r: &mut R,
-                major: u8,
-            ) -> libipld::Result<Option<Self>> {
-                use libipld::cbor::decode::{read_len, read_u8, TryReadCbor};
+                use libipld::cbor::decode::{read_len, read_u8};
                 use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
                 use libipld::codec::Decode;
                 use libipld::error::Result;
-                let c = libipld::cbor::DagCborCodec;
+                use std::io::SeekFrom;
                 #body
             }
         }
@@ -105,16 +81,6 @@ fn gen_encode_match(arms: impl Iterator<Item = TokenStream>) -> TokenStream {
         }
         Ok(())
     }
-}
-
-fn try_read_cbor(ty: TokenStream) -> TokenStream {
-    quote! {{
-        if let Some(t) = #ty::try_read_cbor(r, major)? {
-            t
-        } else {
-            return Ok(None);
-        }
-    }}
 }
 
 fn gen_encode_struct(s: &Struct) -> TokenStream {
@@ -231,7 +197,7 @@ fn gen_encode_union(u: &Union) -> TokenStream {
     }
 }
 
-fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
+fn gen_decode_struct(s: &Struct) -> TokenStream {
     let len = s.fields.len();
     let construct = &*s.construct;
     match s.repr {
@@ -256,6 +222,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                 })
                 .collect();
             quote! {
+                let major = read_u8(r)?;
                 match major {
                     0xa0..=0xbb => {
                         let len = read_len(r, major - 0xa0)?;
@@ -276,7 +243,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
 
                         #(#fields)*
 
-                        return Ok(Some(#construct));
+                        return Ok(#construct);
                     }
                     0xbf => {
                         #(let mut #binding = None;)*
@@ -285,24 +252,24 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                             if major == 0xff {
                                 break;
                             }
-                            if let Some(key) = String::try_read_cbor(r, major)? {
-                                match key.as_str() {
-                                    #(#key => { #binding = Some(Decode::decode(c, r)?); })*
-                                    _ => {
-                                        libipld::Ipld::decode(c, r)?;
-                                        //return Err(UnexpectedKey::new::<Self>(key).into()),
-                                    }
+                            r.seek(SeekFrom::Current(-1))?;
+                            let key = String::decode(c, r)?;
+                            match key.as_str() {
+                                #(#key => { #binding = Some(Decode::decode(c, r)?); })*
+                                _ => {
+                                    libipld::Ipld::decode(c, r)?;
+                                    //return Err(UnexpectedKey::new::<Self>(key).into()),
                                 }
-                            } else {
-                                return Err(UnexpectedCode::new::<Self>(major).into());
                             }
                         }
 
                         #(#fields)*
 
-                        return Ok(Some(#construct));
+                        return Ok(#construct);
                     }
-                    _ => Ok(None),
+                    _ => {
+                        return Err(UnexpectedCode::new::<Self>(major).into());
+                    }
                 }
             }
         }
@@ -314,6 +281,7 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                 }
             });
             quote! {
+                let major = read_u8(r)?;
                 match major {
                     0x80..=0x9b => {
                         let len = read_len(r, major - 0x80)?;
@@ -321,9 +289,11 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
                             return Err(LengthOutOfRange::new::<Self>().into());
                         }
                         #(#fields)*
-                        return Ok(Some(#construct));
+                        return Ok(#construct);
                     }
-                    _ => Ok(None),
+                    _ => {
+                        return Err(UnexpectedCode::new::<Self>(major).into());
+                    }
                 }
             }
         }
@@ -331,44 +301,43 @@ fn gen_try_read_cbor_struct(s: &Struct) -> TokenStream {
             assert_eq!(s.fields.len(), 1);
             let binding = &s.fields[0].binding;
             quote! {
-                if let Some(#binding) = TryReadCbor::try_read_cbor(r, major)? {
-                    return Ok(Some(#construct));
-                } else {
-                    Ok(None)
-                }
+                let #binding = Decode::decode(c, r)?;
+                return Ok(#construct);
             }
         }
         StructRepr::Null => {
             assert_eq!(s.fields.len(), 0);
             quote! {
+                let major = read_u8(r)?;
                 match major {
                     0xf6..=0xf7 => {
-                        return Ok(Some(#construct));
+                        return Ok(#construct);
                     }
-                    _ => Ok(None),
+                    _ => {
+                        return Err(UnexpectedCode::new::<Self>(major).into());
+                    }
                 }
             }
         }
     }
 }
 
-fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
+fn gen_decode_union(u: &Union) -> TokenStream {
     match u.repr {
         UnionRepr::Keyed => {
             let variants = u.variants.iter().map(|s| {
                 let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
-                let parse = gen_try_read_cbor_struct(s);
+                let parse = gen_decode_struct(s);
                 quote! {
                     if key.as_str() == #key {
-                        let major = read_u8(r)?;
-                        let res: Result<Option<Self>> = #parse;
-                        res?;
+                        #parse
                     }
                 }
             });
             quote! {
+                let major = read_u8(r)?;
                 if major != 0xa1 {
-                    return Ok(None);
+                    return Err(UnexpectedCode::new::<Self>(major).into());
                 }
                 let key: String = Decode::decode(c, r)?;
                 #(#variants;)*
@@ -377,15 +346,24 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
         }
         UnionRepr::Kinded => {
             let variants = u.variants.iter().map(|s| {
-                let parse = gen_try_read_cbor_struct(s);
+                let parse = gen_decode_struct(s);
                 quote! {
-                    let res: Result<Option<Self>> = #parse;
-                    res?;
+                    let pos = r.seek(SeekFrom::Current(0))?;
+                    let result: Result<Self> = (|| {
+                        #parse
+                    })();
+                    match result {
+                        Ok(res) => return Ok(res),
+                        Err(err) if err.downcast_ref::<UnexpectedCode>().is_some() => {
+                            r.seek(SeekFrom::Start(pos))?;
+                        }
+                        Err(err) => return Err(err),
+                    };
                 }
             });
             quote! {
                 #(#variants;)*
-                Err(UnexpectedCode::new::<Self>(major).into())
+                Err(UnexpectedCode::new::<Self>(read_u8(r)?).into())
             }
         }
         UnionRepr::String => {
@@ -394,14 +372,13 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
                 let value = rename(&syn::Member::Named(v.name.clone()), v.rename.as_ref());
                 quote!(#value => #pat)
             });
-            let parse = try_read_cbor(quote!(String));
             quote! {
-                let key = #parse;
+                let key: String = Decode::decode(c, r)?;
                 let res = match key.as_str() {
                     #(#arms,)*
                     _ => return Err(UnexpectedKey::new::<Self>(key).into()),
                 };
-                Ok(Some(res))
+                Ok(res)
             }
         }
         UnionRepr::Int => {
@@ -409,14 +386,13 @@ fn gen_try_read_cbor_union(u: &Union) -> TokenStream {
                 let pat = &*v.pat;
                 quote!(x if x == #pat as u64 => #pat)
             });
-            let parse = try_read_cbor(quote!(u64));
             quote! {
-                let key = #parse;
+                let key: u64 = Decode::decode(c, r)?;
                 let res = match key {
                     #(#arms,)*
                     _ => return Err(UnexpectedKey::new::<Self>(key.to_string()).into()),
                 };
-                Ok(Some(res))
+                Ok(res)
             }
         }
     }

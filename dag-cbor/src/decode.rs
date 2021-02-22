@@ -7,7 +7,6 @@ use libipld_core::cid::Cid;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
-use libipld_core::link::Link;
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -67,58 +66,46 @@ pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
     Ok(String::from_utf8(bytes)?)
 }
 
-/// Reads any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read<R: Read + Seek, T: TryReadCbor>(r: &mut R) -> Result<T> {
-    let major = crate::decode::read_u8(r)?;
-    if let Some(res) = T::try_read_cbor(r, major)? {
-        Ok(res)
-    } else {
-        Err(UnexpectedCode::new::<T>(major).into())
-    }
-}
-
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list<R: Read + Seek, T: TryReadCbor>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::with_capacity(len);
     for _ in 0..len {
-        list.push(read(r)?);
+        list.push(T::decode(DagCbor, r)?);
     }
     Ok(list)
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read + Seek, T: TryReadCbor>(r: &mut R) -> Result<Vec<T>> {
+pub fn read_list_il<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::new();
     loop {
         let major = read_u8(r)?;
         if major == 0xff {
             break;
         }
-        if let Some(v) = T::try_read_cbor(r, major)? {
-            list.push(v);
-        } else {
-            return Err(UnexpectedCode::new::<T>(major).into());
-        }
+        r.seek(SeekFrom::Current(-1))?;
+        let value = T::decode(DagCbor, r)?;
+        list.push(value);
     }
     Ok(list)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map<R: Read + Seek, K: TryReadCbor + Ord, T: TryReadCbor>(
+pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
     r: &mut R,
     len: usize,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = read(r)?;
-        let value = read(r)?;
+        let key = K::decode(DagCbor, r)?;
+        let value = T::decode(DagCbor, r)?;
         map.insert(key, value);
     }
     Ok(map)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read + Seek, K: TryReadCbor + Ord, T: TryReadCbor>(
+pub fn read_map_il<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
     r: &mut R,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
@@ -127,12 +114,10 @@ pub fn read_map_il<R: Read + Seek, K: TryReadCbor + Ord, T: TryReadCbor>(
         if major == 0xff {
             break;
         }
-        if let Some(key) = K::try_read_cbor(r, major)? {
-            let value = read(r)?;
-            map.insert(key, value);
-        } else {
-            return Err(UnexpectedCode::new::<T>(major).into());
-        }
+        r.seek(SeekFrom::Current(-1))?;
+        let key = K::decode(DagCbor, r)?;
+        let value = T::decode(DagCbor, r)?;
+        map.insert(key, value);
     }
     Ok(map)
 }
@@ -175,271 +160,269 @@ pub fn read_len<R: Read + Seek>(r: &mut R, major: u8) -> Result<usize> {
     })
 }
 
-/// `TryReadCbor` trait.
-pub trait TryReadCbor: Sized {
-    /// Takes the read major code and tries to parse from a byte stream. If parsing fails the
-    /// byte stream must not be advanced.
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>>;
-}
-
-macro_rules! impl_decode {
-    ($ty:ident) => {
-        impl Decode<DagCbor> for $ty {
-            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-                read(r)
+impl Decode<DagCbor> for bool {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0xf4 => false,
+            0xf5 => true,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
             }
-        }
-    };
-    ($ty:ident<T>) => {
-        impl<T: TryReadCbor> Decode<DagCbor> for $ty<T> {
-            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-                read(r)
+        };
+        Ok(result)
+    }
+}
+
+impl Decode<DagCbor> for u8 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x00..=0x17 => major,
+            0x18 => read_u8(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
             }
-        }
-    };
-    ($ty:ident<$param:ident, T>) => {
-        impl<$param: TryReadCbor + Ord, T: TryReadCbor> Decode<DagCbor> for $ty<$param, T> {
-            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-                read(r)
+        };
+        Ok(result)
+    }
+}
+
+impl Decode<DagCbor> for u16 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x00..=0x17 => major as u16,
+            0x18 => read_u8(r)? as u16,
+            0x19 => read_u16(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
             }
-        }
-    };
-    ($ty:ident<[u8]>) => {
-        impl Decode<DagCbor> for $ty<[u8]> {
-            fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-                read(r)
+        };
+        Ok(result)
+    }
+}
+
+impl Decode<DagCbor> for u32 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x00..=0x17 => major as u32,
+            0x18 => read_u8(r)? as u32,
+            0x19 => read_u16(r)? as u32,
+            0x1a => read_u32(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
             }
-        }
-    };
-}
-
-impl TryReadCbor for bool {
-    fn try_read_cbor<R: Read + Seek>(_: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0xf4 => Ok(Some(false)),
-            0xf5 => Ok(Some(true)),
-            _ => Ok(None),
-        }
+        };
+        Ok(result)
     }
 }
-impl_decode!(bool);
 
-impl TryReadCbor for u8 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x00..=0x17 => Ok(Some(major)),
-            0x18 => Ok(Some(read_u8(r)?)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for u64 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x00..=0x17 => major as u64,
+            0x18 => read_u8(r)? as u64,
+            0x19 => read_u16(r)? as u64,
+            0x1a => read_u32(r)? as u64,
+            0x1b => read_u64(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(u8);
 
-impl TryReadCbor for u16 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x00..=0x17 => Ok(Some(major as u16)),
-            0x18 => Ok(Some(read_u8(r)? as u16)),
-            0x19 => Ok(Some(read_u16(r)?)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for i8 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x20..=0x37 => -1 - (major - 0x20) as i8,
+            0x38 => -1 - read_u8(r)? as i8,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(u16);
 
-impl TryReadCbor for u32 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x00..=0x17 => Ok(Some(major as u32)),
-            0x18 => Ok(Some(read_u8(r)? as u32)),
-            0x19 => Ok(Some(read_u16(r)? as u32)),
-            0x1a => Ok(Some(read_u32(r)?)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for i16 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x20..=0x37 => -1 - (major - 0x20) as i16,
+            0x38 => -1 - read_u8(r)? as i16,
+            0x39 => -1 - read_u16(r)? as i16,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(u32);
 
-impl TryReadCbor for u64 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x00..=0x17 => Ok(Some(major as u64)),
-            0x18 => Ok(Some(read_u8(r)? as u64)),
-            0x19 => Ok(Some(read_u16(r)? as u64)),
-            0x1a => Ok(Some(read_u32(r)? as u64)),
-            0x1b => Ok(Some(read_u64(r)?)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for i32 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x20..=0x37 => -1 - (major - 0x20) as i32,
+            0x38 => -1 - read_u8(r)? as i32,
+            0x39 => -1 - read_u16(r)? as i32,
+            0x3a => -1 - read_u32(r)? as i32,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(u64);
 
-impl TryReadCbor for i8 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i8)),
-            0x38 => Ok(Some(-1 - read_u8(r)? as i8)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for i64 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x20..=0x37 => -1 - (major - 0x20) as i64,
+            0x38 => -1 - read_u8(r)? as i64,
+            0x39 => -1 - read_u16(r)? as i64,
+            0x3a => -1 - read_u32(r)? as i64,
+            0x3b => -1 - read_u64(r)? as i64,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(i8);
 
-impl TryReadCbor for i16 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i16)),
-            0x38 => Ok(Some(-1 - read_u8(r)? as i16)),
-            0x39 => Ok(Some(-1 - read_u16(r)? as i16)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for f32 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0xfa => read_f32(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(i16);
 
-impl TryReadCbor for i32 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i32)),
-            0x38 => Ok(Some(-1 - read_u8(r)? as i32)),
-            0x39 => Ok(Some(-1 - read_u16(r)? as i32)),
-            0x3a => Ok(Some(-1 - read_u32(r)? as i32)),
-            _ => Ok(None),
-        }
+impl Decode<DagCbor> for f64 {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0xfa => read_f32(r)? as f64,
+            0xfb => read_f64(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(i32);
 
-impl TryReadCbor for i64 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0x20..=0x37 => Ok(Some(-1 - (major - 0x20) as i64)),
-            0x38 => Ok(Some(-1 - read_u8(r)? as i64)),
-            0x39 => Ok(Some(-1 - read_u16(r)? as i64)),
-            0x3a => Ok(Some(-1 - read_u32(r)? as i64)),
-            0x3b => Ok(Some(-1 - read_u64(r)? as i64)),
-            _ => Ok(None),
-        }
-    }
-}
-impl_decode!(i64);
-
-impl TryReadCbor for f32 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0xfa => Ok(Some(read_f32(r)?)),
-            _ => Ok(None),
-        }
-    }
-}
-impl_decode!(f32);
-
-impl TryReadCbor for f64 {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0xfa => Ok(Some(read_f32(r)? as f64)),
-            0xfb => Ok(Some(read_f64(r)?)),
-            _ => Ok(None),
-        }
-    }
-}
-impl_decode!(f64);
-
-impl TryReadCbor for String {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
+impl Decode<DagCbor> for String {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
             0x60..=0x7b => {
                 let len = read_len(r, major - 0x60)?;
-                Ok(Some(read_str(r, len)?))
+                read_str(r, len)?
             }
-            _ => Ok(None),
-        }
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(String);
 
-impl TryReadCbor for Cid {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
+impl Decode<DagCbor> for Cid {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
         if major == 0xd8 {
             if let Ok(tag) = read_u8(r) {
                 if tag == 42 {
-                    return Ok(Some(read_link(r)?));
+                    return read_link(r);
                 }
-            } else {
-                r.seek(SeekFrom::Current(-1))?;
             }
         }
-        Ok(None)
-    }
-}
-impl_decode!(Cid);
-
-impl<T> TryReadCbor for Link<T> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        Ok(Cid::try_read_cbor(r, major)?.map(Into::into))
+        Err(UnexpectedCode::new::<Self>(major).into())
     }
 }
 
-impl TryReadCbor for Box<[u8]> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
+impl Decode<DagCbor> for Box<[u8]> {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
             0x40..=0x5b => {
                 let len = read_len(r, major - 0x40)?;
-                Ok(Some(read_bytes(r, len)?.into_boxed_slice()))
+                read_bytes(r, len)?.into_boxed_slice()
             }
-            _ => Ok(None),
-        }
-    }
-}
-impl_decode!(Box<[u8]>);
-
-impl<T: TryReadCbor> TryReadCbor for Option<T> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
-            0xf6 => Ok(Some(None)),
-            0xf7 => Ok(Some(None)),
             _ => {
-                if let Some(res) = T::try_read_cbor(r, major)? {
-                    Ok(Some(Some(res)))
-                } else {
-                    Ok(None)
-                }
+                return Err(UnexpectedCode::new::<Self>(major).into());
             }
-        }
+        };
+        Ok(result)
     }
 }
-impl_decode!(Option<T>);
 
-impl<T: TryReadCbor> TryReadCbor for Vec<T> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
+impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0xf6 => None,
+            0xf7 => None,
+            _ => {
+                r.seek(SeekFrom::Current(-1))?;
+                Some(T::decode(c, r)?)
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
             0x80..=0x9b => {
                 let len = read_len(r, major - 0x80)?;
-                Ok(Some(read_list(r, len)?))
+                read_list(r, len)?
             }
-            0x9f => Ok(Some(read_list_il(r)?)),
-            _ => Ok(None),
-        }
+            0x9f => read_list_il(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(Vec<T>);
 
-impl<K: TryReadCbor + Ord, T: TryReadCbor> TryReadCbor for BTreeMap<K, T> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        match major {
+impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<K, T> {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
-                Ok(Some(read_map(r, len)?))
+                read_map(r, len)?
             }
-            0xbf => Ok(Some(read_map_il(r)?)),
-            _ => Ok(None),
-        }
+            0xbf => read_map_il(r)?,
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
     }
 }
-impl_decode!(BTreeMap<K, T>);
 
-impl TryReadCbor for Ipld {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
+impl Decode<DagCbor> for Ipld {
+    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
         let ipld = match major {
             // Major type 0: an unsigned integer
             0x00..=0x17 => Self::Integer(major as i128),
@@ -485,29 +468,25 @@ impl TryReadCbor for Ipld {
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
-                #[cfg(feature = "unleashed")]
-                if let Ok(map) = read_map(r, len as usize) {
-                    return Ok(Some(Self::StringMap(map)));
-                } else {
-                    // TODO this is a hack
-                    r.seek(SeekFrom::Current(-1))?;
-                    return Ok(Some(Self::IntegerMap(read_map(r, len as usize)?)));
+                if len > 0 {
+                    let pos = r.seek(SeekFrom::Current(0))?;
+                    #[cfg(feature = "unleashed")]
+                    if let Ok(map) = read_map(r, len as usize) {
+                        return Ok(Self::IntegerMap(map));
+                    }
+                    r.seek(SeekFrom::Start(pos))?;
                 }
-                #[cfg(not(feature = "unleashed"))]
                 Self::StringMap(read_map(r, len as usize)?)
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
             0xbf => {
+                let pos = r.seek(SeekFrom::Current(0))?;
                 #[cfg(feature = "unleashed")]
                 if let Ok(map) = read_map_il(r) {
-                    return Ok(Some(Self::StringMap(map)));
-                } else {
-                    // TODO this is a hack
-                    r.seek(SeekFrom::Current(-1))?;
-                    return Ok(Some(Self::IntegerMap(read_map_il(r)?)));
+                    return Ok(Self::IntegerMap(map));
                 }
-                #[cfg(not(feature = "unleashed"))]
+                r.seek(SeekFrom::Start(pos))?;
                 Self::StringMap(read_map_il(r)?)
             }
 
@@ -531,12 +510,12 @@ impl TryReadCbor for Ipld {
             0xf7 => Self::Null,
             0xfa => Self::Float(read_f32(r)? as f64),
             0xfb => Self::Float(read_f64(r)?),
-            _ => return Ok(None),
+            _ => return Err(UnexpectedCode::new::<Self>(major).into()),
         };
-        Ok(Some(ipld))
+        Ok(ipld)
     }
 }
-impl_decode!(Ipld);
+
 impl References<DagCbor> for Ipld {
     fn references<R: Read + Seek, E: Extend<Cid>>(
         c: DagCbor,
@@ -639,16 +618,11 @@ impl References<DagCbor> for Ipld {
     }
 }
 
-impl<T: TryReadCbor> TryReadCbor for Arc<T> {
-    fn try_read_cbor<R: Read + Seek>(r: &mut R, major: u8) -> Result<Option<Self>> {
-        if let Some(res) = T::try_read_cbor(r, major)? {
-            Ok(Some(Arc::new(res)))
-        } else {
-            Ok(None)
-        }
+impl<T: Decode<DagCbor>> Decode<DagCbor> for Arc<T> {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        Ok(Arc::new(T::decode(c, r)?))
     }
 }
-impl_decode!(Arc<T>);
 
 #[cfg(test)]
 mod tests {

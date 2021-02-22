@@ -38,7 +38,7 @@ impl LengthOutOfRange {
 
 /// Unexpected cbor code.
 #[derive(Debug, Error)]
-#[error("Unexpected cbor code `{code}` when decoding `{ty}`.")]
+#[error("Unexpected cbor code `0x{code:x}` when decoding `{ty}`.")]
 pub struct UnexpectedCode {
     /// Code.
     pub code: u8,

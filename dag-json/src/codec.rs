@@ -19,7 +19,7 @@ pub fn encode<W: Write>(ipld: &Ipld, writer: &mut W) -> Result<(), Error> {
 
 pub fn decode<R: Read>(r: &mut R) -> Result<Ipld, Error> {
     let mut de = serde_json::Deserializer::from_reader(r);
-    Ok(deserialize(&mut de)?)
+    deserialize(&mut de)
 }
 
 fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error> {
@@ -60,7 +60,7 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
 
 fn deserialize<'de, D: de::Deserializer<'de>>(deserializer: D) -> Result<Ipld, D::Error> {
     // Sadly such a PhantomData hack is needed
-    deserializer.deserialize_any(JSONVisitor)
+    deserializer.deserialize_any(JsonVisitor)
 }
 
 // Needed for `collect_seq` and `collect_map` in Seserializer
@@ -77,8 +77,8 @@ impl<'a> Serialize for Wrapper<'a> {
 
 // serde deserializer visitor that is used by Deseraliazer to decode
 // json into IPLD.
-struct JSONVisitor;
-impl<'de> de::Visitor<'de> for JSONVisitor {
+struct JsonVisitor;
+impl<'de> de::Visitor<'de> for JsonVisitor {
     type Value = Ipld;
 
     fn expecting(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
