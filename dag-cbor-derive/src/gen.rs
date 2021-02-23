@@ -354,10 +354,9 @@ fn gen_decode_union(u: &Union) -> TokenStream {
                     })();
                     match result {
                         Ok(res) => return Ok(res),
-                        Err(err) if err.downcast_ref::<UnexpectedCode>().is_some() => {
+                        Err(err) => {
                             r.seek(SeekFrom::Start(pos))?;
                         }
-                        Err(err) => return Err(err),
                     };
                 }
             });
