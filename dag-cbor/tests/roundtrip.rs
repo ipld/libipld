@@ -1,6 +1,6 @@
 use std::{io::Cursor, result};
 
-use libipld_cbor::{DagCbor, DagCborCodec};
+use libipld_cbor::DagCborCodec;
 use libipld_core::ipld::Ipld;
 use libipld_core::{
     codec::{Codec, Decode},
