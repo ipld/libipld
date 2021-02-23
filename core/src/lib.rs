@@ -8,6 +8,7 @@ pub mod error;
 pub mod ipld;
 pub mod link;
 pub mod raw;
+pub mod raw_value;
 
 pub use cid;
 pub use multibase;

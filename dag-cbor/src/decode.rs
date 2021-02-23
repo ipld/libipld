@@ -3,10 +3,10 @@ use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnknownTa
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
+use libipld_core::{cid::Cid, raw_value::SkipOne};
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -621,6 +621,100 @@ impl References<DagCbor> for Ipld {
 impl<T: Decode<DagCbor>> Decode<DagCbor> for Arc<T> {
     fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
         Ok(Arc::new(T::decode(c, r)?))
+    }
+}
+
+impl SkipOne for DagCbor {
+    fn skip<R: Read + Seek>(&self, r: &mut R) -> Result<()> {
+        let major = read_u8(r)?;
+        match major {
+            // Major type 0: an unsigned integer
+            0x00..=0x17 => {}
+            0x18 => {
+                r.seek(SeekFrom::Current(1))?;
+            }
+            0x19 => {
+                r.seek(SeekFrom::Current(2))?;
+            }
+            0x1a => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0x1b => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+
+            // Major type 1: a negative integer
+            0x20..=0x37 => {}
+            0x38 => {
+                r.seek(SeekFrom::Current(1))?;
+            }
+            0x39 => {
+                r.seek(SeekFrom::Current(2))?;
+            }
+            0x3a => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0x3b => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+
+            // Major type 2: a byte string
+            0x40..=0x5b => {
+                let len = read_len(r, major - 0x40)?;
+                r.seek(SeekFrom::Current(len as _))?;
+            }
+
+            // Major type 3: a text string
+            0x60..=0x7b => {
+                let len = read_len(r, major - 0x60)?;
+                r.seek(SeekFrom::Current(len as _))?;
+            }
+
+            // Major type 4: an array of data items
+            0x80..=0x9b => {
+                let len = read_len(r, major - 0x80)?;
+                for _ in 0..len {
+                    self.skip(r)?;
+                }
+            }
+
+            // Major type 5: a map of pairs of data items
+            0xa0..=0xbb => {
+                let len = read_len(r, major - 0xa0)?;
+                for _ in 0..len {
+                    self.skip(r)?;
+                    self.skip(r)?;
+                }
+            }
+
+            // Major type 5: a map of pairs of data items (indefinite length)
+            0xbf => loop {
+                let major = read_u8(r)?;
+                if major == 0xff {
+                    break;
+                }
+                r.seek(SeekFrom::Current(-1))?;
+                self.skip(r)?;
+                self.skip(r)?;
+            },
+
+            // Major type 6: optional semantic tagging of other major types
+            0xd8 => {
+                let _tag = read_u8(r)?;
+                self.skip(r)?;
+            }
+
+            // Major type 7: floating-point numbers and other simple data types that need no content
+            0xf4..=0xf7 => {}
+            0xfa => {
+                r.seek(SeekFrom::Current(4))?;
+            }
+            0xfb => {
+                r.seek(SeekFrom::Current(8))?;
+            }
+            major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
+        };
+        Ok(())
     }
 }
 
