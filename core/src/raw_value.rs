@@ -30,6 +30,18 @@ impl<C> AsRef<[u8]> for RawValue<C> {
     }
 }
 
+impl<C> From<RawValue<C>> for Box<[u8]> {
+    fn from(value: RawValue<C>) -> Self {
+        value.data
+    }
+}
+
+impl<C> From<RawValue<C>> for Vec<u8> {
+    fn from(value: RawValue<C>) -> Self {
+        value.data.into()
+    }
+}
+
 /// trait to implement to skip a single item at the current position
 pub trait SkipOne: Codec {
     /// assuming r is at the start of an item, advance r to the end
