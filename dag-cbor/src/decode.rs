@@ -574,6 +574,16 @@ impl References<DagCbor> for Ipld {
                 }
             }
 
+            // Major type 4: an array of data items (indefinite length)
+            0x9f => loop {
+                let major = read_u8(r)?;
+                if major == 0xff {
+                    break;
+                }
+                r.seek(SeekFrom::Current(-1))?;
+                <Self as References<DagCbor>>::references(c, r, set)?;
+            },
+
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -677,6 +687,16 @@ impl SkipOne for DagCbor {
                     self.skip(r)?;
                 }
             }
+
+            // Major type 4: an array of data items (indefinite length)
+            0x9f => loop {
+                let major = read_u8(r)?;
+                if major == 0xff {
+                    break;
+                }
+                r.seek(SeekFrom::Current(-1))?;
+                self.skip(r)?;
+            },
 
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
