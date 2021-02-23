@@ -24,6 +24,12 @@ impl<C> RawValue<C> {
     }
 }
 
+impl<C> AsRef<[u8]> for RawValue<C> {
+    fn as_ref(&self) -> &[u8] {
+        &self.data
+    }
+}
+
 /// trait to implement to skip a single item at the current position
 pub trait SkipOne: Codec {
     /// assuming r is at the start of an item, advance r to the end
@@ -35,7 +41,9 @@ impl<C: Codec + SkipOne> Decode<C> for RawValue<C> {
         let p0 = r.seek(io::SeekFrom::Current(0))?;
         c.skip(r)?;
         let p1 = r.seek(io::SeekFrom::Current(0))?;
+        // seeking backward is not allowed
         anyhow::ensure!(p1 > p0);
+        // this will fail if usize is 4 bytes and an item is > 32 bit of length
         let len = usize::try_from(p1 - p0)?;
         r.seek(io::SeekFrom::Start(p0))?;
         let mut buf = vec![0u8; len];
