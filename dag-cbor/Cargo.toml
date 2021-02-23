@@ -1,6 +1,6 @@
 [package]
 name = "libipld-cbor"
-version = "0.10.1"
+version = "0.11.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ unleashed = ["libipld-core/unleashed"]
 
 [dependencies]
 byteorder = "1.4.2"
-libipld-core = { version = "0.10.0", path = "../core" }
+libipld-core = { version = "0.11.0", path = "../core" }
 thiserror = "1.0.23"
 unicode-normalization = "0.1.16"
 
