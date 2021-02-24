@@ -826,7 +826,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-cbor"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "byteorder",
  "hex",
@@ -851,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-core"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "anyhow",
  "cid",
