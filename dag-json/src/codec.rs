@@ -39,14 +39,15 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
             ser.collect_map(wrapped)
         }
         #[cfg(feature = "unleashed")]
-        Ipld::IntegerMap(_) => {
-            // TODO: how to return an error here?
-            unimplemented!()
+        Ipld::IntegerMap(map) => {
+            let wrapped = map.iter().map(|(key, ipld)| (key, Wrapper(ipld)));
+            ser.collect_map(wrapped)
         }
         #[cfg(feature = "unleashed")]
-        Ipld::Tag(_, _) => {
-            // TODO: how to return an error here?
-            unimplemented!()
+        Ipld::Tag(tag, ipld) => {
+            let mut map = BTreeMap::new();
+            map.insert("/", (tag, Wrapper(ipld)));
+            ser.collect_map(map)
         }
         Ipld::Link(link) => {
             let value = base64::encode(&link.to_bytes());
