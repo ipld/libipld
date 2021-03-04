@@ -13,7 +13,7 @@ use std::io::{Read, Seek, Write};
 mod codec;
 
 /// Protobuf codec.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DagPbCodec;
 
 impl Codec for DagPbCodec {}

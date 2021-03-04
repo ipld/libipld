@@ -14,7 +14,7 @@ use std::io::{Read, Seek, Write};
 mod codec;
 
 /// Json codec.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DagJsonCodec;
 
 impl Codec for DagJsonCodec {}
