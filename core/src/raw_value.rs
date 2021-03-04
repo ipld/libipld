@@ -10,6 +10,7 @@ use std::convert::TryFrom;
 /// A raw value for a certain codec.
 ///
 /// Contains the raw, unprocessed data for a single item for that particular codec
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RawValue<C> {
     data: Box<[u8]>,
     _p: PhantomData<C>,
@@ -72,6 +73,7 @@ impl<C: Codec> Encode<C> for RawValue<C> {
 }
 
 /// Allows to ignore a single item
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct IgnoredAny;
 
 impl<C: Codec + SkipOne> Decode<C> for IgnoredAny {
