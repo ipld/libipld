@@ -851,11 +851,31 @@ mod tests {
 
     #[test]
     fn tuples() -> Result<()> {
+        let data = ();
+        let bytes = DagCborCodec.encode(&data)?;
+        let data2: () = DagCborCodec.decode(&bytes)?;
+        assert_eq!(data, data2);
+
+        let data = ("hello".to_string(),);
+        let bytes = DagCborCodec.encode(&data)?;
+        let data2: (String,) = DagCborCodec.decode(&bytes)?;
+        assert_eq!(data, data2);
+
         let data = ("hello".to_string(), "world".to_string());
         let bytes = DagCborCodec.encode(&data)?;
-        println!("{:x?}", bytes);
         let data2: (String, String) = DagCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
+
+        let data = ("hello".to_string(), "world".to_string(), 42);
+        let bytes = DagCborCodec.encode(&data)?;
+        let data2: (String, String, u32) = DagCborCodec.decode(&bytes)?;
+        assert_eq!(data, data2);
+
+        let data = ("hello".to_string(), "world".to_string(), 42, 64);
+        let bytes = DagCborCodec.encode(&data)?;
+        let data2: (String, String, u32, u8) = DagCborCodec.decode(&bytes)?;
+        assert_eq!(data, data2);
+
         Ok(())
     }
 }
