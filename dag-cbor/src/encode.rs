@@ -287,3 +287,50 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Arc<T> {
         self.deref().encode(c, w)
     }
 }
+
+impl Encode<DagCbor> for () {
+    fn encode<W: Write>(&self, _c: DagCbor, w: &mut W) -> Result<()> {
+        write_u8(w, 4, 0)?;
+        Ok(())
+    }
+}
+
+impl<A: Encode<DagCbor>> Encode<DagCbor> for (A,) {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        write_u8(w, 4, 1)?;
+        self.0.encode(c, w)?;
+        Ok(())
+    }
+}
+
+impl<A: Encode<DagCbor>, B: Encode<DagCbor>> Encode<DagCbor> for (A, B) {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        write_u8(w, 4, 2)?;
+        self.0.encode(c, w)?;
+        self.1.encode(c, w)?;
+        Ok(())
+    }
+}
+
+impl<A: Encode<DagCbor>, B: Encode<DagCbor>, C: Encode<DagCbor>> Encode<DagCbor> for (A, B, C) {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        write_u8(w, 4, 3)?;
+        self.0.encode(c, w)?;
+        self.1.encode(c, w)?;
+        self.2.encode(c, w)?;
+        Ok(())
+    }
+}
+
+impl<A: Encode<DagCbor>, B: Encode<DagCbor>, C: Encode<DagCbor>, D: Encode<DagCbor>> Encode<DagCbor>
+    for (A, B, C, D)
+{
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        write_u8(w, 4, 4)?;
+        self.0.encode(c, w)?;
+        self.1.encode(c, w)?;
+        self.2.encode(c, w)?;
+        self.3.encode(c, w)?;
+        Ok(())
+    }
+}
