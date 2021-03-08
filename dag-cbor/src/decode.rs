@@ -640,6 +640,78 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Arc<T> {
     }
 }
 
+impl Decode<DagCbor> for () {
+    fn decode<R: Read + Seek>(_c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x80 => (),
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl<A: Decode<DagCbor>> Decode<DagCbor> for (A,) {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x81 => (A::decode(c, r)?,),
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl<A: Decode<DagCbor>, B: Decode<DagCbor>> Decode<DagCbor> for (A, B) {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x82 => (A::decode(c, r)?, B::decode(c, r)?),
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>> Decode<DagCbor> for (A, B, C) {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x83 => (A::decode(c, r)?, B::decode(c, r)?, C::decode(c, r)?),
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
+    }
+}
+
+impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>, D: Decode<DagCbor>> Decode<DagCbor>
+    for (A, B, C, D)
+{
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        let major = read_u8(r)?;
+        let result = match major {
+            0x84 => (
+                A::decode(c, r)?,
+                B::decode(c, r)?,
+                C::decode(c, r)?,
+                D::decode(c, r)?,
+            ),
+            _ => {
+                return Err(UnexpectedCode::new::<Self>(major).into());
+            }
+        };
+        Ok(result)
+    }
+}
+
 impl SkipOne for DagCbor {
     fn skip<R: Read + Seek>(&self, r: &mut R) -> Result<()> {
         let major = read_u8(r)?;
@@ -775,5 +847,15 @@ mod tests {
         });
         let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
+    }
+
+    #[test]
+    fn tuples() -> Result<()> {
+        let data = ("hello".to_string(), "world".to_string());
+        let bytes = DagCborCodec.encode(&data)?;
+        println!("{:x?}", bytes);
+        let data2: (String, String) = DagCborCodec.decode(&bytes)?;
+        assert_eq!(data, data2);
+        Ok(())
     }
 }
