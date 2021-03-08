@@ -8,7 +8,7 @@ use std::io::{Read, Seek, Write};
 use std::iter::Extend;
 
 /// Raw codec.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RawCodec;
 
 impl Codec for RawCodec {}
