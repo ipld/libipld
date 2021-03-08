@@ -643,13 +643,13 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Arc<T> {
 impl Decode<DagCbor> for () {
     fn decode<R: Read + Seek>(_c: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
-        let result = match major {
-            0x80 => (),
+        match major {
+            0x80 => {}
             _ => {
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
         };
-        Ok(result)
+        Ok(())
     }
 }
 
@@ -853,8 +853,7 @@ mod tests {
     fn tuples() -> Result<()> {
         let data = ();
         let bytes = DagCborCodec.encode(&data)?;
-        let data2: () = DagCborCodec.decode(&bytes)?;
-        assert_eq!(data, data2);
+        let _data2: () = DagCborCodec.decode(&bytes)?;
 
         let data = ("hello".to_string(),);
         let bytes = DagCborCodec.encode(&data)?;
