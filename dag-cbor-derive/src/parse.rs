@@ -53,6 +53,7 @@ fn parse_union_repr(ast: &[syn::Attribute]) -> UnionRepr {
             "kinded" => UnionRepr::Kinded,
             "string" => UnionRepr::String,
             "int" => UnionRepr::Int,
+            "int-tuple" => UnionRepr::IntTuple,
             repr => panic!("unknown enum representation {}", repr),
         })
     }

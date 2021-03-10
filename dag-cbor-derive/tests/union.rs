@@ -63,3 +63,34 @@ fn union_kinded() {
         &ipld!({ "boolean": true }),
     );
 }
+
+#[derive(Clone, Copy, DagCbor, Debug, Eq, PartialEq)]
+#[ipld(repr = "int-tuple")]
+pub enum IntTuple {
+    A,
+    #[ipld(rename = "b")]
+    #[ipld(repr = "value")]
+    B(bool),
+    #[ipld(repr = "value")]
+    C {
+        n: u32,
+    },
+    D(bool),
+    E {
+        boolean: bool,
+    },
+}
+
+#[test]
+fn union_int_tuple() {
+    assert_roundtrip(DagCborCodec, &IntTuple::A, &ipld!([0, null]));
+    assert_roundtrip(DagCborCodec, &IntTuple::B(true), &ipld!([1, true]));
+    assert_roundtrip(DagCborCodec, &IntTuple::B(false), &ipld!([1, false]));
+    assert_roundtrip(DagCborCodec, &IntTuple::C { n: 1 }, &ipld!([2, 1]));
+    assert_roundtrip(DagCborCodec, &IntTuple::D(true), &ipld!([3, [true]]));
+    assert_roundtrip(
+        DagCborCodec,
+        &IntTuple::E { boolean: true },
+        &ipld!([4, { "boolean": true }]),
+    );
+}

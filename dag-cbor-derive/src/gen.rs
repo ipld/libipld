@@ -39,7 +39,7 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
             ) -> libipld::Result<Self> {
-                use libipld::cbor::decode::{read_len, read_u8};
+                use libipld::cbor::decode::{read_len, read_u8, read_u64};
                 use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
                 use libipld::codec::Decode;
                 use libipld::error::Result;
@@ -162,7 +162,8 @@ fn gen_encode_union(u: &Union) -> TokenStream {
     let arms = u
         .variants
         .iter()
-        .map(|s| {
+        .enumerate()
+        .map(|(i, s)| {
             let pat = &*s.pat;
             let key = rename(&syn::Member::Named(s.name.clone()), s.rename.as_ref());
             let value = gen_encode_struct_body(s);
@@ -186,6 +187,15 @@ fn gen_encode_union(u: &Union) -> TokenStream {
                 UnionRepr::Int => {
                     assert_eq!(s.repr, StructRepr::Null);
                     quote!()
+                }
+                UnionRepr::IntTuple => {
+                    quote! {
+                        #pat => {
+                            write_u64(w, 4, 2)?;
+                            write_u64(w, 0, #i as u64)?;
+                            #value
+                        }
+                    }
                 }
             }
         })
@@ -392,6 +402,23 @@ fn gen_decode_union(u: &Union) -> TokenStream {
                     _ => return Err(UnexpectedKey::new::<Self>(key.to_string()).into()),
                 };
                 Ok(res)
+            }
+        }
+        UnionRepr::IntTuple => {
+            let variants = u.variants.iter().enumerate().map(|(i, s)| {
+                let parse = gen_decode_struct(s);
+                quote!(#i => { #parse })
+            });
+            quote! {
+                let major = read_u8(r)?;
+                if major != 0x82 {
+                    return Err(UnexpectedCode::new::<Self>(major).into());
+                }
+                let ty = read_u8(r)? as usize;
+                match ty {
+                    #(#variants,)*
+                    _ => return Err(UnexpectedKey::new::<Self>(ty.to_string()).into()),
+                }
             }
         }
     }

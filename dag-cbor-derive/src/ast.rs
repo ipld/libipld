@@ -65,4 +65,5 @@ pub enum UnionRepr {
     Kinded,
     String,
     Int,
+    IntTuple,
 }
