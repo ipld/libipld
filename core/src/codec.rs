@@ -4,6 +4,7 @@ use crate::error::{Result, UnsupportedCodec};
 use crate::ipld::Ipld;
 use core::convert::TryFrom;
 use std::io::{Cursor, Read, Seek, Write};
+use std::ops::Deref;
 
 /// Codec trait.
 pub trait Codec:
@@ -41,6 +42,12 @@ pub trait Encode<C: Codec> {
     /// It takes a specific codec as parameter, so that the [`Encode`] can be generic over an enum
     /// that contains multiple codecs.
     fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<()>;
+}
+
+impl<C: Codec, T: Encode<C>> Encode<C> for &T {
+    fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<()> {
+        self.deref().encode(c, w)
+    }
 }
 
 /// Decode trait.
