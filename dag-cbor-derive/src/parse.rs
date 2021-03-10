@@ -67,25 +67,28 @@ fn parse_struct(v: &VariantInfo, generics: Option<syn::Generics>) -> Struct {
         .enumerate()
         .map(|(i, binding)| parse_field(i, binding))
         .collect();
-    fields.sort_by(|f1, f2| match (&f1.name, &f2.name) {
-        (syn::Member::Named(ident1), syn::Member::Named(ident2)) => {
-            ident1.to_string().cmp(&ident2.to_string())
-        }
-        (syn::Member::Unnamed(index1), syn::Member::Unnamed(index2)) => {
-            index1.index.cmp(&index2.index)
-        }
-        _ => unreachable!(),
+    let repr = repr.unwrap_or_else(|| match &v.ast().fields {
+        syn::Fields::Named(_) => StructRepr::Map,
+        syn::Fields::Unnamed(_) => StructRepr::Tuple,
+        syn::Fields::Unit => StructRepr::Null,
     });
+    if repr == StructRepr::Map {
+        fields.sort_by(|f1, f2| match (&f1.name, &f2.name) {
+            (syn::Member::Named(ident1), syn::Member::Named(ident2)) => {
+                ident1.to_string().cmp(&ident2.to_string())
+            }
+            (syn::Member::Unnamed(index1), syn::Member::Unnamed(index2)) => {
+                index1.index.cmp(&index2.index)
+            }
+            _ => unreachable!(),
+        });
+    }
     Struct {
         name: v.ast().ident.clone(),
         generics,
         rename: None,
         fields,
-        repr: repr.unwrap_or_else(|| match &v.ast().fields {
-            syn::Fields::Named(_) => StructRepr::Map,
-            syn::Fields::Unnamed(_) => StructRepr::Tuple,
-            syn::Fields::Unit => StructRepr::Null,
-        }),
+        repr,
         pat: TokenStreamEq(v.pat()),
         construct: TokenStreamEq(v.construct(|_, i| {
             let binding = &v.bindings()[i];
