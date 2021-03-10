@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-cbor-derive"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "libipld",
  "proc-macro2",
@@ -851,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "libipld-core"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "anyhow",
  "cid",
