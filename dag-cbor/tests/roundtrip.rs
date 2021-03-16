@@ -2,7 +2,7 @@ use libipld_cbor::DagCborCodec;
 use libipld_core::{
     cid::Cid,
     codec::References,
-    codec::{Codec, Decode},
+    codec::{assert_roundtrip, Codec, Decode},
     ipld::Ipld,
     raw_value::{IgnoredAny, RawValue, SkipOne},
 };
@@ -115,4 +115,10 @@ fn indefinite_length_refs() {
     );
     assert_eq!(refs.len(), 1);
     assert_eq!(r.position(), 48);
+}
+
+#[test]
+#[should_panic]
+fn test_assert_roundtrip() {
+    assert_roundtrip(DagCborCodec, &1u64, &Ipld::Integer(2));
 }

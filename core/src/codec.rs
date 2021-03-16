@@ -83,11 +83,22 @@ where
     T: Decode<C> + Encode<C> + std::fmt::Debug + PartialEq,
     Ipld: Decode<C> + Encode<C>,
 {
+    fn hex(bytes: &[u8]) -> String {
+        bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
+    }
     let mut bytes = Vec::new();
     data.encode(c, &mut bytes).unwrap();
     let mut bytes2 = Vec::new();
     ipld.encode(c, &mut bytes2).unwrap();
-    assert_eq!(bytes, bytes2);
+    if bytes != bytes2 {
+        panic!(
+            r#"assertion failed: `(left == right)`
+        left: `{}`,
+       right: `{}`"#,
+            hex(&bytes),
+            hex(&bytes2)
+        );
+    }
     let ipld2: Ipld = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
     assert_eq!(&ipld2, ipld);
     let data2: T = Decode::decode(c, &mut Cursor::new(bytes.as_slice())).unwrap();
