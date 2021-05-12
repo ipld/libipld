@@ -10,7 +10,6 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::ops::Deref;
 use std::sync::Arc;
-use unicode_normalization::{is_nfc_quick, IsNormalized, UnicodeNormalization};
 
 /// Writes a null byte to a cbor encoded byte stream.
 pub fn write_null<W: Write>(w: &mut W) -> Result<()> {
@@ -178,14 +177,8 @@ impl Encode<DagCbor> for Box<[u8]> {
 
 impl Encode<DagCbor> for str {
     fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        if is_nfc_quick(self.chars()) == IsNormalized::Yes {
-            write_u64(w, 3, self.len() as u64)?;
-            w.write_all(self.as_bytes())?;
-        } else {
-            let s = self.nfc().to_string();
-            write_u64(w, 3, s.len() as u64)?;
-            w.write_all(s.as_bytes())?;
-        }
+        write_u64(w, 3, self.len() as u64)?;
+        w.write_all(self.as_bytes())?;
         Ok(())
     }
 }
