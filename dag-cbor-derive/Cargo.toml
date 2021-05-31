@@ -1,6 +1,6 @@
 [package]
 name = "libipld-cbor-derive"
-version = "0.11.1"
+version = "0.12.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -11,11 +11,11 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.24"
-quote = "1.0.8"
-syn = "1.0.60"
+proc-macro2 = "1.0.27"
+quote = "1.0.9"
+syn = "1.0.72"
 synstructure = "0.12.4"
 
 [dev-dependencies]
 libipld = { path = ".." }
-trybuild = "1.0.40"
+trybuild = "1.0.42"

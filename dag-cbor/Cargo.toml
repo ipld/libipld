@@ -1,6 +1,6 @@
 [package]
 name = "libipld-cbor"
-version = "0.11.4"
+version = "0.12.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -11,11 +11,11 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 unleashed = ["libipld-core/unleashed"]
 
 [dependencies]
-byteorder = "1.4.2"
-libipld-core = { version = "0.11.0", path = "../core" }
-thiserror = "1.0.23"
+byteorder = "1.4.3"
+libipld-core = { version = "0.12.0", path = "../core" }
+thiserror = "1.0.25"
 
 [dev-dependencies]
-hex = "0.4.2"
+hex = "0.4.3"
 libipld-macro = { path = "../macro" }
-multihash = "0.13.2"
+multihash = "0.14.0"
