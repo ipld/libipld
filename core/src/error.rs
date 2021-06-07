@@ -26,7 +26,7 @@ pub struct InvalidMultihash(pub Vec<u8>);
 
 /// The block wasn't found. The supplied string is a CID.
 #[derive(Clone, Copy, Debug, Error)]
-#[error("Failed to retrive block {0}.")]
+#[error("Failed to retrieve block {0}.")]
 pub struct BlockNotFound(pub Cid);
 
 /// Type error.
