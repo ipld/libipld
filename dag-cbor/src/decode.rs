@@ -797,8 +797,25 @@ impl SkipOne for DagCbor {
             },
 
             // Major type 6: optional semantic tagging of other major types
+            0xc0..=0xd7 => {
+                // let _tag = major - 0xc0;
+                self.skip(r)?;
+            }
             0xd8 => {
-                let _tag = read_u8(r)?;
+                r.seek(SeekFrom::Current(1))?;
+                self.skip(r)?;
+            }
+
+            0xd9 => {
+                r.seek(SeekFrom::Current(2))?;
+                self.skip(r)?;
+            }
+            0xda => {
+                r.seek(SeekFrom::Current(4))?;
+                self.skip(r)?;
+            }
+            0xdb => {
+                r.seek(SeekFrom::Current(8))?;
                 self.skip(r)?;
             }
 
