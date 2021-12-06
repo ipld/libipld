@@ -61,7 +61,7 @@ fn parse_union_repr(ast: &[syn::Attribute]) -> UnionRepr {
 }
 
 fn parse_struct(v: &VariantInfo, generics: Option<syn::Generics>) -> Struct {
-    let repr = parse_struct_repr(&v.ast().attrs);
+    let repr = parse_struct_repr(v.ast().attrs);
     let mut fields: Vec<_> = v
         .bindings()
         .iter()
@@ -108,7 +108,7 @@ fn parse_union(s: &Structure) -> Union {
             .iter()
             .map(|v| {
                 let mut s = parse_struct(v, None);
-                for attr in parse_attrs::<FieldAttr>(&v.ast().attrs) {
+                for attr in parse_attrs::<FieldAttr>(v.ast().attrs) {
                     if let FieldAttr::Rename(attr) = attr {
                         s.rename = Some(attr.value.value());
                     }
