@@ -161,10 +161,17 @@ impl Encode<DagCbor> for f64 {
     }
 }
 
-impl Encode<DagCbor> for [u8] {
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        write_u64(w, 2, self.len() as u64)?;
-        w.write_all(self)?;
+impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for [T] {
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        if let Ok(buf) = castaway::cast!(self, &[u8]) {
+            write_u64(w, 2, buf.len() as u64)?;
+            w.write_all(buf)?;
+        } else {
+            write_u64(w, 4, self.len() as u64)?;
+            for value in self {
+                value.encode(c, w)?;
+            }
+        }
         Ok(())
     }
 }
@@ -231,13 +238,9 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Option<T> {
     }
 }
 
-impl<T: Encode<DagCbor>> Encode<DagCbor> for Vec<T> {
+impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for Vec<T> {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
-        write_u64(w, 4, self.len() as u64)?;
-        for value in self {
-            value.encode(c, w)?;
-        }
-        Ok(())
+        self[..].encode(c, w)
     }
 }
 

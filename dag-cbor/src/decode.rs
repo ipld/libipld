@@ -364,19 +364,9 @@ impl Decode<DagCbor> for Cid {
     }
 }
 
-impl Decode<DagCbor> for Box<[u8]> {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                read_bytes(r, len)?.into_boxed_slice()
-            }
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+impl<T: Decode<DagCbor> + 'static> Decode<DagCbor> for Box<[T]> {
+    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+        Ok(Vec::decode(c, r)?.into_boxed_slice())
     }
 }
 
@@ -395,10 +385,15 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
     }
 }
 
-impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
+impl<T: Decode<DagCbor> + 'static> Decode<DagCbor> for Vec<T> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
+            0x40..=0x5b => {
+                let len = read_len(r, major - 0x40)?;
+                castaway::cast!(read_bytes(r, len)?, Self)
+                    .map_err(|_| UnexpectedCode::new::<Self>(major))?
+            }
             0x80..=0x9b => {
                 let len = read_len(r, major - 0x80)?;
                 read_list(r, len)?
