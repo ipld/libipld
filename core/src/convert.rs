@@ -23,14 +23,16 @@ macro_rules! derive_to_ipld {
     };
 }
 
-macro_rules! derive_to_ipld_generic {
-   ($enum:ident, $ty:ty, $($fn:ident),*) => {
-       impl From<$ty> for Ipld {
-           fn from(t: $ty) -> Self {
-               Ipld::$enum(t$(.$fn())*)
-           }
-       }
-   };
+impl<const S: usize> From<[u8; S]> for Ipld {
+    fn from(t: [u8; S]) -> Self {
+        Ipld::Bytes(Vec::from(&t[..]))
+    }
+}
+
+impl<const S: usize> From<&[u8; S]> for Ipld {
+    fn from(t: &[u8; S]) -> Self {
+        Ipld::Bytes(Vec::from(&t[..]))
+    }
 }
 
 derive_to_ipld!(Bool, bool, clone);
@@ -56,5 +58,5 @@ derive_to_ipld!(List, Vec<Ipld>, into);
 derive_to_ipld!(StringMap, BTreeMap<String, Ipld>, to_owned);
 #[cfg(feature = "unleashed")]
 derive_to_ipld!(IntegerMap, BTreeMap<i64, Ipld>, to_owned);
-derive_to_ipld_generic!(Link, Cid, clone);
-derive_to_ipld_generic!(Link, &Cid, to_owned);
+derive_to_ipld!(Link, Cid, clone);
+derive_to_ipld!(Link, &Cid, to_owned);

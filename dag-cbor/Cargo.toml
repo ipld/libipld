@@ -12,7 +12,7 @@ unleashed = ["libipld-core/unleashed"]
 
 [dependencies]
 byteorder = "1.4.3"
-castaway = "0.1.1"
+castaway = "0.1.2"
 libipld-core = { version = "0.12.0", path = "../core" }
 thiserror = "1.0.25"
 

@@ -44,7 +44,7 @@ fn main() {
             "integer": 0,
             "float": 0.0,
             "string": "",
-            "bytes": [],
+            "bytes": b"",
             "list": [],
             "map": {},
         }),

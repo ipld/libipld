@@ -57,6 +57,3 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
-
-[patch.crates-io]
-castaway = { git = "https://github.com/Stebalien/castaway" }
