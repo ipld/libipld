@@ -1,5 +1,5 @@
 //! CBOR decoder
-use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnknownTag};
+use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag};
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
@@ -55,8 +55,12 @@ pub fn read_f64<R: Read + Seek>(r: &mut R) -> Result<f64> {
 
 /// Reads `len` number of bytes from a byte stream.
 pub fn read_bytes<R: Read + Seek>(r: &mut R, len: usize) -> Result<Vec<u8>> {
-    let mut buf = vec![0; len];
-    r.read_exact(&mut buf)?;
+    // Limit up-front allocations to 16KiB as the length is user controlled.
+    let mut buf = Vec::with_capacity(len.min(16 * 1024));
+    r.take(len as u64).read_to_end(&mut buf)?;
+    if buf.len() != len {
+        return Err(UnexpectedEof.into());
+    }
     Ok(buf)
 }
 
@@ -68,7 +72,12 @@ pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> Result<Vec<T>> {
-    let mut list: Vec<T> = Vec::with_capacity(len);
+    // Limit up-front allocations to 16KiB as the length is user controlled.
+    //
+    // Can't make this "const" because the generic, but it _should_ be known at compile time.
+    let max_alloc = (16 * 1024) / std::mem::size_of::<T>();
+
+    let mut list: Vec<T> = Vec::with_capacity(len.min(max_alloc));
     for _ in 0..len {
         list.push(T::decode(DagCbor, r)?);
     }
@@ -842,7 +851,7 @@ impl SkipOne for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DagCborCodec;
+    use crate::{error::UnexpectedEof, DagCborCodec};
     use libipld_core::codec::Codec;
     use libipld_macro::ipld;
 
@@ -864,6 +873,20 @@ mod tests {
         });
         let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
+    }
+
+    #[test]
+    fn bad_list() {
+        let bytes = [
+            0x5b, // Byte string with an 8 byte length
+            0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // very long
+            0x01, // but only one byte.
+        ];
+        DagCborCodec
+            .decode::<Ipld>(&bytes)
+            .expect_err("decoding large truncated buffer should have failed")
+            .downcast::<UnexpectedEof>()
+            .expect("expected an unexpected eof");
     }
 
     #[test]
