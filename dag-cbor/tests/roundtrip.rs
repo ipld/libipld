@@ -1,12 +1,10 @@
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
-    cid::Cid,
-    codec::References,
     codec::{assert_roundtrip, Codec, Decode},
     ipld::Ipld,
     raw_value::{IgnoredAny, RawValue, SkipOne},
 };
-use std::{io::Cursor, result, str::FromStr};
+use std::{io::Cursor, result};
 
 #[test]
 fn roundtrip_with_cid() {
@@ -91,30 +89,6 @@ fn raw_value() {
     assert_eq!(raw.as_ref(), &hex::decode("a163666f6fd82a5800").unwrap());
     let r: result::Result<RawValue<DagCborCodec>, _> = Decode::decode(DagCborCodec, &mut r);
     assert!(r.is_err());
-}
-
-#[test]
-fn indefinite_length_skip() {
-    let data = hex::decode("9fa163666f6fd82a58250001711220f3bffba2b0bbc80a1c4ba39c789bb8e1eef08dc2792e4beb0fbaff1369b7a035ff").unwrap();
-    let mut r = Cursor::new(&data);
-    assert!(IgnoredAny::decode(DagCborCodec, &mut r).is_ok());
-    assert_eq!(r.position(), 48);
-}
-
-#[test]
-fn indefinite_length_refs() {
-    let data = hex::decode("9fa163666f6fd82a58250001711220f3bffba2b0bbc80a1c4ba39c789bb8e1eef08dc2792e4beb0fbaff1369b7a035ff").unwrap();
-    let mut refs = Vec::new();
-    let mut r = Cursor::new(&data);
-    assert!(
-        <Ipld as References<DagCborCodec>>::references(DagCborCodec, &mut r, &mut refs).is_ok()
-    );
-    assert_eq!(
-        refs[0],
-        Cid::from_str("bafyreihtx752fmf3zafbys5dtr4jxohb53yi3qtzfzf6wd5274jwtn5agu").unwrap()
-    );
-    assert_eq!(refs.len(), 1);
-    assert_eq!(r.position(), 48);
 }
 
 #[test]
