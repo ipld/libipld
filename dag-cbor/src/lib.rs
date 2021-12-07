@@ -72,4 +72,15 @@ mod tests {
             .unwrap();
         assert!(set.contains(&cid));
     }
+
+    #[test]
+    fn byte_byte_str() {
+        let bytes = [
+            0x43, // length 3 byte string
+            0x01, 0x02, 0x03,
+        ];
+        let value = vec![1u8, 2, 3];
+        assert_eq!(DagCborCodec.encode(&value).unwrap(), &bytes[..]);
+        assert_eq!(value, DagCborCodec.decode::<Vec<u8>>(&bytes).unwrap());
+    }
 }
