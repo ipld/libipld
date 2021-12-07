@@ -110,3 +110,20 @@ pub struct UnexpectedEof;
 #[derive(Debug, Error)]
 #[error("Invalid Cid prefix: {0}")]
 pub struct InvalidCidPrefix(pub u8);
+
+/// DagCbor does not support indefinit length items (lists & maps).
+#[derive(Debug, Error)]
+#[error("Illegal cbor indefinite length item when decoding `{ty}`.")]
+pub struct IndefiniteLengthItem {
+    /// Type.
+    pub ty: &'static str,
+}
+
+impl IndefiniteLengthItem {
+    /// Creates a new `UnexpectedCode` error.
+    pub fn new<T>() -> Self {
+        Self {
+            ty: type_name::<T>(),
+        }
+    }
+}
