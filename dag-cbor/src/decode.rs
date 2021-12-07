@@ -1,5 +1,8 @@
 //! CBOR decoder
-use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag};
+use crate::error::{
+    IndefiniteLengthItem, InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof,
+    UnknownTag,
+};
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
@@ -84,21 +87,6 @@ pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> R
     Ok(list)
 }
 
-/// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R) -> Result<Vec<T>> {
-    let mut list: Vec<T> = Vec::new();
-    loop {
-        let major = read_u8(r)?;
-        if major == 0xff {
-            break;
-        }
-        r.seek(SeekFrom::Current(-1))?;
-        let value = T::decode(DagCbor, r)?;
-        list.push(value);
-    }
-    Ok(list)
-}
-
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
     r: &mut R,
@@ -106,24 +94,6 @@ pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = K::decode(DagCbor, r)?;
-        let value = T::decode(DagCbor, r)?;
-        map.insert(key, value);
-    }
-    Ok(map)
-}
-
-/// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
-    r: &mut R,
-) -> Result<BTreeMap<K, T>> {
-    let mut map: BTreeMap<K, T> = BTreeMap::new();
-    loop {
-        let major = read_u8(r)?;
-        if major == 0xff {
-            break;
-        }
-        r.seek(SeekFrom::Current(-1))?;
         let key = K::decode(DagCbor, r)?;
         let value = T::decode(DagCbor, r)?;
         map.insert(key, value);
@@ -385,7 +355,6 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
         let major = read_u8(r)?;
         let result = match major {
             0xf6 => None,
-            0xf7 => None,
             _ => {
                 r.seek(SeekFrom::Current(-1))?;
                 Some(T::decode(c, r)?)
@@ -403,7 +372,6 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
                 let len = read_len(r, major - 0x80)?;
                 read_list(r, len)?
             }
-            0x9f => read_list_il(r)?,
             _ => {
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
@@ -420,7 +388,6 @@ impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<
                 let len = read_len(r, major - 0xa0)?;
                 read_map(r, len)?
             }
-            0xbf => read_map_il(r)?,
             _ => {
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
@@ -468,12 +435,6 @@ impl Decode<DagCbor> for Ipld {
                 Self::List(list)
             }
 
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => {
-                let list = read_list_il(r)?;
-                Self::List(list)
-            }
-
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -486,17 +447,6 @@ impl Decode<DagCbor> for Ipld {
                     r.seek(SeekFrom::Start(pos))?;
                 }
                 Self::StringMap(read_map(r, len as usize)?)
-            }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => {
-                let pos = r.seek(SeekFrom::Current(0))?;
-                #[cfg(feature = "unleashed")]
-                if let Ok(map) = read_map_il(r) {
-                    return Ok(Self::IntegerMap(map));
-                }
-                r.seek(SeekFrom::Start(pos))?;
-                Self::StringMap(read_map_il(r)?)
             }
 
             // Major type 6: optional semantic tagging of other major types
@@ -516,9 +466,9 @@ impl Decode<DagCbor> for Ipld {
             0xf4 => Self::Bool(false),
             0xf5 => Self::Bool(true),
             0xf6 => Self::Null,
-            0xf7 => Self::Null,
             0xfa => Self::Float(read_f32(r)? as f64),
             0xfb => Self::Float(read_f64(r)?),
+            0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
             _ => return Err(UnexpectedCode::new::<Self>(major).into()),
         };
         Ok(ipld)
@@ -583,16 +533,6 @@ impl References<DagCbor> for Ipld {
                 }
             }
 
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-            },
-
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -601,17 +541,6 @@ impl References<DagCbor> for Ipld {
                     <Self as References<DagCbor>>::references(c, r, set)?;
                 }
             }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-            },
 
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {
@@ -637,6 +566,7 @@ impl References<DagCbor> for Ipld {
             0xfb => {
                 r.seek(SeekFrom::Current(8))?;
             }
+            0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
             major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
         };
         Ok(())
@@ -775,16 +705,6 @@ impl SkipOne for DagCbor {
                 }
             }
 
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                self.skip(r)?;
-            },
-
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -793,17 +713,6 @@ impl SkipOne for DagCbor {
                     self.skip(r)?;
                 }
             }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                self.skip(r)?;
-                self.skip(r)?;
-            },
 
             // Major type 6: optional semantic tagging of other major types
             0xc0..=0xd7 => {
@@ -853,7 +762,6 @@ mod tests {
     use super::*;
     use crate::{error::UnexpectedEof, DagCborCodec};
     use libipld_core::codec::Codec;
-    use libipld_macro::ipld;
 
     #[test]
     fn il_map() {
@@ -867,12 +775,9 @@ mod tests {
             0x21, // Second value, -2
             0xFF, // "break"
         ];
-        let ipld = ipld!({
-            "Fun": true,
-            "Amt": -2,
-        });
-        let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
-        assert_eq!(ipld, ipld2);
+        DagCborCodec
+            .decode::<Ipld>(&bytes)
+            .expect_err("should have failed to decode indefinit length map");
     }
 
     #[test]
