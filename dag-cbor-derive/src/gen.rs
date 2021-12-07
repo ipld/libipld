@@ -4,8 +4,8 @@ use quote::quote;
 
 pub fn gen_encode(ast: &SchemaType) -> TokenStream {
     let (ident, generics, body) = match ast {
-        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_encode_struct(&s)),
-        SchemaType::Union(u) => (&u.name, &u.generics, gen_encode_union(&u)),
+        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_encode_struct(s)),
+        SchemaType::Union(u) => (&u.name, &u.generics, gen_encode_union(u)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let trait_name = quote!(libipld::codec::Encode<libipld::cbor::DagCborCodec>);
@@ -27,8 +27,8 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
 
 pub fn gen_decode(ast: &SchemaType) -> TokenStream {
     let (ident, generics, body) = match ast {
-        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_decode_struct(&s)),
-        SchemaType::Union(u) => (&u.name, &u.generics, gen_decode_union(&u)),
+        SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_decode_struct(s)),
+        SchemaType::Union(u) => (&u.name, &u.generics, gen_decode_union(u)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let trait_name = quote!(libipld::codec::Decode<libipld::cbor::DagCborCodec>);

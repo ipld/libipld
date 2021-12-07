@@ -194,10 +194,10 @@ impl<S: StoreParams> LocalStore<S> {
             }
             n -= 1;
             remove.push(*atime);
-            self.cid.remove(&id);
-            self.data.remove(&id);
-            self.refs.remove(&id);
-            self.atime.remove(&id);
+            self.cid.remove(id);
+            self.data.remove(id);
+            self.refs.remove(id);
+            self.atime.remove(id);
         }
         for atime in remove {
             self.sorted.remove(&atime);
