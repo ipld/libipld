@@ -477,98 +477,107 @@ impl Decode<DagCbor> for Ipld {
 
 impl References<DagCbor> for Ipld {
     fn references<R: Read + Seek, E: Extend<Cid>>(
-        c: DagCbor,
+        _: DagCbor,
         r: &mut R,
         set: &mut E,
     ) -> Result<()> {
-        let major = read_u8(r)?;
-        match major {
-            // Major type 0: an unsigned integer
-            0x00..=0x17 => {}
-            0x18 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x19 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x1a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x1b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 1: a negative integer
-            0x20..=0x37 => {}
-            0x38 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x39 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x3a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x3b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 2: a byte string
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 3: a text string
-            0x60..=0x7b => {
-                let len = read_len(r, major - 0x60)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 4: an array of data items
-            0x80..=0x9b => {
-                let len = read_len(r, major - 0x80)?;
-                for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+        let mut remaining: usize = 1;
+        while remaining > 0 {
+            let major = read_u8(r)?;
+            match major {
+                // Major type 0: an unsigned integer
+                0x00..=0x17 => {}
+                0x18 => {
+                    r.seek(SeekFrom::Current(1))?;
                 }
-            }
-
-            // Major type 5: a map of pairs of data items
-            0xa0..=0xbb => {
-                let len = read_len(r, major - 0xa0)?;
-                for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                0x19 => {
+                    r.seek(SeekFrom::Current(2))?;
                 }
-            }
-
-            // Major type 6: optional semantic tagging of other major types
-            0xd8 => {
-                let tag = read_u8(r)?;
-                if tag == 42 {
-                    set.extend(std::iter::once(read_link(r)?));
-                } else {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                0x1a => {
+                    r.seek(SeekFrom::Current(4))?;
                 }
-            }
+                0x1b => {
+                    r.seek(SeekFrom::Current(8))?;
+                }
 
-            // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4..=0xf7 => {}
-            0xf8 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0xf9 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0xfa => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0xfb => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-            0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
-            major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
-        };
+                // Major type 1: a negative integer
+                0x20..=0x37 => {}
+                0x38 => {
+                    r.seek(SeekFrom::Current(1))?;
+                }
+                0x39 => {
+                    r.seek(SeekFrom::Current(2))?;
+                }
+                0x3a => {
+                    r.seek(SeekFrom::Current(4))?;
+                }
+                0x3b => {
+                    r.seek(SeekFrom::Current(8))?;
+                }
+
+                // Major type 2: a byte string
+                0x40..=0x5b => {
+                    let len = read_len(r, major - 0x40)?;
+                    r.seek(SeekFrom::Current(len as _))?;
+                }
+
+                // Major type 3: a text string
+                0x60..=0x7b => {
+                    let len = read_len(r, major - 0x60)?;
+                    r.seek(SeekFrom::Current(len as _))?;
+                }
+
+                // Major type 4: an array of data items
+                0x80..=0x9b => {
+                    let len = read_len(r, major - 0x80)?;
+                    remaining = remaining
+                        .checked_add(len)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+
+                // Major type 5: a map of pairs of data items
+                0xa0..=0xbb => {
+                    let len = read_len(r, major - 0xa0)?;
+                    // TODO: consider using a checked "monad" type to simplify.
+                    let items = len
+                        .checked_mul(2)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                    remaining = remaining
+                        .checked_add(items)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+
+                // Major type 6: optional semantic tagging of other major types
+                0xd8 => {
+                    let tag = read_u8(r)?;
+                    if tag == 42 {
+                        set.extend(std::iter::once(read_link(r)?));
+                    } else {
+                        remaining = remaining
+                            .checked_add(1)
+                            .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                    }
+                }
+
+                // Major type 7: floating-point numbers and other simple data types that need no content
+                0xf4..=0xf7 => {}
+                0xf8 => {
+                    r.seek(SeekFrom::Current(1))?;
+                }
+                0xf9 => {
+                    r.seek(SeekFrom::Current(2))?;
+                }
+                0xfa => {
+                    r.seek(SeekFrom::Current(4))?;
+                }
+                0xfb => {
+                    r.seek(SeekFrom::Current(8))?;
+                }
+                0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
+                major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
+            };
+            remaining -= 1;
+        }
         Ok(())
     }
 }
