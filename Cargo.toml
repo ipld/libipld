@@ -5,7 +5,7 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "library for dealing with ipld"
-repository = "https://github.com/ipfs-rust/rust-ipld"
+repository = "https://github.com/ipld/libipld"
 
 [dependencies]
 async-trait = "0.1.50"
