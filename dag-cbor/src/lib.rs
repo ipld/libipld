@@ -39,6 +39,7 @@ impl<T: Encode<DagCborCodec> + Decode<DagCborCodec>> DagCbor for T {}
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
+    use libipld_core::codec::assert_roundtrip;
     use libipld_core::ipld::Ipld;
     use libipld_core::multihash::{Code, MultihashDigest};
     use libipld_macro::ipld;
@@ -71,5 +72,29 @@ mod tests {
             .references::<Ipld, _>(&bytes, &mut set)
             .unwrap();
         assert!(set.contains(&cid));
+    }
+
+    #[test]
+    fn test_encode_max() {
+        assert_roundtrip(DagCborCodec, &i8::MAX, &Ipld::Integer(i8::MAX as i128));
+        assert_roundtrip(DagCborCodec, &i16::MAX, &Ipld::Integer(i16::MAX as i128));
+        assert_roundtrip(DagCborCodec, &i32::MAX, &Ipld::Integer(i32::MAX as i128));
+        assert_roundtrip(DagCborCodec, &i64::MAX, &Ipld::Integer(i64::MAX as i128));
+        assert_roundtrip(DagCborCodec, &u8::MAX, &Ipld::Integer(u8::MAX as i128));
+        assert_roundtrip(DagCborCodec, &u16::MAX, &Ipld::Integer(u16::MAX as i128));
+        assert_roundtrip(DagCborCodec, &u32::MAX, &Ipld::Integer(u32::MAX as i128));
+        assert_roundtrip(DagCborCodec, &u64::MAX, &Ipld::Integer(u64::MAX as i128));
+    }
+
+    #[test]
+    fn test_encode_min() {
+        assert_roundtrip(DagCborCodec, &i8::MIN, &Ipld::Integer(i8::MIN as i128));
+        assert_roundtrip(DagCborCodec, &i16::MIN, &Ipld::Integer(i16::MIN as i128));
+        assert_roundtrip(DagCborCodec, &i32::MIN, &Ipld::Integer(i32::MIN as i128));
+        assert_roundtrip(DagCborCodec, &i64::MIN, &Ipld::Integer(i64::MIN as i128));
+        assert_roundtrip(DagCborCodec, &u8::MIN, &Ipld::Integer(u8::MIN as i128));
+        assert_roundtrip(DagCborCodec, &u16::MIN, &Ipld::Integer(u16::MIN as i128));
+        assert_roundtrip(DagCborCodec, &u32::MIN, &Ipld::Integer(u32::MIN as i128));
+        assert_roundtrip(DagCborCodec, &u64::MIN, &Ipld::Integer(u64::MIN as i128));
     }
 }
