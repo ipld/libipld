@@ -103,60 +103,61 @@ impl Encode<DagCbor> for u64 {
 }
 
 impl Encode<DagCbor> for i8 {
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        write_u8(w, 1, -(*self + 1) as u8)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        if self.is_negative() {
+            write_u8(w, 1, -(*self + 1) as u8)
+        } else {
+            (*self as u8).encode(c, w)
+        }
     }
 }
 
 impl Encode<DagCbor> for i16 {
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        write_u16(w, 1, -(*self + 1) as u16)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        if self.is_negative() {
+            write_u16(w, 1, -(*self + 1) as u16)
+        } else {
+            (*self as u16).encode(c, w)
+        }
     }
 }
 
 impl Encode<DagCbor> for i32 {
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        write_u32(w, 1, -(*self + 1) as u32)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        if self.is_negative() {
+            write_u32(w, 1, -(*self + 1) as u32)
+        } else {
+            (*self as u32).encode(c, w)
+        }
     }
 }
 
 impl Encode<DagCbor> for i64 {
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        write_u64(w, 1, -(*self + 1) as u64)
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        if self.is_negative() {
+            write_u64(w, 1, -(*self + 1) as u64)
+        } else {
+            (*self as u64).encode(c, w)
+        }
     }
 }
 
 impl Encode<DagCbor> for f32 {
-    #[allow(clippy::float_cmp)]
-    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
-        if self.is_infinite() {
-            if self.is_sign_positive() {
-                w.write_all(&[0xf9, 0x7c, 0x00])?;
-            } else {
-                w.write_all(&[0xf9, 0xfc, 0x00])?;
-            }
-        } else if self.is_nan() {
-            w.write_all(&[0xf9, 0x7e, 0x00])?;
-        } else {
-            let mut buf = [0xfa, 0, 0, 0, 0];
-            BigEndian::write_f32(&mut buf[1..], *self);
-            w.write_all(&buf)?;
-        }
-        Ok(())
+    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+        // IPLD maximally encodes floats.
+        f64::from(*self).encode(c, w)
     }
 }
 
 impl Encode<DagCbor> for f64 {
-    #[allow(clippy::float_cmp)]
-    fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
-        if !self.is_finite() || f64::from(*self as f32) == *self {
-            let value = *self as f32;
-            value.encode(c, w)?;
-        } else {
-            let mut buf = [0xfb, 0, 0, 0, 0, 0, 0, 0, 0];
-            BigEndian::write_f64(&mut buf[1..], *self);
-            w.write_all(&buf)?;
+    fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
+        // IPLD forbids nan, infinities, etc.
+        if !self.is_finite() {
+            return Err(NumberOutOfRange::new::<f64>().into());
         }
+        let mut buf = [0xfb, 0, 0, 0, 0, 0, 0, 0, 0];
+        BigEndian::write_f64(&mut buf[1..], *self);
+        w.write_all(&buf)?;
         Ok(())
     }
 }
