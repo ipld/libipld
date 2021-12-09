@@ -47,22 +47,20 @@ impl Arbitrary for ValueArb {
                     .map(Value::Array)
                     .map(Self),
             ),
-            Value::Map(m) => {
-                let vec: Vec<(_, _)> = m.clone().into_iter().collect();
-                Box::new(
-                    vec.into_iter()
-                        .map(|(v0, v1)| {
-                            let iter2 = Self(v1.clone());
-                            Self(v0.clone())
-                                .shrink()
-                                .map(move |n| (n.0, v1.clone()))
-                                .chain(iter2.shrink().map(move |n| (v0.clone(), n.0)))
-                        })
-                        .map(|v| v.into_iter().collect::<BTreeMap<_, _>>())
-                        .map(Value::Map)
-                        .map(Self),
-                )
-            }
+            Value::Map(m) => Box::new(
+                m.clone()
+                    .into_iter()
+                    .map(|(v0, v1)| {
+                        let iter2 = Self(v1.clone());
+                        Self(v0.clone())
+                            .shrink()
+                            .map(move |n| (n.0, v1.clone()))
+                            .chain(iter2.shrink().map(move |n| (v0.clone(), n.0)))
+                            .collect()
+                    })
+                    .map(Value::Map)
+                    .map(Self),
+            ),
 
             Value::Tag(t, v) => {
                 let v = v.clone();

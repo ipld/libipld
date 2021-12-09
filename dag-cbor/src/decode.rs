@@ -1,5 +1,8 @@
 //! CBOR decoder
-use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnknownTag};
+use crate::error::{
+    IndefiniteLengthItem, InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof,
+    UnknownTag,
+};
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
@@ -55,8 +58,12 @@ pub fn read_f64<R: Read + Seek>(r: &mut R) -> Result<f64> {
 
 /// Reads `len` number of bytes from a byte stream.
 pub fn read_bytes<R: Read + Seek>(r: &mut R, len: usize) -> Result<Vec<u8>> {
-    let mut buf = vec![0; len];
-    r.read_exact(&mut buf)?;
+    // Limit up-front allocations to 16KiB as the length is user controlled.
+    let mut buf = Vec::with_capacity(len.min(16 * 1024));
+    r.take(len as u64).read_to_end(&mut buf)?;
+    if buf.len() != len {
+        return Err(UnexpectedEof.into());
+    }
     Ok(buf)
 }
 
@@ -68,24 +75,14 @@ pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> Result<Vec<T>> {
-    let mut list: Vec<T> = Vec::with_capacity(len);
+    // Limit up-front allocations to 16KiB as the length is user controlled.
+    //
+    // Can't make this "const" because the generic, but it _should_ be known at compile time.
+    let max_alloc = (16 * 1024) / std::mem::size_of::<T>();
+
+    let mut list: Vec<T> = Vec::with_capacity(len.min(max_alloc));
     for _ in 0..len {
         list.push(T::decode(DagCbor, r)?);
-    }
-    Ok(list)
-}
-
-/// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R) -> Result<Vec<T>> {
-    let mut list: Vec<T> = Vec::new();
-    loop {
-        let major = read_u8(r)?;
-        if major == 0xff {
-            break;
-        }
-        r.seek(SeekFrom::Current(-1))?;
-        let value = T::decode(DagCbor, r)?;
-        list.push(value);
     }
     Ok(list)
 }
@@ -97,24 +94,6 @@ pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = K::decode(DagCbor, r)?;
-        let value = T::decode(DagCbor, r)?;
-        map.insert(key, value);
-    }
-    Ok(map)
-}
-
-/// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
-    r: &mut R,
-) -> Result<BTreeMap<K, T>> {
-    let mut map: BTreeMap<K, T> = BTreeMap::new();
-    loop {
-        let major = read_u8(r)?;
-        if major == 0xff {
-            break;
-        }
-        r.seek(SeekFrom::Current(-1))?;
         let key = K::decode(DagCbor, r)?;
         let value = T::decode(DagCbor, r)?;
         map.insert(key, value);
@@ -376,7 +355,6 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
         let major = read_u8(r)?;
         let result = match major {
             0xf6 => None,
-            0xf7 => None,
             _ => {
                 r.seek(SeekFrom::Current(-1))?;
                 Some(T::decode(c, r)?)
@@ -394,7 +372,6 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
                 let len = read_len(r, major - 0x80)?;
                 read_list(r, len)?
             }
-            0x9f => read_list_il(r)?,
             _ => {
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
@@ -411,7 +388,6 @@ impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<
                 let len = read_len(r, major - 0xa0)?;
                 read_map(r, len)?
             }
-            0xbf => read_map_il(r)?,
             _ => {
                 return Err(UnexpectedCode::new::<Self>(major).into());
             }
@@ -459,12 +435,6 @@ impl Decode<DagCbor> for Ipld {
                 Self::List(list)
             }
 
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => {
-                let list = read_list_il(r)?;
-                Self::List(list)
-            }
-
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -477,17 +447,6 @@ impl Decode<DagCbor> for Ipld {
                     r.seek(SeekFrom::Start(pos))?;
                 }
                 Self::StringMap(read_map(r, len as usize)?)
-            }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => {
-                let pos = r.seek(SeekFrom::Current(0))?;
-                #[cfg(feature = "unleashed")]
-                if let Ok(map) = read_map_il(r) {
-                    return Ok(Self::IntegerMap(map));
-                }
-                r.seek(SeekFrom::Start(pos))?;
-                Self::StringMap(read_map_il(r)?)
             }
 
             // Major type 6: optional semantic tagging of other major types
@@ -507,9 +466,9 @@ impl Decode<DagCbor> for Ipld {
             0xf4 => Self::Bool(false),
             0xf5 => Self::Bool(true),
             0xf6 => Self::Null,
-            0xf7 => Self::Null,
             0xfa => Self::Float(read_f32(r)? as f64),
             0xfb => Self::Float(read_f64(r)?),
+            0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
             _ => return Err(UnexpectedCode::new::<Self>(major).into()),
         };
         Ok(ipld)
@@ -518,118 +477,107 @@ impl Decode<DagCbor> for Ipld {
 
 impl References<DagCbor> for Ipld {
     fn references<R: Read + Seek, E: Extend<Cid>>(
-        c: DagCbor,
+        _: DagCbor,
         r: &mut R,
         set: &mut E,
     ) -> Result<()> {
-        let major = read_u8(r)?;
-        match major {
-            // Major type 0: an unsigned integer
-            0x00..=0x17 => {}
-            0x18 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x19 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x1a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x1b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 1: a negative integer
-            0x20..=0x37 => {}
-            0x38 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x39 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x3a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x3b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 2: a byte string
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 3: a text string
-            0x60..=0x7b => {
-                let len = read_len(r, major - 0x60)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 4: an array of data items
-            0x80..=0x9b => {
-                let len = read_len(r, major - 0x80)?;
-                for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+        let mut remaining: usize = 1;
+        while remaining > 0 {
+            let major = read_u8(r)?;
+            match major {
+                // Major type 0: an unsigned integer
+                0x00..=0x17 => {}
+                0x18 => {
+                    r.seek(SeekFrom::Current(1))?;
                 }
-            }
-
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
+                0x19 => {
+                    r.seek(SeekFrom::Current(2))?;
                 }
-                r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-            },
-
-            // Major type 5: a map of pairs of data items
-            0xa0..=0xbb => {
-                let len = read_len(r, major - 0xa0)?;
-                for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                0x1a => {
+                    r.seek(SeekFrom::Current(4))?;
                 }
-            }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
+                0x1b => {
+                    r.seek(SeekFrom::Current(8))?;
                 }
-                r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-            },
 
-            // Major type 6: optional semantic tagging of other major types
-            0xd8 => {
-                let tag = read_u8(r)?;
-                if tag == 42 {
-                    set.extend(std::iter::once(read_link(r)?));
-                } else {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                // Major type 1: a negative integer
+                0x20..=0x37 => {}
+                0x38 => {
+                    r.seek(SeekFrom::Current(1))?;
                 }
-            }
+                0x39 => {
+                    r.seek(SeekFrom::Current(2))?;
+                }
+                0x3a => {
+                    r.seek(SeekFrom::Current(4))?;
+                }
+                0x3b => {
+                    r.seek(SeekFrom::Current(8))?;
+                }
 
-            // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4..=0xf7 => {}
-            0xf8 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0xf9 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0xfa => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0xfb => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-            major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
-        };
+                // Major type 2: a byte string
+                0x40..=0x5b => {
+                    let len = read_len(r, major - 0x40)?;
+                    r.seek(SeekFrom::Current(len as _))?;
+                }
+
+                // Major type 3: a text string
+                0x60..=0x7b => {
+                    let len = read_len(r, major - 0x60)?;
+                    r.seek(SeekFrom::Current(len as _))?;
+                }
+
+                // Major type 4: an array of data items
+                0x80..=0x9b => {
+                    let len = read_len(r, major - 0x80)?;
+                    remaining = remaining
+                        .checked_add(len)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+
+                // Major type 5: a map of pairs of data items
+                0xa0..=0xbb => {
+                    let len = read_len(r, major - 0xa0)?;
+                    // TODO: consider using a checked "monad" type to simplify.
+                    let items = len
+                        .checked_mul(2)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                    remaining = remaining
+                        .checked_add(items)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+
+                // Major type 6: optional semantic tagging of other major types
+                0xd8 => {
+                    let tag = read_u8(r)?;
+                    if tag == 42 {
+                        set.extend(std::iter::once(read_link(r)?));
+                    } else {
+                        remaining = remaining
+                            .checked_add(1)
+                            .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                    }
+                }
+
+                // Major type 7: floating-point numbers and other simple data types that need no content
+                0xf4..=0xf7 => {}
+                0xf8 => {
+                    r.seek(SeekFrom::Current(1))?;
+                }
+                0xf9 => {
+                    r.seek(SeekFrom::Current(2))?;
+                }
+                0xfa => {
+                    r.seek(SeekFrom::Current(4))?;
+                }
+                0xfb => {
+                    r.seek(SeekFrom::Current(8))?;
+                }
+                0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
+                major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
+            };
+            remaining -= 1;
+        }
         Ok(())
     }
 }
@@ -766,16 +714,6 @@ impl SkipOne for DagCbor {
                 }
             }
 
-            // Major type 4: an array of data items (indefinite length)
-            0x9f => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                self.skip(r)?;
-            },
-
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
@@ -784,17 +722,6 @@ impl SkipOne for DagCbor {
                     self.skip(r)?;
                 }
             }
-
-            // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => loop {
-                let major = read_u8(r)?;
-                if major == 0xff {
-                    break;
-                }
-                r.seek(SeekFrom::Current(-1))?;
-                self.skip(r)?;
-                self.skip(r)?;
-            },
 
             // Major type 6: optional semantic tagging of other major types
             0xc0..=0xd7 => {
@@ -842,9 +769,8 @@ impl SkipOne for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DagCborCodec;
+    use crate::{error::UnexpectedEof, DagCborCodec};
     use libipld_core::codec::Codec;
-    use libipld_macro::ipld;
 
     #[test]
     fn il_map() {
@@ -858,12 +784,23 @@ mod tests {
             0x21, // Second value, -2
             0xFF, // "break"
         ];
-        let ipld = ipld!({
-            "Fun": true,
-            "Amt": -2,
-        });
-        let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
-        assert_eq!(ipld, ipld2);
+        DagCborCodec
+            .decode::<Ipld>(&bytes)
+            .expect_err("should have failed to decode indefinit length map");
+    }
+
+    #[test]
+    fn bad_list() {
+        let bytes = [
+            0x5b, // Byte string with an 8 byte length
+            0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // very long
+            0x01, // but only one byte.
+        ];
+        DagCborCodec
+            .decode::<Ipld>(&bytes)
+            .expect_err("decoding large truncated buffer should have failed")
+            .downcast::<UnexpectedEof>()
+            .expect("expected an unexpected eof");
     }
 
     #[test]
