@@ -1,7 +1,9 @@
 //! CBOR encoder.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::iter::FromIterator;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -247,10 +249,21 @@ impl<T: Encode<DagCbor>> Encode<DagCbor> for Vec<T> {
     }
 }
 
-impl<K: Encode<DagCbor>, T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<K, T> {
+impl<T: Encode<DagCbor> + 'static> Encode<DagCbor> for BTreeMap<String, T> {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         write_u64(w, MajorKind::Map, self.len() as u64)?;
-        for (k, v) in self {
+        // CBOR RFC-7049 specifies a canonical sort order, where keys are sorted by length first.
+        // This was later revised with RFC-8949, but we need to stick to the original order to stay
+        // compatible with existing data.
+        let mut cbor_order = Vec::from_iter(self);
+        cbor_order.sort_unstable_by(|&(key_a, _), &(key_b, _)| {
+            match key_a.len().cmp(&key_b.len()) {
+                Ordering::Greater => Ordering::Greater,
+                Ordering::Less => Ordering::Less,
+                Ordering::Equal => key_a.cmp(key_b),
+            }
+        });
+        for (k, v) in cbor_order {
             k.encode(c, w)?;
             v.encode(c, w)?;
         }
