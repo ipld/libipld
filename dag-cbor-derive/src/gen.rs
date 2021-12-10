@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::ast::*;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -108,18 +110,34 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
                     None
                 }
             });
-            let fields = s.fields.iter().map(|field| {
-                let key = rename(&field.name, field.rename.as_ref());
-                let binding = &field.binding;
-                default(
-                    binding,
-                    field.default.as_deref(),
-                    quote! {
-                        Encode::encode(#key, c, w)?;
-                        Encode::encode(#binding, c, w)?;
-                    },
-                )
+            let mut cbor_order = s
+                .fields
+                .iter()
+                .map(|field| {
+                    let key = rename(&field.name, field.rename.as_ref());
+                    let binding = &field.binding;
+                    let field = default(
+                        binding,
+                        field.default.as_deref(),
+                        quote! {
+                            Encode::encode(#key, c, w)?;
+                            Encode::encode(#binding, c, w)?;
+                        },
+                    );
+                    (key.to_string(), field)
+                })
+                .collect::<Vec<(String, _)>>();
+            // CBOR RFC-7049 specifies a canonical sort order, where keys are sorted by length
+            // first. This was later revised with RFC-8949, but we need to stick to the original
+            // order to stay compatible with existing data.
+            cbor_order.sort_unstable_by(|(key_a, _), (key_b, _)| {
+                match key_a.len().cmp(&key_b.len()) {
+                    Ordering::Greater => Ordering::Greater,
+                    Ordering::Less => Ordering::Less,
+                    Ordering::Equal => key_a.cmp(key_b),
+                }
             });
+            let fields = cbor_order.iter().map(|(_, field)| field);
             quote! {
                 let mut len = #len;
                 #(#dfields)*
