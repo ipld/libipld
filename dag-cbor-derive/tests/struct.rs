@@ -153,21 +153,5 @@ pub struct IlMap {
     amt: i32,
 }
 
-#[test]
-fn serde_cbor_compat() {
-    let bytes = [
-        0xBF, // Start indefinite-length map
-        0x63, // First key, UTF-8 string length 3
-        0x46, 0x75, 0x6e, // "Fun"
-        0xF5, // First value, true
-        0x63, // Second key, UTF-8 string length 3
-        0x41, 0x6d, 0x74, // "Amt"
-        0x21, // Second value, -2
-        0xFF, // "break"
-    ];
-    let il_map: IlMap = DagCborCodec.decode(&bytes).unwrap();
-    assert_eq!(il_map, IlMap { fun: true, amt: -2 });
-}
-
 #[derive(DagCbor)]
 pub struct Generic<T: DagCbor>(T);
