@@ -6,6 +6,7 @@ use core::convert::TryFrom;
 use libipld_core::codec::{Codec, Decode, Encode};
 pub use libipld_core::error::{Result, UnsupportedCodec};
 
+pub mod cbor;
 pub mod decode;
 pub mod encode;
 pub mod error;

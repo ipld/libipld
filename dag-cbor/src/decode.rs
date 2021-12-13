@@ -1,4 +1,5 @@
 //! CBOR decoder
+use crate::cbor::*;
 use crate::error::{
     InvalidCidPrefix, LengthOutOfRange, NumberNotMinimal, NumberOutOfRange, UnexpectedCode,
     UnexpectedEof, UnknownTag,
@@ -13,87 +14,6 @@ use libipld_core::{cid::Cid, raw_value::SkipOne};
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
-
-#[repr(transparent)]
-#[derive(Clone, Copy, Eq, PartialEq)]
-struct Major(u8);
-
-impl Major {
-    const fn new(kind: MajorKind, info: u8) -> Self {
-        Major(((kind as u8) << 5) | info)
-    }
-
-    #[inline(always)]
-    const fn kind(self) -> MajorKind {
-        // This is a 3 bit value, so value 0-7 are covered.
-        unsafe { std::mem::transmute(self.0 >> 5) }
-    }
-
-    #[inline(always)]
-    const fn info(self) -> u8 {
-        self.0 & 0x1f
-    }
-
-    #[inline(always)]
-    const fn len(self) -> u8 {
-        // All major types follow the same rules for "additioanl bytes".
-        // 24 -> 1, 25 -> 2, 26 -> 4, 27 -> 8
-        match self.info() {
-            info @ 24..=27 => (1 << info - 24),
-            _ => 0,
-        }
-    }
-}
-
-// This is the core of the validation logic. Every major type passes through here giving us a chance
-// to determine if it's something we allow.
-impl TryFrom<u8> for Major {
-    type Error = UnexpectedCode;
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        // We don't allow any major types with additional info 28-31 inclusive.
-        // Or the bitmask 0b00011100 = 28.
-        if value & 28 == 28 {
-            return Err(UnexpectedCode::new::<Ipld>(value));
-        } else if (value >> 5) == MajorKind::Other as u8 {
-            match value & 0x1f {
-                // False, True, Null. TODO: Allow undefined?
-                20 | 21 | 22 => (),
-                // Floats. TODO: forbid f16 & f32?
-                25 | 26 | 27 => (),
-                // Everything is forbidden.
-                _ => {
-                    return Err(UnexpectedCode::new::<Ipld>(value));
-                }
-            }
-        }
-        Ok(Major(value))
-    }
-}
-
-mod consts {
-    use super::Major;
-    use super::MajorKind::*;
-
-    pub(super) const FALSE: Major = Major::new(Other, 20);
-    pub(super) const TRUE: Major = Major::new(Other, 21);
-    pub(super) const NULL: Major = Major::new(Other, 22);
-    pub(super) const F32: Major = Major::new(Other, 26);
-    pub(super) const F64: Major = Major::new(Other, 27);
-}
-
-#[repr(u8)]
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[allow(dead_code)]
-enum MajorKind {
-    UnsignedInt = 0,
-    NegativeInt = 1,
-    ByteString = 2,
-    TextString = 3,
-    Array = 4,
-    Map = 5,
-    Tag = 6,
-    Other = 7,
-}
 
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
@@ -189,7 +109,7 @@ pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
 pub fn read_link<R: Read + Seek>(r: &mut R) -> Result<Cid> {
     let major = read_major(r)?;
     if major.kind() != MajorKind::ByteString {
-        return Err(UnexpectedCode::new::<Cid>(major.0).into());
+        return Err(UnexpectedCode::new::<Cid>(major.into()).into());
     }
     let len = read_uint(r, major)?;
     if len < 1 {
@@ -216,15 +136,22 @@ pub fn read_link<R: Read + Seek>(r: &mut R) -> Result<Cid> {
     Ok(cid)
 }
 
-fn read_major<R: Read>(r: &mut R) -> Result<Major> {
+/// Read a and validate major "byte". This includes both the major type and the additional info.
+pub fn read_major<R: Read>(r: &mut R) -> Result<Major> {
     Ok(Major::try_from(read_u8(r)?)?)
 }
 
-fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
+/// Read the uint argument to the given major type. This function errors if:
+/// 1. The major type doesn't expect an integer argument.
+/// 2. The integer argument is not "minimally" encoded per the IPLD spec.
+pub fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
     const MAX_SHORT: u64 = 23;
     const MAX_1BYTE: u64 = u8::MAX as u64;
     const MAX_2BYTE: u64 = u16::MAX as u64;
     const MAX_4BYTE: u64 = u32::MAX as u64;
+    if major.kind() == MajorKind::Other {
+        return Err(UnexpectedCode::new::<u64>(major.into()).into());
+    }
     match major.info() {
         value @ 0..=23 => Ok(value as u64),
         24 => match read_u8(r)? as u64 {
@@ -243,16 +170,16 @@ fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
             0..=MAX_4BYTE => Err(NumberNotMinimal.into()),
             value => Ok(value),
         },
-        _ => return Err(UnexpectedCode::new::<usize>(major.0).into()),
+        _ => return Err(UnexpectedCode::new::<u64>(major.into()).into()),
     }
 }
 
 impl Decode<DagCbor> for bool {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         Ok(match read_major(r)? {
-            consts::FALSE => false,
-            consts::TRUE => true,
-            Major(n) => return Err(UnexpectedCode::new::<Self>(n).into()),
+            FALSE => false,
+            TRUE => true,
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         })
     }
 }
@@ -264,7 +191,7 @@ macro_rules! impl_num {
                 fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
                     let major = read_major(r)?;
                     if major.kind() != MajorKind::UnsignedInt {
-                        return Err(UnexpectedCode::new::<Self>(major.0).into());
+                        return Err(UnexpectedCode::new::<Self>(major.into()).into());
                     }
                     let value = read_uint(r, major)?;
                     Self::try_from(value).map_err(|_| NumberOutOfRange::new::<Self>().into())
@@ -280,7 +207,7 @@ macro_rules! impl_num {
                     let value = read_uint(r, major)?;
                     match major.kind() {
                         MajorKind::UnsignedInt | MajorKind::NegativeInt => (),
-                        _ => return Err(UnexpectedCode::new::<Self>(major.0).into()),
+                        _ => return Err(UnexpectedCode::new::<Self>(major.into()).into()),
                     };
 
                     let mut value = Self::try_from(value)
@@ -304,8 +231,8 @@ impl Decode<DagCbor> for f32 {
         // TODO: We don't accept f16
         // TODO: By IPLD spec, we shouldn't accept f32 either...
         let num = match read_major(r)? {
-            consts::F32 => f32::from_bits(read_u32(r)?),
-            consts::F64 => {
+            F32 => f32::from_bits(read_u32(r)?),
+            F64 => {
                 let num = f64::from_bits(read_u64(r)?);
                 let converted = num as Self;
                 if f64::from(converted) != num {
@@ -313,7 +240,7 @@ impl Decode<DagCbor> for f32 {
                 }
                 converted
             }
-            Major(v) => return Err(UnexpectedCode::new::<Self>(v).into()),
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         };
         if !num.is_finite() {
             return Err(NumberOutOfRange::new::<Self>().into());
@@ -327,9 +254,9 @@ impl Decode<DagCbor> for f64 {
         // TODO: We don't accept f16
         // TODO: By IPLD spec, we shouldn't accept f32 either...
         let num = match read_major(r)? {
-            consts::F32 => f32::from_bits(read_u32(r)?).into(),
-            consts::F64 => f64::from_bits(read_u64(r)?),
-            Major(v) => return Err(UnexpectedCode::new::<Self>(v).into()),
+            F32 => f32::from_bits(read_u32(r)?).into(),
+            F64 => f64::from_bits(read_u64(r)?),
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         };
         // This is by IPLD spec, but is it widely used?
         if !num.is_finite() {
@@ -343,7 +270,7 @@ impl Decode<DagCbor> for String {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_major(r)?;
         if major.kind() != MajorKind::TextString {
-            return Err(UnexpectedCode::new::<Self>(major.0).into());
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
         }
         let len = read_uint(r, major)?;
         read_str(r, len)
@@ -359,7 +286,7 @@ impl Decode<DagCbor> for Cid {
                 tag => Err(UnknownTag(tag).into()),
             }
         } else {
-            Err(UnexpectedCode::new::<Self>(major.0).into())
+            Err(UnexpectedCode::new::<Self>(major.into()).into())
         }
     }
 }
@@ -368,7 +295,7 @@ impl Decode<DagCbor> for Box<[u8]> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_major(r)?;
         if major.kind() != MajorKind::ByteString {
-            return Err(UnexpectedCode::new::<Self>(major.0).into());
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
         }
         let len = read_uint(r, major)?;
         Ok(read_bytes(r, len)?.into_boxed_slice())
@@ -378,7 +305,7 @@ impl Decode<DagCbor> for Box<[u8]> {
 impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
     fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
         let result = match read_major(r)? {
-            consts::NULL => None,
+            NULL => None,
             _ => {
                 r.seek(SeekFrom::Current(-1))?;
                 Some(T::decode(c, r)?)
@@ -392,7 +319,7 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_major(r)?;
         if major.kind() != MajorKind::Array {
-            return Err(UnexpectedCode::new::<Self>(major.0).into());
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
         }
         let len = read_uint(r, major)?;
         read_list(r, len)
@@ -403,7 +330,7 @@ impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         let major = read_major(r)?;
         if major.kind() != MajorKind::Map {
-            return Err(UnexpectedCode::new::<Self>(major.0).into());
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
         }
 
         let len = read_uint(r, major)?;
@@ -453,12 +380,12 @@ impl Decode<DagCbor> for Ipld {
                 }
             }
             MajorKind::Other => match major {
-                consts::FALSE => Self::Bool(false),
-                consts::TRUE => Self::Bool(true),
-                consts::NULL => Self::Null,
-                consts::F32 => Self::Float(f32::from_bits(read_u32(r)?).into()),
-                consts::F64 => Self::Float(f64::from_bits(read_u64(r)?).into()),
-                Major(v) => return Err(UnexpectedCode::new::<Self>(v).into()),
+                FALSE => Self::Bool(false),
+                TRUE => Self::Bool(true),
+                NULL => Self::Null,
+                F32 => Self::Float(f32::from_bits(read_u32(r)?).into()),
+                F64 => Self::Float(f64::from_bits(read_u64(r)?).into()),
+                m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
             },
         };
         Ok(ipld)
