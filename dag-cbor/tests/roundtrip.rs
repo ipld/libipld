@@ -1,6 +1,6 @@
 use libipld_cbor::DagCborCodec;
 use libipld_core::{
-    codec::{assert_roundtrip, Codec, Decode},
+    codec::{assert_roundtrip, Codec, Decode, Encode},
     ipld::Ipld,
     raw_value::{IgnoredAny, RawValue, SkipOne},
 };
@@ -45,17 +45,31 @@ fn zero_length_cid() {
     let _: Ipld = DagCborCodec.decode(&input).unwrap();
 }
 
+// 3x some cbor and then some garbage
+fn cbor_seq() -> Vec<u8> {
+    let mut buf = Vec::new();
+    1u8.encode(DagCborCodec, &mut buf).unwrap();
+    (u16::MAX as u64 + 1)
+        .encode(DagCborCodec, &mut buf)
+        .unwrap();
+    vec![String::from("foo")]
+        .encode(DagCborCodec, &mut buf)
+        .unwrap();
+    buf.extend_from_slice(&[0xff, 0xff, 0xff, 0xff]);
+    buf
+}
+
 // test SkipOne trait for cbor
 #[test]
 fn skip() {
-    // 3x some cbor and then some garbage
-    let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
-    let input = hex::decode(input).unwrap();
+    let input = cbor_seq();
     let mut r = Cursor::new(&input);
     DagCborCodec.skip(&mut r).unwrap();
-    assert_eq!(r.position(), 9);
+    assert_eq!(r.position(), 1);
     DagCborCodec.skip(&mut r).unwrap();
-    assert_eq!(r.position(), 18);
+    assert_eq!(r.position(), 6);
+    DagCborCodec.skip(&mut r).unwrap();
+    assert_eq!(r.position(), 11);
     assert!(DagCborCodec.skip(&mut r).is_err());
 }
 
@@ -63,13 +77,14 @@ fn skip() {
 #[test]
 fn ignored_any() {
     // 3x some cbor and then some garbage
-    let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
-    let input = hex::decode(input).unwrap();
+    let input = cbor_seq();
     let mut r = Cursor::new(&input);
     let _x: IgnoredAny = Decode::decode(DagCborCodec, &mut r).unwrap();
-    assert_eq!(r.position(), 9);
+    assert_eq!(r.position(), 1);
     let _x: IgnoredAny = Decode::decode(DagCborCodec, &mut r).unwrap();
-    assert_eq!(r.position(), 18);
+    assert_eq!(r.position(), 6);
+    let _x: IgnoredAny = Decode::decode(DagCborCodec, &mut r).unwrap();
+    assert_eq!(r.position(), 11);
     let r: result::Result<IgnoredAny, _> = Decode::decode(DagCborCodec, &mut r);
     assert!(r.is_err());
 }
@@ -78,15 +93,17 @@ fn ignored_any() {
 #[test]
 fn raw_value() {
     // 3x some cbor and then some garbage
-    let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
-    let input = hex::decode(input).unwrap();
+    let input = cbor_seq();
     let mut r = Cursor::new(&input);
     let raw: RawValue<DagCborCodec> = Decode::decode(DagCborCodec, &mut r).unwrap();
-    assert_eq!(r.position(), 9);
-    assert_eq!(raw.as_ref(), &hex::decode("a163666f6fd82a5800").unwrap());
+    assert_eq!(r.position(), 1);
+    assert_eq!(raw.as_ref(), &input[0..1]);
     let raw: RawValue<DagCborCodec> = Decode::decode(DagCborCodec, &mut r).unwrap();
-    assert_eq!(r.position(), 18);
-    assert_eq!(raw.as_ref(), &hex::decode("a163666f6fd82a5800").unwrap());
+    assert_eq!(r.position(), 6);
+    assert_eq!(raw.as_ref(), &input[1..6]);
+    let raw: RawValue<DagCborCodec> = Decode::decode(DagCborCodec, &mut r).unwrap();
+    assert_eq!(r.position(), 11);
+    assert_eq!(raw.as_ref(), &input[6..11]);
     let r: result::Result<RawValue<DagCborCodec>, _> = Decode::decode(DagCborCodec, &mut r);
     assert!(r.is_err());
 }

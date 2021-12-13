@@ -1,7 +1,8 @@
 //! CBOR decoder
+use crate::cbor::*;
 use crate::error::{
-    IndefiniteLengthItem, InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof,
-    UnknownTag,
+    InvalidCidPrefix, LengthOutOfRange, NumberNotMinimal, NumberOutOfRange, UnexpectedCode,
+    UnexpectedEof, UnknownTag,
 };
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
@@ -15,49 +16,50 @@ use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
 /// Reads a u8 from a byte stream.
-pub fn read_u8<R: Read + Seek>(r: &mut R) -> Result<u8> {
+pub fn read_u8<R: Read>(r: &mut R) -> Result<u8> {
     let mut buf = [0; 1];
     r.read_exact(&mut buf)?;
     Ok(buf[0])
 }
 
 /// Reads a u16 from a byte stream.
-pub fn read_u16<R: Read + Seek>(r: &mut R) -> Result<u16> {
+pub fn read_u16<R: Read>(r: &mut R) -> Result<u16> {
     let mut buf = [0; 2];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u16(&buf))
 }
 
 /// Reads a u32 from a byte stream.
-pub fn read_u32<R: Read + Seek>(r: &mut R) -> Result<u32> {
+pub fn read_u32<R: Read>(r: &mut R) -> Result<u32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u32(&buf))
 }
 
 /// Reads a u64 from a byte stream.
-pub fn read_u64<R: Read + Seek>(r: &mut R) -> Result<u64> {
+pub fn read_u64<R: Read>(r: &mut R) -> Result<u64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_u64(&buf))
 }
 
 /// Reads a f32 from a byte stream.
-pub fn read_f32<R: Read + Seek>(r: &mut R) -> Result<f32> {
+pub fn read_f32<R: Read>(r: &mut R) -> Result<f32> {
     let mut buf = [0; 4];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f32(&buf))
 }
 
 /// Reads a f64 from a byte stream.
-pub fn read_f64<R: Read + Seek>(r: &mut R) -> Result<f64> {
+pub fn read_f64<R: Read>(r: &mut R) -> Result<f64> {
     let mut buf = [0; 8];
     r.read_exact(&mut buf)?;
     Ok(BigEndian::read_f64(&buf))
 }
 
 /// Reads `len` number of bytes from a byte stream.
-pub fn read_bytes<R: Read + Seek>(r: &mut R, len: usize) -> Result<Vec<u8>> {
+pub fn read_bytes<R: Read>(r: &mut R, len: u64) -> Result<Vec<u8>> {
+    let len = usize::try_from(len).map_err(|_| LengthOutOfRange::new::<usize>())?;
     // Limit up-front allocations to 16KiB as the length is user controlled.
     let mut buf = Vec::with_capacity(len.min(16 * 1024));
     r.take(len as u64).read_to_end(&mut buf)?;
@@ -68,13 +70,14 @@ pub fn read_bytes<R: Read + Seek>(r: &mut R, len: usize) -> Result<Vec<u8>> {
 }
 
 /// Reads `len` number of bytes from a byte stream and converts them to a string.
-pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
+pub fn read_str<R: Read>(r: &mut R, len: u64) -> Result<String> {
     let bytes = read_bytes(r, len)?;
     Ok(String::from_utf8(bytes)?)
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: u64) -> Result<Vec<T>> {
+    let len = usize::try_from(len).map_err(|_| LengthOutOfRange::new::<usize>())?;
     // Limit up-front allocations to 16KiB as the length is user controlled.
     //
     // Can't make this "const" because the generic, but it _should_ be known at compile time.
@@ -90,8 +93,9 @@ pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> R
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
 pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
     r: &mut R,
-    len: usize,
+    len: u64,
 ) -> Result<BTreeMap<K, T>> {
+    let len = usize::try_from(len).map_err(|_| LengthOutOfRange::new::<usize>())?;
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
         let key = K::decode(DagCbor, r)?;
@@ -103,258 +107,205 @@ pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
 
 /// Reads a cid from a stream of cbor encoded bytes.
 pub fn read_link<R: Read + Seek>(r: &mut R) -> Result<Cid> {
-    let ty = read_u8(r)?;
-    if ty != 0x58 {
-        return Err(UnknownTag(ty).into());
+    let major = read_major(r)?;
+    if major.kind() != MajorKind::ByteString {
+        return Err(UnexpectedCode::new::<Cid>(major.into()).into());
     }
-    let len = read_u8(r)?;
-    if len == 0 {
+    let len = read_uint(r, major)?;
+    if len < 1 {
         return Err(LengthOutOfRange::new::<Cid>().into());
     }
-    let bytes = read_bytes(r, len as usize)?;
-    if bytes[0] != 0 {
-        return Err(InvalidCidPrefix(bytes[0]).into());
-    }
+
+    let mut r = r.take(len);
 
     // skip the first byte per
     // https://github.com/ipld/specs/blob/master/block-layer/codecs/dag-cbor.md#links
-    Ok(Cid::try_from(&bytes[1..])?)
+    let prefix = read_u8(&mut r)?;
+    if prefix != 0 {
+        return Err(InvalidCidPrefix(prefix).into());
+    }
+
+    // Read the CID. No need to limit the size, the CID will do this for us.
+    let cid = Cid::read_bytes(&mut r)?;
+
+    // Make sure we've read the entire CID.
+    if r.read(&mut [0u8][..])? != 0 {
+        return Err(LengthOutOfRange::new::<Cid>().into());
+    }
+
+    Ok(cid)
 }
 
-/// Reads the len given a base.
-pub fn read_len<R: Read + Seek>(r: &mut R, major: u8) -> Result<usize> {
-    Ok(match major {
-        0x00..=0x17 => major as usize,
-        0x18 => read_u8(r)? as usize,
-        0x19 => read_u16(r)? as usize,
-        0x1a => read_u32(r)? as usize,
-        0x1b => {
-            let len = read_u64(r)?;
-            if len > usize::max_value() as u64 {
-                return Err(LengthOutOfRange::new::<usize>().into());
-            }
-            len as usize
-        }
-        major => return Err(UnexpectedCode::new::<usize>(major).into()),
-    })
+/// Read a and validate major "byte". This includes both the major type and the additional info.
+pub fn read_major<R: Read>(r: &mut R) -> Result<Major> {
+    Ok(Major::try_from(read_u8(r)?)?)
+}
+
+/// Read the uint argument to the given major type. This function errors if:
+/// 1. The major type doesn't expect an integer argument.
+/// 2. The integer argument is not "minimally" encoded per the IPLD spec.
+pub fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
+    const MAX_SHORT: u64 = 23;
+    const MAX_1BYTE: u64 = u8::MAX as u64;
+    const MAX_2BYTE: u64 = u16::MAX as u64;
+    const MAX_4BYTE: u64 = u32::MAX as u64;
+    if major.kind() == MajorKind::Other {
+        return Err(UnexpectedCode::new::<u64>(major.into()).into());
+    }
+    match major.info() {
+        value @ 0..=23 => Ok(value as u64),
+        24 => match read_u8(r)? as u64 {
+            0..=MAX_SHORT => Err(NumberNotMinimal.into()),
+            value => Ok(value),
+        },
+        25 => match read_u16(r)? as u64 {
+            0..=MAX_1BYTE => Err(NumberNotMinimal.into()),
+            value => Ok(value),
+        },
+        26 => match read_u32(r)? as u64 {
+            0..=MAX_2BYTE => Err(NumberNotMinimal.into()),
+            value => Ok(value),
+        },
+        27 => match read_u64(r)? as u64 {
+            0..=MAX_4BYTE => Err(NumberNotMinimal.into()),
+            value => Ok(value),
+        },
+        _ => Err(UnexpectedCode::new::<u64>(major.into()).into()),
+    }
 }
 
 impl Decode<DagCbor> for bool {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0xf4 => false,
-            0xf5 => true,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+        Ok(match read_major(r)? {
+            FALSE => false,
+            TRUE => true,
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
+        })
     }
 }
 
-impl Decode<DagCbor> for u8 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x00..=0x17 => major,
-            0x18 => read_u8(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
+macro_rules! impl_num {
+    (unsigned $($t:ty),*) => {
+        $(
+            impl Decode<DagCbor> for $t {
+                fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+                    let major = read_major(r)?;
+                    if major.kind() != MajorKind::UnsignedInt {
+                        return Err(UnexpectedCode::new::<Self>(major.into()).into());
+                    }
+                    let value = read_uint(r, major)?;
+                    Self::try_from(value).map_err(|_| NumberOutOfRange::new::<Self>().into())
+                }
             }
-        };
-        Ok(result)
-    }
+        )*
+    };
+    (signed $($t:ty),*) => {
+        $(
+            impl Decode<DagCbor> for $t {
+                fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+                    let major = read_major(r)?;
+                    let value = read_uint(r, major)?;
+                    match major.kind() {
+                        MajorKind::UnsignedInt | MajorKind::NegativeInt => (),
+                        _ => return Err(UnexpectedCode::new::<Self>(major.into()).into()),
+                    };
+
+                    let mut value = Self::try_from(value)
+                        .map_err(|_| NumberOutOfRange::new::<Self>())?;
+                    if major.kind() == MajorKind::NegativeInt {
+                        // This is guaranteed to not overflow.
+                        value = -1 - value;
+                    }
+                    Ok(value)
+                }
+            }
+        )*
+    };
 }
 
-impl Decode<DagCbor> for u16 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x00..=0x17 => major as u16,
-            0x18 => read_u8(r)? as u16,
-            0x19 => read_u16(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for u32 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x00..=0x17 => major as u32,
-            0x18 => read_u8(r)? as u32,
-            0x19 => read_u16(r)? as u32,
-            0x1a => read_u32(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for u64 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x00..=0x17 => major as u64,
-            0x18 => read_u8(r)? as u64,
-            0x19 => read_u16(r)? as u64,
-            0x1a => read_u32(r)? as u64,
-            0x1b => read_u64(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for i8 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x20..=0x37 => -1 - (major - 0x20) as i8,
-            0x38 => -1 - read_u8(r)? as i8,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for i16 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x20..=0x37 => -1 - (major - 0x20) as i16,
-            0x38 => -1 - read_u8(r)? as i16,
-            0x39 => -1 - read_u16(r)? as i16,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for i32 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x20..=0x37 => -1 - (major - 0x20) as i32,
-            0x38 => -1 - read_u8(r)? as i32,
-            0x39 => -1 - read_u16(r)? as i32,
-            0x3a => -1 - read_u32(r)? as i32,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl Decode<DagCbor> for i64 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x20..=0x37 => -1 - (major - 0x20) as i64,
-            0x38 => -1 - read_u8(r)? as i64,
-            0x39 => -1 - read_u16(r)? as i64,
-            0x3a => -1 - read_u32(r)? as i64,
-            0x3b => -1 - read_u64(r)? as i64,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
-    }
-}
+impl_num!(unsigned u8, u16, u32, u64, u128);
+impl_num!(signed i8, i16, i32, i64, i128);
 
 impl Decode<DagCbor> for f32 {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0xfa => read_f32(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
+        // TODO: We don't accept f16
+        // TODO: By IPLD spec, we shouldn't accept f32 either...
+        let num = match read_major(r)? {
+            F32 => read_f32(r)?,
+            F64 => {
+                let num = read_f64(r)?;
+                let converted = num as Self;
+                if f64::from(converted) != num {
+                    return Err(NumberOutOfRange::new::<Self>().into());
+                }
+                converted
             }
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         };
-        Ok(result)
+        if !num.is_finite() {
+            return Err(NumberOutOfRange::new::<Self>().into());
+        }
+        Ok(num)
     }
 }
 
 impl Decode<DagCbor> for f64 {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0xfa => read_f32(r)? as f64,
-            0xfb => read_f64(r)?,
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
+        // TODO: We don't accept f16
+        // TODO: By IPLD spec, we shouldn't accept f32 either...
+        let num = match read_major(r)? {
+            F32 => read_f32(r)?.into(),
+            F64 => read_f64(r)?,
+            m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         };
-        Ok(result)
+        // This is by IPLD spec, but is it widely used?
+        if !num.is_finite() {
+            return Err(NumberOutOfRange::new::<Self>().into());
+        }
+        Ok(num)
     }
 }
 
 impl Decode<DagCbor> for String {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x60..=0x7b => {
-                let len = read_len(r, major - 0x60)?;
-                read_str(r, len)?
-            }
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+        let major = read_major(r)?;
+        if major.kind() != MajorKind::TextString {
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
+        }
+        let len = read_uint(r, major)?;
+        read_str(r, len)
     }
 }
 
 impl Decode<DagCbor> for Cid {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        if major == 0xd8 {
-            if let Ok(tag) = read_u8(r) {
-                if tag == 42 {
-                    return read_link(r);
-                }
+        let major = read_major(r)?;
+        if major.kind() == MajorKind::Tag {
+            match read_uint(r, major)? {
+                42 => read_link(r),
+                tag => Err(UnknownTag(tag).into()),
             }
+        } else {
+            Err(UnexpectedCode::new::<Self>(major.into()).into())
         }
-        Err(UnexpectedCode::new::<Self>(major).into())
     }
 }
 
 impl Decode<DagCbor> for Box<[u8]> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                read_bytes(r, len)?.into_boxed_slice()
-            }
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+        let major = read_major(r)?;
+        if major.kind() != MajorKind::ByteString {
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
+        }
+        let len = read_uint(r, major)?;
+        Ok(read_bytes(r, len)?.into_boxed_slice())
     }
 }
 
 impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
     fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0xf6 => None,
+        let result = match read_major(r)? {
+            NULL => None,
             _ => {
                 r.seek(SeekFrom::Current(-1))?;
                 Some(T::decode(c, r)?)
@@ -366,110 +317,76 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
 
 impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0x80..=0x9b => {
-                let len = read_len(r, major - 0x80)?;
-                read_list(r, len)?
-            }
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+        let major = read_major(r)?;
+        if major.kind() != MajorKind::Array {
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
+        }
+        let len = read_uint(r, major)?;
+        read_list(r, len)
     }
 }
 
 impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<K, T> {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let result = match major {
-            0xa0..=0xbb => {
-                let len = read_len(r, major - 0xa0)?;
-                read_map(r, len)?
-            }
-            _ => {
-                return Err(UnexpectedCode::new::<Self>(major).into());
-            }
-        };
-        Ok(result)
+        let major = read_major(r)?;
+        if major.kind() != MajorKind::Map {
+            return Err(UnexpectedCode::new::<Self>(major.into()).into());
+        }
+
+        let len = read_uint(r, major)?;
+        read_map(r, len)
     }
 }
 
 impl Decode<DagCbor> for Ipld {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
-        let major = read_u8(r)?;
-        let ipld = match major {
-            // Major type 0: an unsigned integer
-            0x00..=0x17 => Self::Integer(major as i128),
-            0x18 => Self::Integer(read_u8(r)? as i128),
-            0x19 => Self::Integer(read_u16(r)? as i128),
-            0x1a => Self::Integer(read_u32(r)? as i128),
-            0x1b => Self::Integer(read_u64(r)? as i128),
-
-            // Major type 1: a negative integer
-            0x20..=0x37 => Self::Integer(-1 - (major - 0x20) as i128),
-            0x38 => Self::Integer(-1 - read_u8(r)? as i128),
-            0x39 => Self::Integer(-1 - read_u16(r)? as i128),
-            0x3a => Self::Integer(-1 - read_u32(r)? as i128),
-            0x3b => Self::Integer(-1 - read_u64(r)? as i128),
-
-            // Major type 2: a byte string
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                let bytes = read_bytes(r, len as usize)?;
-                Self::Bytes(bytes)
+        let major = read_major(r)?;
+        let ipld = match major.kind() {
+            MajorKind::UnsignedInt => Self::Integer(read_uint(r, major)? as i128),
+            MajorKind::NegativeInt => Self::Integer(-1 - read_uint(r, major)? as i128),
+            MajorKind::ByteString => {
+                let len = read_uint(r, major)?;
+                Self::Bytes(read_bytes(r, len)?)
             }
-
-            // Major type 3: a text string
-            0x60..=0x7b => {
-                let len = read_len(r, major - 0x60)?;
-                let string = read_str(r, len as usize)?;
-                Self::String(string)
+            MajorKind::TextString => {
+                let len = read_uint(r, major)?;
+                Self::String(read_str(r, len)?)
             }
-
-            // Major type 4: an array of data items
-            0x80..=0x9b => {
-                let len = read_len(r, major - 0x80)?;
-                let list = read_list(r, len as usize)?;
-                Self::List(list)
+            MajorKind::Array => {
+                let len = read_uint(r, major)?;
+                Self::List(read_list(r, len)?)
             }
-
-            // Major type 5: a map of pairs of data items
-            0xa0..=0xbb => {
-                let len = read_len(r, major - 0xa0)?;
+            MajorKind::Map => {
+                let len = read_uint(r, major)?;
                 #[cfg(feature = "unleashed")]
                 if len > 0 {
                     let pos = r.seek(SeekFrom::Current(0))?;
-                    if let Ok(map) = read_map(r, len as usize) {
+                    if let Ok(map) = read_map(r, len) {
                         return Ok(Self::IntegerMap(map));
                     }
                     r.seek(SeekFrom::Start(pos))?;
                 }
-                Self::StringMap(read_map(r, len as usize)?)
+                Self::StringMap(read_map(r, len)?)
             }
-
-            // Major type 6: optional semantic tagging of other major types
-            0xd8 => {
-                let tag = read_u8(r)?;
-                if tag == 42 {
+            MajorKind::Tag => {
+                let value = read_uint(r, major)?;
+                if value == 42 {
                     Self::Link(read_link(r)?)
                 } else {
                     #[cfg(not(feature = "unleashed"))]
-                    return Err(UnknownTag(tag).into());
+                    return Err(UnknownTag(value).into());
                     #[cfg(feature = "unleashed")]
-                    Self::Tag(tag as _, Box::new(Self::decode(DagCbor, r)?))
+                    Self::Tag(value as _, Box::new(Self::decode(DagCbor, r)?))
                 }
             }
-
-            // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4 => Self::Bool(false),
-            0xf5 => Self::Bool(true),
-            0xf6 => Self::Null,
-            0xfa => Self::Float(read_f32(r)? as f64),
-            0xfb => Self::Float(read_f64(r)?),
-            0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
-            _ => return Err(UnexpectedCode::new::<Self>(major).into()),
+            MajorKind::Other => match major {
+                FALSE => Self::Bool(false),
+                TRUE => Self::Bool(true),
+                NULL => Self::Null,
+                F32 => Self::Float(read_f32(r)? as f64),
+                F64 => Self::Float(read_f64(r)?),
+                m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
+            },
         };
         Ok(ipld)
     }
@@ -481,102 +398,49 @@ impl References<DagCbor> for Ipld {
         r: &mut R,
         set: &mut E,
     ) -> Result<()> {
-        let mut remaining: usize = 1;
+        let mut remaining: u64 = 1;
         while remaining > 0 {
-            let major = read_u8(r)?;
-            match major {
-                // Major type 0: an unsigned integer
-                0x00..=0x17 => {}
-                0x18 => {
-                    r.seek(SeekFrom::Current(1))?;
+            remaining -= 1;
+            let major = read_major(r)?;
+            match major.kind() {
+                MajorKind::UnsignedInt | MajorKind::NegativeInt | MajorKind::Other => {
+                    // TODO: validate ints & floats?
+                    r.seek(SeekFrom::Current(major.len() as i64))?;
                 }
-                0x19 => {
-                    r.seek(SeekFrom::Current(2))?;
+                MajorKind::ByteString | MajorKind::TextString => {
+                    // TODO: validate utf8?
+                    // We could just reject this case, but we can't just play it fast and loose and
+                    // wrap. We might as well just try to seek (and likely fail).
+                    let mut offset = read_uint(r, major)?;
+                    while offset > i64::MAX as u64 {
+                        r.seek(SeekFrom::Current(i64::MAX))?;
+                        offset -= i64::MAX as u64;
+                    }
+                    r.seek(SeekFrom::Current(offset as i64))?;
                 }
-                0x1a => {
-                    r.seek(SeekFrom::Current(4))?;
-                }
-                0x1b => {
-                    r.seek(SeekFrom::Current(8))?;
-                }
-
-                // Major type 1: a negative integer
-                0x20..=0x37 => {}
-                0x38 => {
-                    r.seek(SeekFrom::Current(1))?;
-                }
-                0x39 => {
-                    r.seek(SeekFrom::Current(2))?;
-                }
-                0x3a => {
-                    r.seek(SeekFrom::Current(4))?;
-                }
-                0x3b => {
-                    r.seek(SeekFrom::Current(8))?;
-                }
-
-                // Major type 2: a byte string
-                0x40..=0x5b => {
-                    let len = read_len(r, major - 0x40)?;
-                    r.seek(SeekFrom::Current(len as _))?;
-                }
-
-                // Major type 3: a text string
-                0x60..=0x7b => {
-                    let len = read_len(r, major - 0x60)?;
-                    r.seek(SeekFrom::Current(len as _))?;
-                }
-
-                // Major type 4: an array of data items
-                0x80..=0x9b => {
-                    let len = read_len(r, major - 0x80)?;
+                MajorKind::Array => {
                     remaining = remaining
-                        .checked_add(len)
+                        .checked_add(read_uint(r, major)?)
                         .ok_or_else(LengthOutOfRange::new::<Self>)?;
                 }
-
-                // Major type 5: a map of pairs of data items
-                0xa0..=0xbb => {
-                    let len = read_len(r, major - 0xa0)?;
+                MajorKind::Map => {
                     // TODO: consider using a checked "monad" type to simplify.
-                    let items = len
+                    let items = read_uint(r, major)?
                         .checked_mul(2)
                         .ok_or_else(LengthOutOfRange::new::<Self>)?;
                     remaining = remaining
                         .checked_add(items)
                         .ok_or_else(LengthOutOfRange::new::<Self>)?;
                 }
-
-                // Major type 6: optional semantic tagging of other major types
-                0xd8 => {
-                    let tag = read_u8(r)?;
-                    if tag == 42 {
-                        set.extend(std::iter::once(read_link(r)?));
-                    } else {
+                MajorKind::Tag => match read_uint(r, major)? {
+                    42 => set.extend(std::iter::once(read_link(r)?)),
+                    _ => {
                         remaining = remaining
                             .checked_add(1)
                             .ok_or_else(LengthOutOfRange::new::<Self>)?;
                     }
-                }
-
-                // Major type 7: floating-point numbers and other simple data types that need no content
-                0xf4..=0xf7 => {}
-                0xf8 => {
-                    r.seek(SeekFrom::Current(1))?;
-                }
-                0xf9 => {
-                    r.seek(SeekFrom::Current(2))?;
-                }
-                0xfa => {
-                    r.seek(SeekFrom::Current(4))?;
-                }
-                0xfb => {
-                    r.seek(SeekFrom::Current(8))?;
-                }
-                0x9f | 0xbf => return Err(IndefiniteLengthItem::new::<Self>().into()),
-                major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
+                },
             };
-            remaining -= 1;
         }
         Ok(())
     }
@@ -662,106 +526,50 @@ impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>, D: Decode<DagCb
 
 impl SkipOne for DagCbor {
     fn skip<R: Read + Seek>(&self, r: &mut R) -> Result<()> {
-        let major = read_u8(r)?;
-        match major {
-            // Major type 0: an unsigned integer
-            0x00..=0x17 => {}
-            0x18 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x19 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x1a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x1b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 1: a negative integer
-            0x20..=0x37 => {}
-            0x38 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0x39 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0x3a => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0x3b => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-
-            // Major type 2: a byte string
-            0x40..=0x5b => {
-                let len = read_len(r, major - 0x40)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 3: a text string
-            0x60..=0x7b => {
-                let len = read_len(r, major - 0x60)?;
-                r.seek(SeekFrom::Current(len as _))?;
-            }
-
-            // Major type 4: an array of data items
-            0x80..=0x9b => {
-                let len = read_len(r, major - 0x80)?;
-                for _ in 0..len {
-                    self.skip(r)?;
+        let mut remaining: u64 = 1;
+        while remaining > 0 {
+            remaining -= 1;
+            let major = read_major(r)?;
+            match major.kind() {
+                MajorKind::UnsignedInt | MajorKind::NegativeInt | MajorKind::Other => {
+                    // TODO: validate?
+                    // minimal integer, valid float, etc?
+                    r.seek(SeekFrom::Current(major.len() as i64))?;
                 }
-            }
-
-            // Major type 5: a map of pairs of data items
-            0xa0..=0xbb => {
-                let len = read_len(r, major - 0xa0)?;
-                for _ in 0..len {
-                    self.skip(r)?;
-                    self.skip(r)?;
+                MajorKind::ByteString | MajorKind::TextString => {
+                    // We could just reject this case, but we can't just play it fast and loose and
+                    // wrap. We might as well just try to seek (and likely fail).
+                    let mut offset = read_uint(r, major)?;
+                    while offset > i64::MAX as u64 {
+                        r.seek(SeekFrom::Current(i64::MAX))?;
+                        offset -= i64::MAX as u64;
+                    }
+                    // TODO: validate utf8?
+                    r.seek(SeekFrom::Current(offset as i64))?;
                 }
-            }
-
-            // Major type 6: optional semantic tagging of other major types
-            0xc0..=0xd7 => {
-                // let _tag = major - 0xc0;
-                self.skip(r)?;
-            }
-            0xd8 => {
-                r.seek(SeekFrom::Current(1))?;
-                self.skip(r)?;
-            }
-
-            0xd9 => {
-                r.seek(SeekFrom::Current(2))?;
-                self.skip(r)?;
-            }
-            0xda => {
-                r.seek(SeekFrom::Current(4))?;
-                self.skip(r)?;
-            }
-            0xdb => {
-                r.seek(SeekFrom::Current(8))?;
-                self.skip(r)?;
-            }
-
-            // Major type 7: floating-point numbers and other simple data types that need no content
-            0xf4..=0xf7 => {}
-            0xf8 => {
-                r.seek(SeekFrom::Current(1))?;
-            }
-            0xf9 => {
-                r.seek(SeekFrom::Current(2))?;
-            }
-            0xfa => {
-                r.seek(SeekFrom::Current(4))?;
-            }
-            0xfb => {
-                r.seek(SeekFrom::Current(8))?;
-            }
-            major => return Err(UnexpectedCode::new::<Ipld>(major).into()),
-        };
+                MajorKind::Array => {
+                    remaining = remaining
+                        .checked_add(read_uint(r, major)?)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+                MajorKind::Map => {
+                    // TODO: consider using a checked "monad" type to simplify.
+                    let items = read_uint(r, major)?
+                        .checked_mul(2)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                    remaining = remaining
+                        .checked_add(items)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+                MajorKind::Tag => {
+                    // TODO: validate tag?
+                    r.seek(SeekFrom::Current(major.len() as i64))?;
+                    remaining = remaining
+                        .checked_add(1)
+                        .ok_or_else(LengthOutOfRange::new::<Self>)?;
+                }
+            };
+        }
         Ok(())
     }
 }
