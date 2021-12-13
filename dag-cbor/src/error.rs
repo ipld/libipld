@@ -19,6 +19,11 @@ impl NumberOutOfRange {
     }
 }
 
+/// Number is not minimally encoded.
+#[derive(Debug, Error)]
+#[error("Number not minimally encoded.")]
+pub struct NumberNotMinimal;
+
 /// Length larger than usize or too small, for example zero length cid field.
 #[derive(Debug, Error)]
 #[error("Length out of range when decoding {ty}.")]
@@ -99,7 +104,7 @@ impl MissingKey {
 /// Unknown cbor tag.
 #[derive(Debug, Error)]
 #[error("Unkown cbor tag `{0}`.")]
-pub struct UnknownTag(pub u8);
+pub struct UnknownTag(pub u64);
 
 /// Unexpected eof.
 #[derive(Debug, Error)]
@@ -110,20 +115,3 @@ pub struct UnexpectedEof;
 #[derive(Debug, Error)]
 #[error("Invalid Cid prefix: {0}")]
 pub struct InvalidCidPrefix(pub u8);
-
-/// DagCbor does not support indefinit length items (lists & maps).
-#[derive(Debug, Error)]
-#[error("Illegal cbor indefinite length item when decoding `{ty}`.")]
-pub struct IndefiniteLengthItem {
-    /// Type.
-    pub ty: &'static str,
-}
-
-impl IndefiniteLengthItem {
-    /// Creates a new `UnexpectedCode` error.
-    pub fn new<T>() -> Self {
-        Self {
-            ty: type_name::<T>(),
-        }
-    }
-}
