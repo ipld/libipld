@@ -170,7 +170,7 @@ pub fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
             0..=MAX_4BYTE => Err(NumberNotMinimal.into()),
             value => Ok(value),
         },
-        _ => return Err(UnexpectedCode::new::<u64>(major.into()).into()),
+        _ => Err(UnexpectedCode::new::<u64>(major.into()).into()),
     }
 }
 
@@ -231,9 +231,9 @@ impl Decode<DagCbor> for f32 {
         // TODO: We don't accept f16
         // TODO: By IPLD spec, we shouldn't accept f32 either...
         let num = match read_major(r)? {
-            F32 => f32::from_bits(read_u32(r)?),
+            F32 => read_f32(r)?,
             F64 => {
-                let num = f64::from_bits(read_u64(r)?);
+                let num = read_f64(r)?;
                 let converted = num as Self;
                 if f64::from(converted) != num {
                     return Err(NumberOutOfRange::new::<Self>().into());
@@ -254,8 +254,8 @@ impl Decode<DagCbor> for f64 {
         // TODO: We don't accept f16
         // TODO: By IPLD spec, we shouldn't accept f32 either...
         let num = match read_major(r)? {
-            F32 => f32::from_bits(read_u32(r)?).into(),
-            F64 => f64::from_bits(read_u64(r)?),
+            F32 => read_f32(r)?.into(),
+            F64 => read_f64(r)?,
             m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
         };
         // This is by IPLD spec, but is it widely used?
@@ -383,8 +383,8 @@ impl Decode<DagCbor> for Ipld {
                 FALSE => Self::Bool(false),
                 TRUE => Self::Bool(true),
                 NULL => Self::Null,
-                F32 => Self::Float(f32::from_bits(read_u32(r)?).into()),
-                F64 => Self::Float(f64::from_bits(read_u64(r)?).into()),
+                F32 => Self::Float(read_f32(r)? as f64),
+                F64 => Self::Float(read_f64(r)?),
                 m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
             },
         };

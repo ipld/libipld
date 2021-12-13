@@ -1,5 +1,5 @@
 use libipld::cbor::{DagCbor, DagCborCodec};
-use libipld::codec::{assert_roundtrip, Codec};
+use libipld::codec::assert_roundtrip;
 use libipld::{ipld, DagCbor};
 
 #[derive(Clone, Copy, DagCbor, Debug, Eq, PartialEq)]

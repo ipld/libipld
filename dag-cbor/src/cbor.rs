@@ -42,11 +42,12 @@ impl Major {
 
     /// Interprets the additioanl info as a number of additional bytes that should be consumed.
     #[inline(always)]
+    #[allow(clippy::len_without_is_empty)]
     pub const fn len(self) -> u8 {
         // All major types follow the same rules for "additioanl bytes".
         // 24 -> 1, 25 -> 2, 26 -> 4, 27 -> 8
         match self.info() {
-            info @ 24..=27 => (1 << info - 24),
+            info @ 24..=27 => 1 << (info - 24),
             _ => 0,
         }
     }
