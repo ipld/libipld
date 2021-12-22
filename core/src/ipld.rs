@@ -28,17 +28,30 @@ pub enum Ipld {
 
 impl std::fmt::Debug for Ipld {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use Ipld::*;
-        match self {
-            Null => write!(f, "null"),
-            Bool(b) => write!(f, "{:?}", b),
-            Integer(i) => write!(f, "{:?}", i),
-            Float(i) => write!(f, "{:?}", i),
-            String(s) => write!(f, "{:?}", s),
-            Bytes(b) => write!(f, "{:?}", b),
-            List(l) => write!(f, "{:?}", l),
-            Map(m) => write!(f, "{:?}", m),
-            Link(cid) => write!(f, "{}", cid),
+        if f.alternate() {
+            match self {
+                Self::Null => write!(f, "Null"),
+                Self::Bool(b) => write!(f, "Bool({:?})", b),
+                Self::Integer(i) => write!(f, "Integer({:?})", i),
+                Self::Float(i) => write!(f, "Float({:?})", i),
+                Self::String(s) => write!(f, "String({:?})", s),
+                Self::Bytes(b) => write!(f, "Bytes({:?})", b),
+                Self::List(l) => write!(f, "List({:#?})", l),
+                Self::Map(m) => write!(f, "Map({:#?})", m),
+                Self::Link(cid) => write!(f, "Link({})", cid),
+            }
+        } else {
+            match self {
+                Self::Null => write!(f, "null"),
+                Self::Bool(b) => write!(f, "{:?}", b),
+                Self::Integer(i) => write!(f, "{:?}", i),
+                Self::Float(i) => write!(f, "{:?}", i),
+                Self::String(s) => write!(f, "{:?}", s),
+                Self::Bytes(b) => write!(f, "{:?}", b),
+                Self::List(l) => write!(f, "{:?}", l),
+                Self::Map(m) => write!(f, "{:?}", m),
+                Self::Link(cid) => write!(f, "{}", cid),
+            }
         }
     }
 }
