@@ -29,6 +29,25 @@ pub struct InvalidMultihash(pub Vec<u8>);
 #[error("Failed to retrieve block {0}.")]
 pub struct BlockNotFound(pub Cid);
 
+// TODO vmx 2021-12-21: This is just a quick hack to get things working. Think deeper about proper
+// error handling.
+/// Error during Serde operations.
+#[derive(Clone, Debug, Error)]
+#[error("Serde error {0}.")]
+pub struct SerdeError(pub String);
+
+impl serde::ser::Error for SerdeError {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
+impl serde::de::Error for SerdeError {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
 /// Type error.
 #[derive(Clone, Debug, Error)]
 #[error("Expected {expected:?} but found {found:?}")]

@@ -7,12 +7,18 @@ license = "MIT OR Apache-2.0"
 description = "Base traits and definitions used by ipld codecs."
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
+[features]
+default = ["serde-codec"]
+serde-codec = ["cid/serde-codec"]
+
 [dependencies]
 anyhow = "1.0.40"
 cid = { version = "0.7.0", default-features = false, features = ["std"] }
 multibase = "0.9.1"
-multihash = { version = "0.14.0", default-features = false, features = ["std"] }
+multihash = { version = "0.15.0", default-features = false, features = ["std"] }
+serde = "1.0.132"
+serde_test = "1.0.132"
 thiserror = "1.0.25"
 
 [dev-dependencies]
-multihash = "0.14.0"
+multihash = "0.15.0"
