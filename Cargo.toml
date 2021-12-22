@@ -35,7 +35,6 @@ dag-cbor = ["libipld-cbor"]
 dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
-unleashed = ["libipld-core/unleashed", "libipld-cbor/unleashed", "libipld-json/unleashed"]
 
 [workspace]
 members = [

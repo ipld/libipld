@@ -477,26 +477,14 @@ impl Decode<DagCbor> for Ipld {
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
-                #[cfg(feature = "unleashed")]
-                if len > 0 {
-                    let pos = r.seek(SeekFrom::Current(0))?;
-                    if let Ok(map) = read_map(r, len as usize) {
-                        return Ok(Self::IntegerMap(map));
-                    }
-                    r.seek(SeekFrom::Start(pos))?;
-                }
-                Self::StringMap(read_map(r, len as usize)?)
+                Self::Map(read_map(r, len as usize)?)
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
             0xbf => {
                 let pos = r.seek(SeekFrom::Current(0))?;
-                #[cfg(feature = "unleashed")]
-                if let Ok(map) = read_map_il(r) {
-                    return Ok(Self::IntegerMap(map));
-                }
                 r.seek(SeekFrom::Start(pos))?;
-                Self::StringMap(read_map_il(r)?)
+                Self::Map(read_map_il(r)?)
             }
 
             // Major type 6: optional semantic tagging of other major types
@@ -505,10 +493,7 @@ impl Decode<DagCbor> for Ipld {
                 if tag == 42 {
                     Self::Link(read_link(r)?)
                 } else {
-                    #[cfg(not(feature = "unleashed"))]
                     return Err(UnknownTag(tag).into());
-                    #[cfg(feature = "unleashed")]
-                    Self::Tag(tag as _, Box::new(Self::decode(DagCbor, r)?))
                 }
             }
 

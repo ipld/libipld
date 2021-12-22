@@ -66,14 +66,10 @@ pub enum TypeErrorType {
     Bytes,
     /// List type.
     List,
-    /// StringMap type.
-    StringMap,
-    /// IntegerMap type.
-    IntegerMap,
+    /// Map type.
+    Map,
     /// Link type.
     Link,
-    /// Tag type.
-    Tag,
     /// Key type.
     Key(String),
     /// Index type.
@@ -96,12 +92,8 @@ impl From<&Ipld> for TypeErrorType {
             Ipld::String(_) => Self::String,
             Ipld::Bytes(_) => Self::Bytes,
             Ipld::List(_) => Self::List,
-            Ipld::StringMap(_) => Self::StringMap,
-            #[cfg(feature = "unleashed")]
-            Ipld::IntegerMap(_) => Self::IntegerMap,
+            Ipld::Map(_) => Self::Map,
             Ipld::Link(_) => Self::Link,
-            #[cfg(feature = "unleashed")]
-            Ipld::Tag(_, _) => Self::Tag,
         }
     }
 }
