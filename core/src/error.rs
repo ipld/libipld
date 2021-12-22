@@ -36,6 +36,26 @@ pub struct InvalidMultihash(pub Vec<u8>);
 #[cfg_attr(feature = "std", derive(Error), error("Failed to retrieve block {0}."))]
 pub struct BlockNotFound(pub Cid);
 
+/// Error during Serde operations.
+#[cfg(feature = "serde-codec")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "std", derive(Error), error("Serde error: {0}."))]
+pub struct SerdeError(String);
+
+#[cfg(feature = "serde-codec")]
+impl serde::de::Error for SerdeError {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
+#[cfg(feature = "serde-codec")]
+impl serde::ser::Error for SerdeError {
+    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
 /// Type error.
 #[derive(Clone, Debug)]
 #[cfg_attr(

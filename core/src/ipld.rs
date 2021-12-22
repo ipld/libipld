@@ -7,13 +7,13 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::fmt;
+use core::{cmp::Ordering, fmt};
 
 use crate::cid::Cid;
 use crate::error::TypeError;
 
 /// Ipld
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, PartialOrd)]
 pub enum Ipld {
     /// Represents the absence of a value or the value undefined.
     Null,
@@ -33,6 +33,21 @@ pub enum Ipld {
     Map(BTreeMap<String, Ipld>),
     /// Represents a map of integers.
     Link(Cid),
+}
+
+// Eq cannot be derived due to the [`Ipld::Float`]. The IPLD Data Model forbids non numeric float
+// values, hence it's OK to implement `Eq`.
+impl Eq for Ipld {}
+
+// TODO vmx 2021-12-21: Make sure that special float values like Nan or Infinity are never
+// constructed and error in case we do.
+/// The sort order is arbitrary.
+#[allow(clippy::derive_ord_xor_partial_ord)]
+impl Ord for Ipld {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other)
+            .expect("NaN and Infinity are not supported by IPLD.")
+    }
 }
 
 impl fmt::Debug for Ipld {
