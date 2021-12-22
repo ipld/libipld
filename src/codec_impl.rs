@@ -219,7 +219,7 @@ mod tests {
         data_map.insert("Data".to_string(), Ipld::Bytes(b"data".to_vec()));
         data_map.insert("Links".to_string(), Ipld::List(vec![]));
 
-        let data = Ipld::StringMap(data_map);
+        let data = Ipld::Map(data_map);
         let result = IpldCodec::DagPb.encode(&data).unwrap();
         assert_eq!(result, vec![0x0a, 0x04, 0x64, 0x61, 0x74, 0x61]);
     }
@@ -230,7 +230,7 @@ mod tests {
         let mut data_map = std::collections::BTreeMap::<String, Ipld>::new();
         data_map.insert("Data".to_string(), Ipld::Bytes(b"data".to_vec()));
         data_map.insert("Links".to_string(), Ipld::List(vec![]));
-        let expected = Ipld::StringMap(data_map);
+        let expected = Ipld::Map(data_map);
 
         let data = [0x0a, 0x04, 0x64, 0x61, 0x74, 0x61];
         let result: Ipld = IpldCodec::DagPb.decode(&data).unwrap();
