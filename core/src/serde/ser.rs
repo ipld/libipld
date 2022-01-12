@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 
-use cid::serde::CID_SERDE_NEWTYPE_STRUCT_NAME;
+use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
 use cid::Cid;
 use serde::ser;
 
@@ -57,7 +57,7 @@ impl ser::Serialize for Ipld {
             Self::List(list) => serializer.collect_seq(list),
             Self::Map(map) => serializer.collect_map(map),
             Self::Link(link) => {
-                serializer.serialize_newtype_struct(CID_SERDE_NEWTYPE_STRUCT_NAME, link)
+                serializer.serialize_newtype_struct(CID_SERDE_PRIVATE_IDENTIFIER, link)
             }
         }
     }
@@ -180,7 +180,7 @@ impl serde::Serializer for Serializer {
         T: ser::Serialize,
     {
         let ipld = value.serialize(self);
-        if name == CID_SERDE_NEWTYPE_STRUCT_NAME {
+        if name == CID_SERDE_PRIVATE_IDENTIFIER {
             if let Ok(Ipld::Bytes(bytes)) = ipld {
                 let cid = Cid::try_from(bytes)
                     .map_err(|err| SerdeError(format!("Invalid CID: {}", err)))?;

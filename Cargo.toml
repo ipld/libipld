@@ -60,5 +60,6 @@ harness = false
 
 [patch.crates-io]
 #cid = { git = "https://github.com/multiformats/rust-cid",  rev = "4b2f7f9", default-features = false, features = ["std"] }
-cid = { git = "https://github.com/multiformats/rust-cid",  rev = "4b2f7f9" }
+#cid = { git = "https://github.com/multiformats/rust-cid",  rev = "4b2f7f9" }
+cid = { path = "../rust-cid" }
 multihash = { git = "https://github.com/multiformats/rust-multihash",  branch = "next" }

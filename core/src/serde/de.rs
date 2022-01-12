@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use std::convert::TryFrom;
 
-use cid::serde::{CidVisitor, CID_SERDE_NEWTYPE_STRUCT_NAME};
+use cid::serde::{CidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
+use cid::Cid;
 use serde::{de, forward_to_deserialize_any};
 
 use crate::error::SerdeError;
@@ -186,18 +188,34 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
         Ok(Ipld::Map(values))
     }
 
-    /// Newtype structs are only used to deserialize CIDs.
+    ///// Newtype structs are only used to deserialize CIDs.
+    //#[inline]
+    //fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    //where
+    //    D: de::Deserializer<'de>,
+    //{
+    //    // TODO vmx 2021-12-21: Check if it might be possible to create the CID directly
+    //    // here without using a serializer. Perhaps checking that we are in the correct
+    //    // newtype struct and then calling `Cid::deserialize()` direcrtly.
+    //    deserializer
+    //        .deserialize_newtype_struct(CID_SERDE_PRIVATE_IDENTIFIER, CidVisitor)
+    //        .map(Ipld::Link)
+    //}
+
     #[inline]
-    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
     where
-        D: de::Deserializer<'de>,
+        A: de::EnumAccess<'de>,
     {
-        // TODO vmx 2021-12-21: Check if it might be possible to create the CID directly
-        // here without using a serializer. Perhaps checking that we are in the correct
-        // newtype struct and then calling `Cid::deserialize()` direcrtly.
-        deserializer
-            .deserialize_newtype_struct(CID_SERDE_NEWTYPE_STRUCT_NAME, CidVisitor)
-            .map(Ipld::Link)
+        match data.variant() {
+            Ok((CID_SERDE_PRIVATE_IDENTIFIER, variant)) => {
+                let bytes = de::VariantAccess::newtype_variant::<Vec<u8>>(variant).unwrap();
+                let cid = Cid::try_from(bytes).unwrap();
+                Ok(Ipld::Link(cid))
+                //de::VariantAccess::newtype_variant(variant)
+            },
+            _ => Err(de::Error::custom("Cannot deserialize CID")),
+        }
     }
 }
 
@@ -219,7 +237,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
             Self::Bytes(bytes) => visitor.visit_bytes(&bytes),
             Self::List(list) => visit_seq(list, visitor),
             Self::Map(map) => visit_map(map, visitor),
-            Self::Link(link) => visitor.visit_bytes(&link.to_bytes()),
+            //Self::Link(link) => visitor.visit_bytes(&link.to_bytes()),
+            Self::Link(_link) => visitor.visit_newtype_struct(self),
+            //Self::Link(link) => self.deserialize_newtype_struct(CID_SERDE_PRIVATE_IDENTIFIER, CidVisitor).map(Ipld::Link),
         }
     }
 
@@ -279,7 +299,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
         name: &str,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        if name == CID_SERDE_NEWTYPE_STRUCT_NAME {
+        if name == CID_SERDE_PRIVATE_IDENTIFIER {
             match self {
                 Ipld::Link(_) => {
                     println!(
@@ -298,7 +318,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
             // struct case.
             unreachable!(
                 "This deserializer must not be called on newtype structs other than one named `{}`",
-                CID_SERDE_NEWTYPE_STRUCT_NAME
+                CID_SERDE_PRIVATE_IDENTIFIER
             )
         }
     }
