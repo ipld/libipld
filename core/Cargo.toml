@@ -17,6 +17,7 @@ cid = { version = "0.7.0", default-features = false, features = ["std"] }
 multibase = "0.9.1"
 multihash = { version = "0.15.0", default-features = false, features = ["std"] }
 serde = "1.0.132"
+serde_bytes = "0.11.5"
 serde_test = "1.0.132"
 thiserror = "1.0.25"
 

@@ -5,6 +5,7 @@ use std::convert::TryFrom;
 use cid::serde::{CidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
 use cid::Cid;
 use serde::{de, forward_to_deserialize_any};
+use serde_bytes::ByteBuf;
 
 use crate::error::SerdeError;
 use crate::ipld::Ipld;
@@ -209,8 +210,10 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
     {
         match data.variant() {
             Ok((CID_SERDE_PRIVATE_IDENTIFIER, variant)) => {
-                let bytes = de::VariantAccess::newtype_variant::<Vec<u8>>(variant).unwrap();
-                let cid = Cid::try_from(bytes).unwrap();
+                println!("vmx: within the variant");
+                //let bytes = de::VariantAccess::newtype_variant::<Vec<u8>>(variant).unwrap();
+                let bytes = de::VariantAccess::newtype_variant::<ByteBuf>(variant).unwrap();
+                let cid = Cid::try_from(&bytes[..]).unwrap();
                 Ok(Ipld::Link(cid))
                 //de::VariantAccess::newtype_variant(variant)
             },
