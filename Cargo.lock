@@ -411,7 +411,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cid"
 version = "0.7.0"
-source = "git+https://github.com/multiformats/rust-cid?branch=cid-as-enum#4be1665af9ce538ef266b4bdd0d6a9410211455d"
+source = "git+https://github.com/multiformats/rust-cid?branch=cid-as-newtype-struct#66d69adcfa143e263a539bd24a2bb9adbc5cfbf1"
 dependencies = [
  "core2",
  "multibase",
@@ -961,7 +961,6 @@ dependencies = [
  "multibase",
  "multihash 0.15.0",
  "serde",
- "serde_bytes",
  "serde_test",
  "thiserror",
 ]

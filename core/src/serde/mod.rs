@@ -13,7 +13,7 @@ mod tests {
     use std::collections::BTreeMap;
     use std::convert::TryFrom;
 
-    use cid::serde::CID_SERDE_NEWTYPE_STRUCT_NAME;
+    use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
     use cid::Cid;
     use serde::{Deserialize, Serialize};
     use serde_test::{assert_tokens, Token};
@@ -68,7 +68,7 @@ mod tests {
                 Token::Bool(true),
                 Token::Str("link"),
                 Token::NewtypeStruct {
-                    name: CID_SERDE_NEWTYPE_STRUCT_NAME,
+                    name: CID_SERDE_PRIVATE_IDENTIFIER,
                 },
                 Token::Bytes(&[
                     0x01, 0x71, 0x12, 0x20, 0x35, 0x4d, 0x45, 0x5f, 0xf3, 0xa6, 0x41, 0xb8, 0xca,
@@ -114,12 +114,12 @@ mod tests {
             Cid::try_from("bafyreibvjvcv745gig4mvqs4hctx4zfkono4rjejm2ta6gtyzkqxfjeily").unwrap();
 
         let bytes_not_cid = Ipld::Bytes(cid.to_bytes());
-        let not_a_cid = Cid::deserialize(bytes_not_cid);
+        let not_a_cid: Result<Cid, _> = from_ipld(bytes_not_cid);
         assert!(matches!(not_a_cid, Err(SerdeError(_))));
 
         // Make sure that a Ipld::Link deserializes correctly though.
         let link = Ipld::Link(cid);
-        let a_cid = Cid::deserialize(link).unwrap();
+        let a_cid: Cid = from_ipld(link).unwrap();
         assert_eq!(a_cid, cid);
     }
 }

@@ -1,11 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt;
-use std::convert::TryFrom;
 
-use cid::serde::{CidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
-use cid::Cid;
+use cid::serde::{BytesToCidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
 use serde::{de, forward_to_deserialize_any};
-use serde_bytes::ByteBuf;
 
 use crate::error::SerdeError;
 use crate::ipld::Ipld;
@@ -189,36 +186,16 @@ impl<'de> de::Visitor<'de> for IpldVisitor {
         Ok(Ipld::Map(values))
     }
 
-    ///// Newtype structs are only used to deserialize CIDs.
-    //#[inline]
-    //fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    //where
-    //    D: de::Deserializer<'de>,
-    //{
-    //    // TODO vmx 2021-12-21: Check if it might be possible to create the CID directly
-    //    // here without using a serializer. Perhaps checking that we are in the correct
-    //    // newtype struct and then calling `Cid::deserialize()` direcrtly.
-    //    deserializer
-    //        .deserialize_newtype_struct(CID_SERDE_PRIVATE_IDENTIFIER, CidVisitor)
-    //        .map(Ipld::Link)
-    //}
-
+    // TODO vmx 2022-01-14: add test that exercises this code path.
+    /// Newtype structs are only used to deserialize CIDs.
     #[inline]
-    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
-        A: de::EnumAccess<'de>,
+        D: de::Deserializer<'de>,
     {
-        match data.variant() {
-            Ok((CID_SERDE_PRIVATE_IDENTIFIER, variant)) => {
-                println!("vmx: within the variant");
-                //let bytes = de::VariantAccess::newtype_variant::<Vec<u8>>(variant).unwrap();
-                let bytes = de::VariantAccess::newtype_variant::<ByteBuf>(variant).unwrap();
-                let cid = Cid::try_from(&bytes[..]).unwrap();
-                Ok(Ipld::Link(cid))
-                //de::VariantAccess::newtype_variant(variant)
-            },
-            _ => Err(de::Error::custom("Cannot deserialize CID")),
-        }
+        deserializer
+            .deserialize_bytes(BytesToCidVisitor)
+            .map(Ipld::Link)
     }
 }
 
@@ -231,6 +208,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
     where
         V: de::Visitor<'de>,
     {
+        // TODO vmx 2022-01-14: the code path for `Self::Link` isn't exercised in tests.
         match self {
             Self::Null => visitor.visit_unit(),
             Self::Bool(bool) => visitor.visit_bool(bool),
@@ -240,9 +218,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
             Self::Bytes(bytes) => visitor.visit_bytes(&bytes),
             Self::List(list) => visit_seq(list, visitor),
             Self::Map(map) => visit_map(map, visitor),
-            //Self::Link(link) => visitor.visit_bytes(&link.to_bytes()),
             Self::Link(_link) => visitor.visit_newtype_struct(self),
-            //Self::Link(link) => self.deserialize_newtype_struct(CID_SERDE_PRIVATE_IDENTIFIER, CidVisitor).map(Ipld::Link),
         }
     }
 
@@ -309,7 +285,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
                         "vmx: core serde de: deserialize newtype struct: {:#?}",
                         self
                     );
-                    self.deserialize_bytes(visitor)
+                    visitor.visit_newtype_struct(self)
                 }
                 _ => Err(SerdeError(format!(
                     "Only `Ipld::Link`s can be deserialized to CIDs, input was `{:#?}`",
@@ -323,6 +299,13 @@ impl<'de> de::Deserializer<'de> for Ipld {
                 "This deserializer must not be called on newtype structs other than one named `{}`",
                 CID_SERDE_PRIVATE_IDENTIFIER
             )
+        }
+    }
+
+    fn deserialize_bytes<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        match self {
+            Self::Link(cid) => visitor.visit_bytes(&cid.to_bytes()),
+            _ => panic!("TODO vmx 2021-12-21: add proper error"),
         }
     }
 
@@ -385,7 +368,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
     }
 
     forward_to_deserialize_any! {
-       bytes byte_buf bool identifier seq string struct str
+       byte_buf bool identifier seq string struct str
     }
 }
 
