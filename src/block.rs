@@ -70,7 +70,7 @@ impl<S> AsRef<[u8]> for Block<S> {
 }
 
 // TODO: move to tiny_cid
-fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
+fn verify_cid<M: MultihashDigest<64>>(cid: &Cid, payload: &[u8]) -> Result<()> {
     let mh = M::try_from(cid.hash().code())
         .map_err(|_| UnsupportedMultihash(cid.hash().code()))?
         .digest(payload);
