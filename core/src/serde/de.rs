@@ -242,32 +242,46 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_i8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_i8(integer as i8),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `i8`, input was `{:#?}`",
+                self
+            ))),
         }
     }
     fn deserialize_i16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_i16(integer as i16),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `i16`, input was `{:#?}`",
+                self
+            ))),
         }
     }
     fn deserialize_i32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_i32(integer as i32),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `i32`, input was `{:#?}`",
+                self
+            ))),
         }
     }
     fn deserialize_i64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_i64(integer as i64),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `i64`, input was `{:#?}`",
+                self
+            ))),
         }
     }
     fn deserialize_ignored_any<V: de::Visitor<'de>>(
         self,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        unreachable!()
+        // TODO vmx 2022-01-19: Not sure when this is called. It seems to be called after the
+        // iteration over a map is finished.
+        self.deserialize_any(visitor)
     }
     fn deserialize_map<V: de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
         unreachable!()
@@ -293,16 +307,14 @@ impl<'de> de::Deserializer<'de> for Ipld {
                 ))),
             }
         } else {
-            // TODO vmx 2021-12-22: Check if this is actually true of if there could be some newtype
-            // struct case.
-            unreachable!(
-                "This deserializer must not be called on newtype structs other than one named `{}`",
-                CID_SERDE_PRIVATE_IDENTIFIER
-            )
+            visitor.visit_newtype_struct(self)
         }
     }
 
     fn deserialize_bytes<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        println!("vmx: libipld: deserialize ipld: deserialize bytes, which should only be called if it's a link");
+        // TODO vmx 2022-01-19: This is likely wrong, there probably also needs to be a match on
+        // `Self::Bytes()`.
         match self {
             Self::Link(cid) => visitor.visit_bytes(&cid.to_bytes()),
             _ => panic!("TODO vmx 2021-12-21: add proper error"),
@@ -315,9 +327,15 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_tuple<V: de::Visitor<'de>>(
         self,
         _len: usize,
-        _visitor: V,
+        visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        unreachable!()
+        match self {
+            Self::List(list) => visit_seq(list, visitor),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::List` can be deserialized to tuples, input was `{:#?}`",
+                self
+            ))),
+        }
     }
     fn deserialize_tuple_struct<V: de::Visitor<'de>>(
         self,
@@ -331,33 +349,51 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_u8<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_u8(integer as u8),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `u8`, input was `{:#?}`",
+                self
+            ))),
         }
     }
 
     fn deserialize_u16<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_u16(integer as u16),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `u16`, input was `{:#?}`",
+                self
+            ))),
         }
     }
 
     fn deserialize_u32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_u32(integer as u32),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `u32`, input was `{:#?}`",
+                self
+            ))),
         }
     }
 
     fn deserialize_u64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Integer(integer) => visitor.visit_u64(integer as u64),
-            _ => panic!("TODO vmx 2021-12-21: add proper error"),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Integer` can be deserialized to `u64`, input was `{:#?}`",
+                self
+            ))),
         }
     }
 
-    fn deserialize_unit<V: de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        unreachable!()
+    fn deserialize_unit<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        match self {
+            Self::Null => visitor.visit_unit(),
+            _ => Err(SerdeError(format!(
+                "Only `Ipld::Null` can be deserialized to unit, input was `{:#?}`",
+                self
+            ))),
+        }
     }
     fn deserialize_unit_struct<V: de::Visitor<'de>>(
         self,

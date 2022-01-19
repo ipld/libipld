@@ -8,6 +8,25 @@ mod ser;
 pub use de::from_ipld;
 pub use ser::to_ipld;
 
+use std::fmt;
+
+use serde::{de::DeserializeOwned, Serialize};
+
+use crate::ipld::Ipld;
+
+/// Utility for testing (de)serialization of [`Ipld`].
+///
+/// Checks if `data` and `ipld` match if they are encoded into each other.
+pub fn assert_roundtrip<'de, T>(data: &T, ipld: &Ipld)
+where
+    T: Serialize + DeserializeOwned + PartialEq + fmt::Debug,
+{
+    let encoded: Ipld = to_ipld(&data).unwrap();
+    assert_eq!(&encoded, ipld);
+    let decoded: T = from_ipld(ipld.clone()).unwrap();
+    assert_eq!(&decoded, data);
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
@@ -20,7 +39,7 @@ mod tests {
 
     use crate::error::SerdeError;
     use crate::ipld::Ipld;
-    use crate::serde::{from_ipld, to_ipld};
+    use crate::serde::{assert_roundtrip, from_ipld};
 
     #[derive(Debug, Deserialize, PartialEq, Serialize)]
     struct Person {
@@ -101,10 +120,7 @@ mod tests {
             ])
         });
 
-        let person_ipld: Ipld = to_ipld(&person).unwrap();
-        assert_eq!(person_ipld, expected_ipld);
-        let person_struct: Person = from_ipld(person_ipld).unwrap();
-        assert_eq!(person_struct, person);
+        assert_roundtrip(&person, &expected_ipld);
     }
 
     /// Test that deserializing arbitrary bytes are not accidently recognized as CID.

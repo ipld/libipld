@@ -14,6 +14,7 @@ fnv = "1.0.7"
 libipld-cbor = { version = "0.12.0", path = "dag-cbor", optional = true }
 libipld-cbor-derive = { version = "0.12.0", path = "dag-cbor-derive", optional = true }
 libipld-core = { version = "0.12.0", path = "core" }
+libipld-derive = { version = "0.1.0", path = "derive", optional = true }
 libipld-json = { version = "0.12.0", path = "dag-json", optional = true }
 libipld-macro = { version = "0.12.0", path = "macro" }
 libipld-pb = { version = "0.12.0", path = "dag-pb", optional = true }
@@ -34,7 +35,7 @@ default = ["dag-cbor", "dag-json", "dag-pb", "derive", "serde-codec"]
 dag-cbor = ["libipld-cbor"]
 dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
-derive = ["libipld-cbor-derive"]
+derive = ["libipld-cbor-derive", "libipld-derive"]
 serde-codec = ["libipld-core/serde-codec"]
 
 [workspace]
@@ -44,6 +45,7 @@ members = [
   "dag-cbor-derive",
   "dag-json",
   "dag-pb",
+  "derive",
   "macro",
 ]
 

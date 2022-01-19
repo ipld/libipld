@@ -1,0 +1,22 @@
+[package]
+name = "libipld-derive"
+version = "0.1.0"
+authors = ["Volker Mische <volker.mische@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Derive macros for IPLD"
+repository = "https://github.com/ipld/libipld"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+serde = { version = "1.0.133", features = ["derive"] }
+syn = "1.0"
+synstructure = "0.12"
+
+[dev-dependencies]
+libipld-core = { path = "../core" }
+trybuild = "1.0"
