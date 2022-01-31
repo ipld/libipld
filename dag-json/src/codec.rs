@@ -192,17 +192,10 @@ impl<'de> de::Visitor<'de> for JsonVisitor {
             if key == RESERVED_KEY && values.len() == 1 {
                 if let Some((bytes_key, Ipld::String(bytes_value))) = map.iter().next() {
                     if bytes_key == BYTES_KEY && values.len() == 1 {
-                        let multibase_prefixed = Base::Base64.code().to_string() + bytes_value;
-                        if let Ok((decoded_base, decoded_bytes)) =
-                            multibase::decode(multibase_prefixed)
-                        {
-                            if decoded_base != Base::Base64 {
-                                return Err(SerdeError::custom(
-                                    "bytes kind must be base-64 encoded",
-                                ));
-                            }
-                            return Ok(Ipld::Bytes(decoded_bytes));
-                        }
+                        let decoded_bytes = Base::Base64.decode(bytes_value).map_err(|_| {
+                            SerdeError::custom("bytes kind must be base-64 encoded")
+                        })?;
+                        return Ok(Ipld::Bytes(decoded_bytes));
                     }
                 }
             }
