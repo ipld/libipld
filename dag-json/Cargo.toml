@@ -8,7 +8,6 @@ description = "ipld json codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-base64 = "0.13.0"
 libipld-core = { version = "0.12.0", path = "../core" }
 multihash = "0.14.0"
 serde_json = { version = "1.0.64", features = ["float_roundtrip"] }
