@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::ast::*;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -18,7 +20,8 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
                 w: &mut W,
             ) -> libipld::Result<()> {
                 use libipld::codec::Encode;
-                use libipld::cbor::encode::{write_null, write_u64};
+                use libipld::cbor::cbor::MajorKind;
+                use libipld::cbor::encode::{write_null, write_u8, write_u64};
                 #body
             }
         }
@@ -39,7 +42,8 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
             ) -> libipld::Result<Self> {
-                use libipld::cbor::decode::{read_len, read_u8, read_u64};
+                use libipld::cbor::cbor::{MajorKind, NULL};
+                use libipld::cbor::decode::{read_uint, read_major};
                 use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
                 use libipld::codec::Decode;
                 use libipld::error::Result;
@@ -106,22 +110,38 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
                     None
                 }
             });
-            let fields = s.fields.iter().map(|field| {
-                let key = rename(&field.name, field.rename.as_ref());
-                let binding = &field.binding;
-                default(
-                    binding,
-                    field.default.as_deref(),
-                    quote! {
-                        Encode::encode(#key, c, w)?;
-                        Encode::encode(#binding, c, w)?;
-                    },
-                )
+            let mut cbor_order = s
+                .fields
+                .iter()
+                .map(|field| {
+                    let key = rename(&field.name, field.rename.as_ref());
+                    let binding = &field.binding;
+                    let field = default(
+                        binding,
+                        field.default.as_deref(),
+                        quote! {
+                            Encode::encode(#key, c, w)?;
+                            Encode::encode(#binding, c, w)?;
+                        },
+                    );
+                    (key.to_string(), field)
+                })
+                .collect::<Vec<(String, _)>>();
+            // CBOR RFC-7049 specifies a canonical sort order, where keys are sorted by length
+            // first. This was later revised with RFC-8949, but we need to stick to the original
+            // order to stay compatible with existing data.
+            cbor_order.sort_unstable_by(|(key_a, _), (key_b, _)| {
+                match key_a.len().cmp(&key_b.len()) {
+                    Ordering::Greater => Ordering::Greater,
+                    Ordering::Less => Ordering::Less,
+                    Ordering::Equal => key_a.cmp(key_b),
+                }
             });
+            let fields = cbor_order.iter().map(|(_, field)| field);
             quote! {
                 let mut len = #len;
                 #(#dfields)*
-                write_u64(w, 5, len)?;
+                write_u64(w, MajorKind::Map, len)?;
                 #(#fields)*
             }
         }
@@ -134,7 +154,7 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
                 }
             });
             quote! {
-                write_u64(w, 4, #len)?;
+                write_u64(w, MajorKind::Array, #len)?;
                 #(#fields)*
             }
         }
@@ -171,7 +191,7 @@ fn gen_encode_union(u: &Union) -> TokenStream {
                 UnionRepr::Keyed => {
                     quote! {
                         #pat => {
-                            write_u64(w, 5, 1)?;
+                            write_u8(w, MajorKind::Map, 1)?;
                             Encode::encode(#key, c, w)?;
                             #value
                         }
@@ -191,8 +211,8 @@ fn gen_encode_union(u: &Union) -> TokenStream {
                 UnionRepr::IntTuple => {
                     quote! {
                         #pat => {
-                            write_u64(w, 4, 2)?;
-                            write_u64(w, 0, #i as u64)?;
+                            write_u8(w, MajorKind::Array, 2)?;
+                            write_u64(w, MajorKind::UnsignedInt, #i as u64)?;
                             #value
                         }
                     }
@@ -208,7 +228,7 @@ fn gen_encode_union(u: &Union) -> TokenStream {
 }
 
 fn gen_decode_struct(s: &Struct) -> TokenStream {
-    let len = s.fields.len();
+    let len = s.fields.len() as u64;
     let construct = &*s.construct;
     match s.repr {
         StructRepr::Map => {
@@ -232,10 +252,10 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                 })
                 .collect();
             quote! {
-                let major = read_u8(r)?;
-                match major {
-                    0xa0..=0xbb => {
-                        let len = read_len(r, major - 0xa0)?;
+                let major = read_major(r)?;
+                match major.kind() {
+                    MajorKind::Map => {
+                        let len = read_uint(r, major)?;
                         if len > #len {
                             return Err(LengthOutOfRange::new::<Self>().into());
                         }
@@ -255,30 +275,8 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
 
                         return Ok(#construct);
                     }
-                    0xbf => {
-                        #(let mut #binding = None;)*
-                        loop {
-                            let major = read_u8(r)?;
-                            if major == 0xff {
-                                break;
-                            }
-                            r.seek(SeekFrom::Current(-1))?;
-                            let key = String::decode(c, r)?;
-                            match key.as_str() {
-                                #(#key => { #binding = Some(Decode::decode(c, r)?); })*
-                                _ => {
-                                    libipld::Ipld::decode(c, r)?;
-                                    //return Err(UnexpectedKey::new::<Self>(key).into()),
-                                }
-                            }
-                        }
-
-                        #(#fields)*
-
-                        return Ok(#construct);
-                    }
                     _ => {
-                        return Err(UnexpectedCode::new::<Self>(major).into());
+                        return Err(UnexpectedCode::new::<Self>(major.into()).into());
                     }
                 }
             }
@@ -291,10 +289,10 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                 }
             });
             quote! {
-                let major = read_u8(r)?;
-                match major {
-                    0x80..=0x9b => {
-                        let len = read_len(r, major - 0x80)?;
+                let major = read_major(r)?;
+                match major.kind() {
+                    MajorKind::Array => {
+                        let len = read_uint(r, major)?;
                         if len != #len {
                             return Err(LengthOutOfRange::new::<Self>().into());
                         }
@@ -302,7 +300,7 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
                         return Ok(#construct);
                     }
                     _ => {
-                        return Err(UnexpectedCode::new::<Self>(major).into());
+                        return Err(UnexpectedCode::new::<Self>(major.into()).into());
                     }
                 }
             }
@@ -318,13 +316,13 @@ fn gen_decode_struct(s: &Struct) -> TokenStream {
         StructRepr::Null => {
             assert_eq!(s.fields.len(), 0);
             quote! {
-                let major = read_u8(r)?;
+                let major = read_major(r)?;
                 match major {
-                    0xf6..=0xf7 => {
+                    NULL => {
                         return Ok(#construct);
                     }
                     _ => {
-                        return Err(UnexpectedCode::new::<Self>(major).into());
+                        return Err(UnexpectedCode::new::<Self>(major.into()).into());
                     }
                 }
             }
@@ -345,9 +343,11 @@ fn gen_decode_union(u: &Union) -> TokenStream {
                 }
             });
             quote! {
-                let major = read_u8(r)?;
-                if major != 0xa1 {
-                    return Err(UnexpectedCode::new::<Self>(major).into());
+                let major = read_major(r)?;
+                if major.kind() != MajorKind::Map {
+                    return Err(UnexpectedCode::new::<Self>(major.into()).into());
+                } else if read_uint(r, major)? != 1 {
+                    return Err(LengthOutOfRange::new::<Self>().into());
                 }
                 let key: String = Decode::decode(c, r)?;
                 #(#variants;)*
@@ -355,6 +355,7 @@ fn gen_decode_union(u: &Union) -> TokenStream {
             }
         }
         UnionRepr::Kinded => {
+            // TODO: this is wrong. Kinded should be based on the kind, not "if it decodes".
             let variants = u.variants.iter().map(|s| {
                 let parse = gen_decode_struct(s);
                 quote! {
@@ -372,7 +373,7 @@ fn gen_decode_union(u: &Union) -> TokenStream {
             });
             quote! {
                 #(#variants;)*
-                Err(UnexpectedCode::new::<Self>(read_u8(r)?).into())
+                Err(UnexpectedCode::new::<Self>(read_major(r)?.into()).into())
             }
         }
         UnionRepr::String => {
@@ -406,15 +407,19 @@ fn gen_decode_union(u: &Union) -> TokenStream {
         }
         UnionRepr::IntTuple => {
             let variants = u.variants.iter().enumerate().map(|(i, s)| {
+                let i = i as u64;
                 let parse = gen_decode_struct(s);
                 quote!(#i => { #parse })
             });
             quote! {
-                let major = read_u8(r)?;
-                if major != 0x82 {
-                    return Err(UnexpectedCode::new::<Self>(major).into());
+                let major = read_major(r)?;
+                if major.kind() != MajorKind::Array {
+                    return Err(UnexpectedCode::new::<Self>(major.into()).into());
                 }
-                let ty = read_u8(r)? as usize;
+                if read_uint(r, major)? != 2 {
+                    return Err(LengthOutOfRange::new::<Self>().into());
+                }
+                let ty: u64 = Decode::decode(c, r)?;
                 match ty {
                     #(#variants,)*
                     _ => return Err(UnexpectedKey::new::<Self>(ty.to_string()).into()),

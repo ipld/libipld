@@ -84,10 +84,7 @@ mod tests {
 
         assert_eq!(
             std::str::from_utf8(&contact_encoded).unwrap(),
-            format!(
-                r#"{{"details":{{"/":"{}"}},"name":"Hello World!"}}"#,
-                base64::encode(cid.to_bytes()),
-            )
+            format!(r#"{{"details":{{"/":"{}"}},"name":"Hello World!"}}"#, cid)
         );
 
         let contact_decoded: Ipld = DagJsonCodec.decode(&contact_encoded).unwrap();

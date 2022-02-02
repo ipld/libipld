@@ -1,6 +1,7 @@
 use core::convert::TryFrom;
 use libipld_core::cid::Cid;
 use libipld_core::ipld::Ipld;
+use libipld_core::multibase::Base;
 use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::ser::Serializer;
@@ -9,7 +10,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::io::{Read, Write};
 
-const LINK_KEY: &str = "/";
+const RESERVED_KEY: &str = "/";
+const BYTES_KEY: &str = "bytes";
 
 pub fn encode<W: Write>(ipld: &Ipld, writer: &mut W) -> Result<(), Error> {
     let mut ser = Serializer::new(writer);
@@ -29,7 +31,12 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
         Ipld::Integer(i128) => ser.serialize_i128(*i128),
         Ipld::Float(f64) => ser.serialize_f64(*f64),
         Ipld::String(string) => ser.serialize_str(string),
-        Ipld::Bytes(bytes) => ser.serialize_bytes(bytes),
+        Ipld::Bytes(bytes) => {
+            let base_encoded = Base::Base64.encode(bytes);
+            let byteskv = BTreeMap::from([("bytes", &base_encoded)]);
+            let slashkv = BTreeMap::from([("/", byteskv)]);
+            ser.collect_map(slashkv)
+        }
         Ipld::List(list) => {
             let wrapped = list.iter().map(Wrapper);
             ser.collect_seq(wrapped)
@@ -39,9 +46,8 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
             ser.collect_map(wrapped)
         }
         Ipld::Link(link) => {
-            let value = base64::encode(&link.to_bytes());
             let mut map = BTreeMap::new();
-            map.insert("/", value);
+            map.insert("/", link.to_string());
 
             ser.collect_map(map)
         }
@@ -168,13 +174,27 @@ impl<'de> de::Visitor<'de> for JsonVisitor {
             values.push((key, value));
         }
 
-        // JSON Object represents IPLD Link if it is `{ "/": "...." }` therefor
-        // we valiadet if that is the case here.
+        // JSON Object represents an IPLD Link if it is a slash, followed by a string
+        // (`{ "/": "...." }`) therefore we validate if that is the case here.
         if let Some((key, WrapperOwned(Ipld::String(value)))) = values.first() {
-            if key == LINK_KEY && values.len() == 1 {
-                let link = base64::decode(value).map_err(SerdeError::custom)?;
-                let cid = Cid::try_from(link).map_err(SerdeError::custom)?;
+            if key == RESERVED_KEY && values.len() == 1 {
+                let cid = Cid::try_from(value.clone()).map_err(SerdeError::custom)?;
                 return Ok(Ipld::Link(cid));
+            }
+        }
+        // JSON Object represents IPLD bytes if it is a slash, followed by an object which contains
+        // only a single key called "bytes", where the value is a string.
+        if let Some((key, WrapperOwned(Ipld::Map(map)))) = values.first() {
+            // Object with a slash
+            if key == RESERVED_KEY && values.len() == 1 {
+                if let Some((bytes_key, Ipld::String(bytes_value))) = map.iter().next() {
+                    if bytes_key == BYTES_KEY && values.len() == 1 {
+                        let decoded_bytes = Base::Base64.decode(bytes_value).map_err(|_| {
+                            SerdeError::custom("bytes kind must be base-64 encoded")
+                        })?;
+                        return Ok(Ipld::Bytes(decoded_bytes));
+                    }
+                }
             }
         }
 

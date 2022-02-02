@@ -19,6 +19,11 @@ impl NumberOutOfRange {
     }
 }
 
+/// Number is not minimally encoded.
+#[derive(Debug, Error)]
+#[error("Number not minimally encoded.")]
+pub struct NumberNotMinimal;
+
 /// Length larger than usize or too small, for example zero length cid field.
 #[derive(Debug, Error)]
 #[error("Length out of range when decoding {ty}.")]
@@ -99,7 +104,7 @@ impl MissingKey {
 /// Unknown cbor tag.
 #[derive(Debug, Error)]
 #[error("Unkown cbor tag `{0}`.")]
-pub struct UnknownTag(pub u8);
+pub struct UnknownTag(pub u64);
 
 /// Unexpected eof.
 #[derive(Debug, Error)]
