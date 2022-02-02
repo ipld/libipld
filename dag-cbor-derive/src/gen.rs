@@ -20,7 +20,7 @@ pub fn gen_encode(ast: &SchemaType) -> TokenStream {
                 w: &mut W,
             ) -> libipld::Result<()> {
                 use libipld::codec::Encode;
-                use libipld::cbor::cbor::*;
+                use libipld::cbor::cbor::MajorKind;
                 use libipld::cbor::encode::{write_null, write_u8, write_u64};
                 #body
             }
@@ -42,7 +42,7 @@ pub fn gen_decode(ast: &SchemaType) -> TokenStream {
                 c: libipld::cbor::DagCborCodec,
                 r: &mut R,
             ) -> libipld::Result<Self> {
-                use libipld::cbor::cbor::*;
+                use libipld::cbor::cbor::{MajorKind, NULL};
                 use libipld::cbor::decode::{read_uint, read_major};
                 use libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
                 use libipld::codec::Decode;

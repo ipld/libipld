@@ -13,7 +13,7 @@ use libipld_core::codec::Encode;
 use libipld_core::error::Result;
 use libipld_core::ipld::Ipld;
 
-use crate::cbor::*;
+use crate::cbor::{MajorKind, FALSE, TRUE};
 use crate::error::NumberOutOfRange;
 use crate::DagCborCodec as DagCbor;
 
