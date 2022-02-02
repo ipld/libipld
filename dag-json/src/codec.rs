@@ -1,7 +1,7 @@
 use core::convert::TryFrom;
 use libipld_core::cid::Cid;
 use libipld_core::ipld::Ipld;
-use libipld_core::multibase::{self, Base};
+use libipld_core::multibase::Base;
 use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::ser::Serializer;
@@ -32,11 +32,8 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
         Ipld::Float(f64) => ser.serialize_f64(*f64),
         Ipld::String(string) => ser.serialize_str(string),
         Ipld::Bytes(bytes) => {
-            let base_encoded = multibase::encode(Base::Base64, bytes);
-            let byteskv = BTreeMap::from([
-                // We need it to be base64 encoded, without the Multibase prefix.
-                ("bytes", &base_encoded[1..]),
-            ]);
+            let base_encoded = Base::Base64.encode(bytes);
+            let byteskv = BTreeMap::from([("bytes", &base_encoded)]);
             let slashkv = BTreeMap::from([("/", byteskv)]);
             ser.collect_map(slashkv)
         }
