@@ -111,3 +111,24 @@ jobs:
 
     - name: cargo clippy
       run: cargo clippy --workspace --all-features --examples --tests -- -D warnings
+
+  build-no-std:
+    name: Build no_std (libipld-core)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: thumbv6m-none-eabi
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --no-default-features --target thumbv6m-none-eabi --manifest-path core/Cargo.toml

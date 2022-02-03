@@ -1,11 +1,15 @@
 //! Implements the raw codec.
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{convert::TryFrom, iter::Extend};
+#[cfg(not(feature = "std"))]
+use core2::io::{Read, Seek, Write};
+#[cfg(feature = "std")]
+use std::io::{Read, Seek, Write};
+
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode, References};
-use crate::error::{Result, TypeError, TypeErrorType, UnsupportedCodec};
+use crate::error::{Result, UnsupportedCodec};
 use crate::ipld::Ipld;
-use core::convert::TryFrom;
-use std::io::{Read, Seek, Write};
-use std::iter::Extend;
 
 /// Raw codec.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,19 +33,19 @@ impl TryFrom<u64> for RawCodec {
 
 impl Encode<RawCodec> for [u8] {
     fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<()> {
-        Ok(w.write_all(self)?)
+        w.write_all(self).map_err(anyhow::Error::msg)
     }
 }
 
 impl Encode<RawCodec> for Box<[u8]> {
     fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<()> {
-        Ok(w.write_all(&self[..])?)
+        w.write_all(&self[..]).map_err(anyhow::Error::msg)
     }
 }
 
 impl Encode<RawCodec> for Vec<u8> {
     fn encode<W: Write>(&self, _: RawCodec, w: &mut W) -> Result<()> {
-        Ok(w.write_all(&self[..])?)
+        w.write_all(&self[..]).map_err(anyhow::Error::msg)
     }
 }
 
@@ -50,7 +54,10 @@ impl Encode<RawCodec> for Ipld {
         if let Ipld::Bytes(bytes) = self {
             bytes.encode(c, w)
         } else {
-            Err(TypeError::new(TypeErrorType::Bytes, self).into())
+            Err(anyhow::Error::msg(crate::error::TypeError::new(
+                crate::error::TypeErrorType::Bytes,
+                self,
+            )))
         }
     }
 }
@@ -65,7 +72,7 @@ impl Decode<RawCodec> for Box<[u8]> {
 impl Decode<RawCodec> for Vec<u8> {
     fn decode<R: Read + Seek>(_: RawCodec, r: &mut R) -> Result<Self> {
         let mut buf = vec![];
-        r.read_to_end(&mut buf)?;
+        r.read_to_end(&mut buf).map_err(anyhow::Error::msg)?;
         Ok(buf)
     }
 }

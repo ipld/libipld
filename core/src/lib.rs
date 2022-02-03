@@ -1,6 +1,9 @@
 //! Core ipld types used by ipld codecs.
 #![deny(missing_docs)]
 #![deny(warnings)]
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
 
 pub mod codec;
 pub mod convert;
@@ -11,5 +14,6 @@ pub mod raw;
 pub mod raw_value;
 
 pub use cid;
+#[cfg(feature = "std")]
 pub use multibase;
 pub use multihash;

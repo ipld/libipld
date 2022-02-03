@@ -1,11 +1,12 @@
 //! misc stuff
-use std::{
-    io::{self, Read, Seek},
-    marker::PhantomData,
-};
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{convert::TryFrom, marker::PhantomData};
+#[cfg(not(feature = "std"))]
+use core2::io::{Read, Seek, SeekFrom, Write};
+#[cfg(feature = "std")]
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::codec::{Codec, Decode, Encode};
-use std::convert::TryFrom;
 
 /// A raw value for a certain codec.
 ///
@@ -50,24 +51,24 @@ pub trait SkipOne: Codec {
 }
 
 impl<C: Codec + SkipOne> Decode<C> for RawValue<C> {
-    fn decode<R: std::io::Read + std::io::Seek>(c: C, r: &mut R) -> anyhow::Result<Self> {
-        let p0 = r.seek(io::SeekFrom::Current(0))?;
+    fn decode<R: Read + Seek>(c: C, r: &mut R) -> anyhow::Result<Self> {
+        let p0 = r.seek(SeekFrom::Current(0)).map_err(anyhow::Error::msg)?;
         c.skip(r)?;
-        let p1 = r.seek(io::SeekFrom::Current(0))?;
+        let p1 = r.seek(SeekFrom::Current(0)).map_err(anyhow::Error::msg)?;
         // seeking backward is not allowed
         anyhow::ensure!(p1 > p0);
         // this will fail if usize is 4 bytes and an item is > 32 bit of length
-        let len = usize::try_from(p1 - p0)?;
-        r.seek(io::SeekFrom::Start(p0))?;
+        let len = usize::try_from(p1 - p0).map_err(anyhow::Error::msg)?;
+        r.seek(SeekFrom::Start(p0)).map_err(anyhow::Error::msg)?;
         let mut buf = vec![0u8; len];
-        r.read_exact(&mut buf)?;
+        r.read_exact(&mut buf).map_err(anyhow::Error::msg)?;
         Ok(Self::new(buf.into()))
     }
 }
 
 impl<C: Codec> Encode<C> for RawValue<C> {
-    fn encode<W: std::io::Write>(&self, _: C, w: &mut W) -> anyhow::Result<()> {
-        w.write_all(&self.data)?;
+    fn encode<W: Write>(&self, _: C, w: &mut W) -> anyhow::Result<()> {
+        w.write_all(&self.data).map_err(anyhow::Error::msg)?;
         Ok(())
     }
 }
@@ -77,7 +78,7 @@ impl<C: Codec> Encode<C> for RawValue<C> {
 pub struct IgnoredAny;
 
 impl<C: Codec + SkipOne> Decode<C> for IgnoredAny {
-    fn decode<R: std::io::Read + std::io::Seek>(c: C, r: &mut R) -> anyhow::Result<Self> {
+    fn decode<R: Read + Seek>(c: C, r: &mut R) -> anyhow::Result<Self> {
         c.skip(r)?;
         Ok(Self)
     }
