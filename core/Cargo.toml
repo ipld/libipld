@@ -9,10 +9,10 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 anyhow = "1.0.40"
-cid = { version = "0.7.0", default-features = false, features = ["std"] }
+cid = { version = "0.8.0", default-features = false, features = ["std"] }
 multibase = "0.9.1"
-multihash = { version = "0.14.0", default-features = false, features = ["std"] }
+multihash = { version = "0.16.0", default-features = false, features = ["std"] }
 thiserror = "1.0.25"
 
 [dev-dependencies]
-multihash = "0.14.0"
+multihash = "0.16.0"

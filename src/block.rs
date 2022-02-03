@@ -70,7 +70,7 @@ impl<S> AsRef<[u8]> for Block<S> {
 }
 
 // TODO: move to tiny_cid
-fn verify_cid<M: MultihashDigest>(cid: &Cid, payload: &[u8]) -> Result<()> {
+fn verify_cid<M: MultihashDigest<S>, const S: usize>(cid: &Cid, payload: &[u8]) -> Result<()> {
     let mh = M::try_from(cid.hash().code())
         .map_err(|_| UnsupportedMultihash(cid.hash().code()))?
         .digest(payload);
@@ -85,7 +85,7 @@ impl<S: StoreParams> Block<S> {
     /// Creates a new block. Returns an error if the hash doesn't match
     /// the data.
     pub fn new(cid: Cid, data: Vec<u8>) -> Result<Self> {
-        verify_cid::<S::Hashes>(&cid, &data)?;
+        verify_cid::<S::Hashes, 64>(&cid, &data)?;
         Ok(Self::new_unchecked(cid, data))
     }
 
