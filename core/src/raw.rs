@@ -1,14 +1,11 @@
 //! Implements the raw codec.
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{convert::TryFrom, iter::Extend};
-#[cfg(not(feature = "std"))]
-use core2::io::{Read, Seek, Write};
-#[cfg(feature = "std")]
-use std::io::{Read, Seek, Write};
 
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{Result, UnsupportedCodec};
+use crate::io::{Read, Seek, Write};
 use crate::ipld::Ipld;
 
 /// Raw codec.

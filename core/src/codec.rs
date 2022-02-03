@@ -1,13 +1,10 @@
 //! `Ipld` codecs.
 use alloc::{format, string::String, vec::Vec};
 use core::{convert::TryFrom, ops::Deref};
-#[cfg(not(feature = "std"))]
-use core2::io::{Cursor, Read, Seek, Write};
-#[cfg(feature = "std")]
-use std::io::{Cursor, Read, Seek, Write};
 
 use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
+use crate::io::{Cursor, Read, Seek, Write};
 use crate::ipld::Ipld;
 
 /// Codec trait.

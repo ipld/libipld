@@ -1,12 +1,9 @@
 //! misc stuff
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{convert::TryFrom, marker::PhantomData};
-#[cfg(not(feature = "std"))]
-use core2::io::{Read, Seek, SeekFrom, Write};
-#[cfg(feature = "std")]
-use std::io::{Read, Seek, SeekFrom, Write};
 
 use crate::codec::{Codec, Decode, Encode};
+use crate::io::{Read, Seek, SeekFrom, Write};
 
 /// A raw value for a certain codec.
 ///

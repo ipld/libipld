@@ -17,3 +17,8 @@ pub use cid;
 #[cfg(feature = "std")]
 pub use multibase;
 pub use multihash;
+
+#[cfg(not(feature = "std"))]
+use core2::io;
+#[cfg(feature = "std")]
+use std::io;

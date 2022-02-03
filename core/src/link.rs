@@ -6,14 +6,11 @@ use core::{
     marker::PhantomData,
     ops::Deref,
 };
-#[cfg(not(feature = "std"))]
-use core2::io::{Read, Seek, Write};
-#[cfg(feature = "std")]
-use std::io::{Read, Seek, Write};
 
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
+use crate::io::{Read, Seek, Write};
 
 /// Typed cid.
 #[derive(Debug)]
