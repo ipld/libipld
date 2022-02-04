@@ -1,37 +1,48 @@
 //! `Ipld` error definitions.
+use alloc::{string::String, vec::Vec};
+
 use crate::cid::Cid;
 use crate::ipld::{Ipld, IpldIndex};
 pub use anyhow::{Error, Result};
+#[cfg(feature = "std")]
 use thiserror::Error;
 
 /// Block exceeds 1MiB.
-#[derive(Clone, Copy, Debug, Error)]
-#[error("Block size {0} exceeds 1MiB.")]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Error), error("Block size {0} exceeds 1MiB."))]
 pub struct BlockTooLarge(pub usize);
 
 /// The codec is unsupported.
-#[derive(Clone, Copy, Debug, Error)]
-#[error("Unsupported codec {0:?}.")]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Error), error("Unsupported codec {0:?}."))]
 pub struct UnsupportedCodec(pub u64);
 
 /// The multihash is unsupported.
-#[derive(Clone, Copy, Debug, Error)]
-#[error("Unsupported multihash {0:?}.")]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Error), error("Unsupported multihash {0:?}."))]
 pub struct UnsupportedMultihash(pub u64);
 
 /// Hash does not match the CID.
-#[derive(Clone, Debug, Error)]
-#[error("Hash of data does not match the CID.")]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "std",
+    derive(Error),
+    error("Hash of data does not match the CID.")
+)]
 pub struct InvalidMultihash(pub Vec<u8>);
 
 /// The block wasn't found. The supplied string is a CID.
-#[derive(Clone, Copy, Debug, Error)]
-#[error("Failed to retrieve block {0}.")]
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Error), error("Failed to retrieve block {0}."))]
 pub struct BlockNotFound(pub Cid);
 
 /// Type error.
-#[derive(Clone, Debug, Error)]
-#[error("Expected {expected:?} but found {found:?}")]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "std",
+    derive(Error),
+    error("Expected {expected:?} but found {found:?}")
+)]
 pub struct TypeError {
     /// The expected type.
     pub expected: TypeErrorType,
@@ -46,6 +57,13 @@ impl TypeError {
             expected: expected.into(),
             found: found.into(),
         }
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl core::fmt::Display for TypeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        write!(f, "Expected {:?} but found {:?}", self.expected, self.found)
     }
 }
 

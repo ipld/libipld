@@ -1,10 +1,11 @@
 //! `Ipld` codecs.
+use alloc::{format, string::String, vec::Vec};
+use core::{convert::TryFrom, ops::Deref};
+
 use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
+use crate::io::{Cursor, Read, Seek, Write};
 use crate::ipld::Ipld;
-use core::convert::TryFrom;
-use std::io::{Cursor, Read, Seek, Write};
-use std::ops::Deref;
 
 /// Codec trait.
 pub trait Codec:
@@ -80,7 +81,7 @@ pub trait References<C: Codec>: Sized {
 pub fn assert_roundtrip<C, T>(c: C, data: &T, ipld: &Ipld)
 where
     C: Codec,
-    T: Decode<C> + Encode<C> + std::fmt::Debug + PartialEq,
+    T: Decode<C> + Encode<C> + core::fmt::Debug + PartialEq,
     Ipld: Decode<C> + Encode<C>,
 {
     fn hex(bytes: &[u8]) -> String {
@@ -109,11 +110,7 @@ where
 mod tests {
     use super::*;
     use crate::ipld::Ipld;
-    use thiserror::Error;
-
-    #[derive(Debug, Error)]
-    #[error("not null")]
-    pub struct NotNull;
+    use anyhow::anyhow;
 
     #[derive(Clone, Copy, Debug)]
     struct CodecImpl;
@@ -137,8 +134,8 @@ mod tests {
     impl Encode<CodecImpl> for Ipld {
         fn encode<W: Write>(&self, _: CodecImpl, w: &mut W) -> Result<()> {
             match self {
-                Self::Null => Ok(w.write_all(&[0])?),
-                _ => Err(NotNull.into()),
+                Self::Null => Ok(w.write_all(&[0]).map_err(anyhow::Error::msg)?),
+                _ => Err(anyhow!("not null")),
             }
         }
     }
@@ -146,11 +143,11 @@ mod tests {
     impl Decode<CodecImpl> for Ipld {
         fn decode<R: Read>(_: CodecImpl, r: &mut R) -> Result<Self> {
             let mut buf = [0; 1];
-            r.read_exact(&mut buf)?;
+            r.read_exact(&mut buf).map_err(anyhow::Error::msg)?;
             if buf[0] == 0 {
                 Ok(Ipld::Null)
             } else {
-                Err(NotNull.into())
+                Err(anyhow!("not null"))
             }
         }
     }

@@ -1,12 +1,16 @@
 //! Typed cid.
+use core::{
+    cmp::Ordering,
+    fmt,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    ops::Deref,
+};
+
 use crate::cid::Cid;
 use crate::codec::{Codec, Decode, Encode};
 use crate::error::Result;
-use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
-use std::io::{Read, Seek, Write};
-use std::marker::PhantomData;
-use std::ops::Deref;
+use crate::io::{Read, Seek, Write};
 
 /// Typed cid.
 #[derive(Debug)]
@@ -30,8 +34,8 @@ impl<T> Link<T> {
     }
 }
 
-impl<T> std::fmt::Display for Link<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl<T> fmt::Display for Link<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.cid.fmt(f)
     }
 }

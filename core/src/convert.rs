@@ -1,7 +1,13 @@
 //! Conversion to and from ipld.
 use crate::cid::Cid;
 use crate::ipld::Ipld;
-use std::collections::BTreeMap;
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 macro_rules! derive_to_ipld_prim {
     ($enum:ident, $ty:ty, $fn:ident) => {

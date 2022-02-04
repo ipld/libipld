@@ -1,7 +1,16 @@
 //! Ipld representation.
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
+use core::fmt;
+
 use crate::cid::Cid;
 use crate::error::TypeError;
-use std::collections::BTreeMap;
 
 /// Ipld
 #[derive(Clone, PartialEq)]
@@ -26,8 +35,8 @@ pub enum Ipld {
     Link(Cid),
 }
 
-impl std::fmt::Debug for Ipld {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Debug for Ipld {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if f.alternate() {
             match self {
                 Self::Null => write!(f, "Null"),
@@ -144,7 +153,7 @@ impl Ipld {
     pub fn references<E: Extend<Cid>>(&self, set: &mut E) {
         for ipld in self.iter() {
             if let Ipld::Link(cid) = ipld {
-                set.extend(std::iter::once(cid.to_owned()));
+                set.extend(core::iter::once(cid.to_owned()));
             }
         }
     }

@@ -7,12 +7,18 @@ license = "MIT OR Apache-2.0"
 description = "Base traits and definitions used by ipld codecs."
 repository = "https://github.com/ipfs-rust/rust-ipld"
 
+[features]
+default = ["std"]
+std = ["anyhow/std", "cid/std", "multibase/std", "multihash/std", "thiserror"]
+
 [dependencies]
-anyhow = "1.0.40"
-cid = { version = "0.8.0", default-features = false, features = ["std"] }
-multibase = "0.9.1"
-multihash = { version = "0.16.0", default-features = false, features = ["std"] }
-thiserror = "1.0.25"
+anyhow = { version = "1.0.40", default-features = false }
+cid = { version = "0.8.0", default-features = false, features = ["alloc"] }
+core2 = { version = "0.4", default-features = false, features = ["alloc"] }
+multihash = { version = "0.16.0", default-features = false, features = ["alloc"] }
+
+multibase = { version = "0.9.1", default-features = false, optional = true }
+thiserror = {version = "1.0.25", optional = true }
 
 [dev-dependencies]
-multihash = "0.16.0"
+multihash = { version = "0.16.0", default-features = false, features = ["multihash-impl", "blake3"] }
