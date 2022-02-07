@@ -7,6 +7,11 @@ license = "MIT OR Apache-2.0"
 description = "library for dealing with ipld"
 repository = "https://github.com/ipld/libipld"
 
+[package.metadata.release]
+consolidate-commits = true
+consolidate-pushes = true
+shared-version = true
+
 [dependencies]
 async-trait = "0.1.50"
 cached = { version = "0.30.0", default-features = false }
