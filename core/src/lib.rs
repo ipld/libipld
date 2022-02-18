@@ -1,6 +1,6 @@
 //! Core ipld types used by ipld codecs.
 #![deny(missing_docs)]
-//#![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
