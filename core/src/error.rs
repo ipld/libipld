@@ -44,14 +44,14 @@ pub struct SerdeError(String);
 
 #[cfg(feature = "serde-codec")]
 impl serde::de::Error for SerdeError {
-    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+    fn custom<T: core::fmt::Display>(msg: T) -> Self {
         Self(msg.to_string())
     }
 }
 
 #[cfg(feature = "serde-codec")]
 impl serde::ser::Error for SerdeError {
-    fn custom<T: std::fmt::Display>(msg: T) -> Self {
+    fn custom<T: core::fmt::Display>(msg: T) -> Self {
         Self(msg.to_string())
     }
 }
