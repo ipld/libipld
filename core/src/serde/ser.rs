@@ -51,14 +51,14 @@ impl ser::Serialize for Ipld {
     {
         match &self {
             Self::Null => serializer.serialize_unit(),
-            Self::Bool(bool) => serializer.serialize_bool(*bool),
-            Self::Integer(i128) => serializer.serialize_i128(*i128),
-            Self::Float(f64) => serializer.serialize_f64(*f64),
-            Self::String(string) => serializer.serialize_str(string),
-            Self::Bytes(bytes) => serializer.serialize_bytes(bytes),
-            Self::List(list) => serializer.collect_seq(list),
-            Self::Map(map) => serializer.collect_map(map),
-            Self::Link(link) => link.serialize(serializer),
+            Self::Bool(value) => serializer.serialize_bool(*value),
+            Self::Integer(value) => serializer.serialize_i128(*value),
+            Self::Float(value) => serializer.serialize_f64(*value),
+            Self::String(value) => serializer.serialize_str(value),
+            Self::Bytes(value) => serializer.serialize_bytes(value),
+            Self::List(value) => serializer.collect_seq(value),
+            Self::Map(value) => serializer.collect_map(value),
+            Self::Link(value) => value.serialize(serializer),
         }
     }
 }
