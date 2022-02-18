@@ -132,3 +132,24 @@ jobs:
         with:
           command: build
           args: --no-default-features --target thumbv6m-none-eabi --manifest-path core/Cargo.toml
+
+  build-no-std-serde:
+    name: Build no_std (libipld-core), but with the `serde-codec` feature enabled
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Sources
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          # `thumbv6m-none-eabi` can't be used as Serde doesn't compile there.
+          args: --no-default-features --features serde-codec --manifest-path core/Cargo.toml

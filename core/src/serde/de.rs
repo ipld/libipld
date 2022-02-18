@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
-use std::fmt;
+use alloc::{borrow::ToOwned, collections::BTreeMap, format, string::String, vec::Vec};
+use core::fmt;
 
 use cid::serde::{BytesToCidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
 use cid::Cid;
