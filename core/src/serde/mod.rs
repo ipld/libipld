@@ -8,37 +8,32 @@ mod ser;
 pub use de::from_ipld;
 pub use ser::to_ipld;
 
-use std::fmt;
-
-use serde::{de::DeserializeOwned, Serialize};
-
-use crate::ipld::Ipld;
-
-/// Utility for testing (de)serialization of [`Ipld`].
-///
-/// Checks if `data` and `ipld` match if they are encoded into each other.
-pub fn assert_roundtrip<T>(data: &T, ipld: &Ipld)
-where
-    T: Serialize + DeserializeOwned + PartialEq + fmt::Debug,
-{
-    let encoded: Ipld = to_ipld(&data).unwrap();
-    assert_eq!(&encoded, ipld);
-    let decoded: T = from_ipld(ipld.clone()).unwrap();
-    assert_eq!(&decoded, data);
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
     use std::convert::TryFrom;
+    use std::fmt;
 
     use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
     use cid::Cid;
-    use serde::{Deserialize, Serialize};
+    use serde::{de::DeserializeOwned, Deserialize, Serialize};
     use serde_test::{assert_tokens, Token};
 
     use crate::ipld::Ipld;
-    use crate::serde::{assert_roundtrip, from_ipld};
+    use crate::serde::{from_ipld, to_ipld};
+
+    /// Utility for testing (de)serialization of [`Ipld`].
+    ///
+    /// Checks if `data` and `ipld` match if they are encoded into each other.
+    fn assert_roundtrip<T>(data: &T, ipld: &Ipld)
+    where
+        T: Serialize + DeserializeOwned + PartialEq + fmt::Debug,
+    {
+        let encoded: Ipld = to_ipld(&data).unwrap();
+        assert_eq!(&encoded, ipld);
+        let decoded: T = from_ipld(ipld.clone()).unwrap();
+        assert_eq!(&decoded, data);
+    }
 
     #[derive(Debug, Deserialize, PartialEq, Serialize)]
     struct Person {
