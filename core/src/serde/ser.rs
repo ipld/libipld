@@ -108,22 +108,22 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_u8(self, value: u8) -> Result<Self::Ok, Self::Error> {
-        self.serialize_u64(u64::from(value))
+        self.serialize_i128(value.into())
     }
 
     #[inline]
     fn serialize_u16(self, value: u16) -> Result<Self::Ok, Self::Error> {
-        self.serialize_u64(u64::from(value))
+        self.serialize_i128(value.into())
     }
 
     #[inline]
     fn serialize_u32(self, value: u32) -> Result<Self::Ok, Self::Error> {
-        self.serialize_u64(u64::from(value))
+        self.serialize_i128(value.into())
     }
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<Self::Ok, Self::Error> {
-        Ok(Self::Ok::Integer(value.into()))
+        self.serialize_i128(value.into())
     }
 
     #[inline]
