@@ -56,12 +56,9 @@ where
 #[test]
 #[allow(clippy::unit_cmp)]
 fn ipld_deserializer_unit() {
-    let unit = ();
     let ipld = Ipld::Null;
-    error_except(unit, &ipld);
-
-    let deserialized = <()>::deserialize(ipld).unwrap();
-    assert_eq!(deserialized, unit);
+    let deserialized = <()>::deserialize(ipld);
+    assert!(deserialized.is_err());
 }
 
 #[test]
@@ -69,12 +66,9 @@ fn ipld_deserializer_unit_struct() {
     #[derive(Clone, Debug, Deserialize, PartialEq)]
     struct UnitStruct;
 
-    let unit_struct = UnitStruct;
     let ipld = Ipld::Null;
-    error_except(unit_struct.clone(), &ipld);
-
-    let deserialized = UnitStruct::deserialize(ipld).unwrap();
-    assert_eq!(deserialized, unit_struct);
+    let deserialized = UnitStruct::deserialize(ipld);
+    assert!(deserialized.is_err());
 }
 
 #[test]
@@ -332,10 +326,10 @@ fn ipld_deserializer_tuple() {
 #[test]
 fn ipld_deserializer_tuple_struct() {
     #[derive(Clone, Debug, Deserialize, PartialEq)]
-    struct TupleStruct(u8, ());
+    struct TupleStruct(u8, bool);
 
-    let tuple_struct = TupleStruct(82, ());
-    let ipld = Ipld::List(vec![Ipld::Integer(82), Ipld::Null]);
+    let tuple_struct = TupleStruct(82, true);
+    let ipld = Ipld::List(vec![Ipld::Integer(82), Ipld::Bool(true)]);
     error_except(tuple_struct.clone(), &ipld);
 
     let deserialized = TupleStruct::deserialize(ipld).unwrap();
@@ -369,10 +363,10 @@ fn ipld_deserializer_cid() {
 #[test]
 fn ipld_deserializer_newtype_struct() {
     #[derive(Clone, Debug, Deserialize, PartialEq)]
-    struct Wrapped(());
+    struct Wrapped(u8);
 
-    let newtype_struct = Wrapped(());
-    let ipld = Ipld::Null;
+    let newtype_struct = Wrapped(5);
+    let ipld = Ipld::Integer(5);
     error_except(newtype_struct.clone(), &ipld);
 
     let deserialized = Wrapped::deserialize(ipld).unwrap();

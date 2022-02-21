@@ -139,14 +139,6 @@ impl<'de> de::Deserialize<'de> for Ipld {
             where
                 E: de::Error,
             {
-                self.visit_unit()
-            }
-
-            #[inline]
-            fn visit_unit<E>(self) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
                 Ok(Ipld::Null)
             }
 
@@ -257,7 +249,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
         V: de::Visitor<'de>,
     {
         match self {
-            Self::Null => visitor.visit_unit(),
+            Self::Null => visitor.visit_none(),
             Self::Bool(bool) => visitor.visit_bool(bool),
             Self::Integer(i128) => visitor.visit_i128(i128),
             Self::Float(f64) => visitor.visit_f64(f64),
@@ -269,14 +261,8 @@ impl<'de> de::Deserializer<'de> for Ipld {
         }
     }
 
-    fn deserialize_unit<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match self {
-            Self::Null => visitor.visit_unit(),
-            _ => error(format!(
-                "Only `Ipld::Null` can be deserialized to unit, input was `{:#?}`",
-                self
-            )),
-        }
+    fn deserialize_unit<V: de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
+        error("Unit cannot be deserialized")
     }
 
     fn deserialize_bool<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
@@ -446,9 +432,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_unit_struct<V: de::Visitor<'de>>(
         self,
         _name: &str,
-        visitor: V,
+        _visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.deserialize_unit(visitor)
+        error("Unit struct cannot be deserialized")
     }
 
     fn deserialize_newtype_struct<V: de::Visitor<'de>>(
@@ -513,7 +499,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
         drop(self);
-        visitor.visit_unit()
+        visitor.visit_none()
     }
 
     fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
@@ -664,13 +650,7 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Some(Ipld::List(v)) => {
-                if v.is_empty() {
-                    visitor.visit_unit()
-                } else {
-                    visit_seq(v, visitor)
-                }
-            }
+            Some(Ipld::List(v)) => visit_seq(v, visitor),
             Some(_) => error(format!(
                 "Only `Ipld::List` can be deserialized to tuple variant, input was `{:#?}`",
                 self.0
