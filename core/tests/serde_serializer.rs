@@ -23,8 +23,8 @@ where
 #[test]
 fn ipld_serializer_unit() {
     let unit = ();
-    let ipld = Ipld::Null;
-    assert_serialized(unit, ipld);
+    let serialized = to_ipld(unit);
+    assert!(serialized.is_err());
 }
 
 #[test]
@@ -33,8 +33,8 @@ fn ipld_serializer_unit_struct() {
     struct UnitStruct;
 
     let unit_struct = UnitStruct;
-    let ipld = Ipld::Null;
-    assert_serialized(unit_struct, ipld);
+    let serialized = to_ipld(unit_struct);
+    assert!(serialized.is_err());
 }
 
 #[test]
@@ -165,10 +165,10 @@ fn ipld_serializer_tuple() {
 #[test]
 fn ipld_serializer_tuple_struct() {
     #[derive(Clone, Debug, Serialize, PartialEq)]
-    struct TupleStruct(u8, ());
+    struct TupleStruct(u8, bool);
 
-    let tuple_struct = TupleStruct(82, ());
-    let ipld = Ipld::List(vec![Ipld::Integer(82), Ipld::Null]);
+    let tuple_struct = TupleStruct(82, true);
+    let ipld = Ipld::List(vec![Ipld::Integer(82), Ipld::Bool(true)]);
     assert_serialized(tuple_struct, ipld);
 }
 
@@ -193,10 +193,10 @@ fn ipld_serializer_cid() {
 #[test]
 fn ipld_serializer_newtype_struct() {
     #[derive(Clone, Debug, Serialize, PartialEq)]
-    struct Wrapped(());
+    struct Wrapped(u8);
 
-    let newtype_struct = Wrapped(());
-    let ipld = Ipld::Null;
+    let newtype_struct = Wrapped(3);
+    let ipld = Ipld::Integer(3);
     assert_serialized(newtype_struct, ipld);
 }
 

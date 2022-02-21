@@ -18,6 +18,36 @@ use crate::ipld::Ipld;
 
 /// Serialize into instances of [`crate::ipld::Ipld`].
 ///
+/// All Rust types can be serialized to [`crate::ipld::Ipld`], here is a list of how they are
+/// converted:
+///
+///  - bool -> `Ipld::Bool`
+///  - i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, usize -> `Ipld::Integer`
+///  - f32, f64 -> `Ipld::Float`
+///  - char, String -> `Ipld::String`
+///  - slices -> `Ipld::List`
+///  - struct
+///    - struct -> `Ipld::Map`
+///    - newtype struct -> the value the struct wraps
+///    - tuple struct -> `Ipld::List`
+///    - unit struct -> cannot be serialized, it errors
+///  - enum:
+///    - unit variant -> `Ipld::String` of the variant name
+///    - newtype variant -> single element `Ipld::Map`, key: variant name, value: the one the
+///      newtype wraps
+///    - tuple variant -> single element `Ipld::Map`, key: variant name, value: `Ipld::List`
+///    - struct variant -> single element `Ipld::Map`, key: variant name, value: `Ipld::Map`
+///  - unit (`()`) -> cannot be serialized, it errors
+///
+/// There are also common compound types that are supported:
+///
+///  - [`std::option::Option`] -> eithe `Ipld::Null` or the value
+///  - [`serde_bytes::ByteBuf`] -> `Ipld::Bytes`
+///  - lists (like e.g. [`std::vec::Vec`]) -> `Ipld::List`
+///  - maps (like e.g. [`std::collections::BTreeMap`]) -> `Ipld::Map`
+///  - [`cid::Cid`] -> `Ipld::Link`
+///
+///
 /// # Example
 ///
 /// ```
@@ -158,12 +188,12 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Self::Ok::Null)
+        Err(ser::Error::custom("Unit is not supported"))
     }
 
     #[inline]
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
-        self.serialize_unit()
+        Err(ser::Error::custom("Unit structs are not supported"))
     }
 
     #[inline]
@@ -212,7 +242,7 @@ impl serde::Serializer for Serializer {
 
     #[inline]
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        self.serialize_unit()
+        Ok(Self::Ok::Null)
     }
 
     #[inline]

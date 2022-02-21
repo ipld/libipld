@@ -13,7 +13,7 @@ use libipld_core::ipld::Ipld;
 #[test]
 fn ipld_serialize_null() {
     let ipld = Ipld::Null;
-    assert_ser_tokens(&ipld, &[Token::Unit]);
+    assert_ser_tokens(&ipld, &[Token::None]);
 }
 
 #[test]
