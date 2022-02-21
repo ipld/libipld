@@ -56,7 +56,7 @@ impl ser::Serialize for Ipld {
         S: ser::Serializer,
     {
         match &self {
-            Self::Null => serializer.serialize_unit(),
+            Self::Null => serializer.serialize_none(),
             Self::Bool(value) => serializer.serialize_bool(*value),
             Self::Integer(value) => serializer.serialize_i128(*value),
             Self::Float(value) => serializer.serialize_f64(*value),
