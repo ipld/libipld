@@ -206,8 +206,7 @@ impl serde::Serializer for Serializer {
     where
         T: ser::Serialize,
     {
-        let mut values = BTreeMap::new();
-        values.insert(variant.to_owned(), value.serialize(self)?);
+        let values = BTreeMap::from([(variant.to_owned(), value.serialize(self)?)]);
         Ok(Self::Ok::Map(values))
     }
 
@@ -370,11 +369,8 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let mut object = BTreeMap::new();
-
-        object.insert(self.name, Self::Ok::List(self.vec));
-
-        Ok(Self::Ok::Map(object))
+        let map = BTreeMap::from([(self.name, Self::Ok::List(self.vec))]);
+        Ok(Self::Ok::Map(map))
     }
 }
 
