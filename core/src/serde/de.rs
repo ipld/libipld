@@ -288,7 +288,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
                 if !float.is_finite() {
                     error(format!("`Ipld::Float` must be a finite number, not infinity or NaN, input was `{}`", float))
                 } else if (float as f32) as f64 != float {
-                    error("`Ipld::Float` cannot be deserialized to `f32`, without loss of precision`")
+                    error(
+                        "`Ipld::Float` cannot be deserialized to `f32`, without loss of precision`",
+                    )
                 } else {
                     visitor.visit_f32(float as f32)
                 }
@@ -408,10 +410,10 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_tuple_struct<V: de::Visitor<'de>>(
         self,
         _name: &str,
-        _len: usize,
+        len: usize,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.deserialize_seq(visitor)
+        self.deserialize_tuple(len, visitor)
     }
 
     fn deserialize_map<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
@@ -691,12 +693,18 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
         }
     }
 
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
         match self.0 {
-            Some(Ipld::List(v)) => visit_seq(v, visitor),
+            Some(Ipld::List(list)) => {
+                if len == list.len() {
+                    visit_seq(list, visitor)
+                } else {
+                    error(format!("The tuple variant size must match the length of the `Ipld::List`, tuple variant size: {}, `Ipld::List` length: {}", len, list.len()))
+                }
+            }
             Some(_) => error(format!(
                 "Only `Ipld::List` can be deserialized to tuple variant, input was `{:#?}`",
                 self.0
