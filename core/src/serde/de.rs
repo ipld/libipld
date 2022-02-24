@@ -236,7 +236,7 @@ impl<'de> de::Deserializer<'de> for CidDeserializer {
 /// The deserialization will return an error if you try to deserialize into an integer type that
 /// would be too small to hold the value stored in [`Ipld::Integer`].
 ///
-/// [`Ipld::Floats`] are cast, possibly with loss of precision, to the requested Rust type.
+/// [`Ipld::Floats`] can be converted to `f32` if there is no of precision, else it will error.
 impl<'de> de::Deserializer<'de> for Ipld {
     type Error = SerdeError;
 
