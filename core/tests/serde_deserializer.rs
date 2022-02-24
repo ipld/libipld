@@ -421,6 +421,31 @@ fn ipld_deserializer_cid() {
     assert_eq!(deserialized, cid);
 }
 
+/// Make sure that a CID cannot be deserialized into bytes.
+#[test]
+fn ipld_deserializer_cid_not_bytes() {
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    error_except(cid, &ipld);
+
+    let deserialized = ByteBuf::deserialize(ipld);
+    assert!(deserialized.is_err());
+}
+
+/// Make sure that a CID cannot be deserialized into bytes.
+#[test]
+fn ipld_deserializer_cid_not_bytes_newtype_struct() {
+    #[derive(Clone, Debug, Deserialize, PartialEq)]
+    struct Wrapped(ByteBuf);
+
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    error_except(cid, &ipld);
+
+    let deserialized = Wrapped::deserialize(ipld);
+    assert!(deserialized.is_err());
+}
+
 #[test]
 fn ipld_deserializer_newtype_struct() {
     #[derive(Clone, Debug, Deserialize, PartialEq)]
@@ -571,4 +596,15 @@ fn ipld_deserializer_struct_errors() {
     error_except(my_struct, &ipld_additional);
     let error_additional = MyStruct::deserialize(ipld_additional);
     assert!(error_additional.is_err());
+}
+
+/// This tests excercises the `deserialize_any` code path.
+#[test]
+fn ipld_deserializer_ipld() {
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    error_except(cid, &ipld);
+
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
 }
