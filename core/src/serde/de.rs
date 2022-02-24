@@ -285,14 +285,12 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_f32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::Float(float) => {
-                if float.is_finite() {
-                    if (float as f32) as f64 == float {
-                        visitor.visit_f32(float as f32)
-                    } else {
-                        error("`Ipld::Float` cannot be deserialized to `f32`, without loss of precision`")
-                    }
-                } else {
+                if !float.is_finite() {
                     error(format!("`Ipld::Float` must be a finite number, not infinity or NaN, input was `{}`", float))
+                } else if (float as f32) as f64 != float {
+                    error("`Ipld::Float` cannot be deserialized to `f32`, without loss of precision`")
+                } else {
+                    visitor.visit_f32(float as f32)
                 }
             }
             _ => error(format!(
