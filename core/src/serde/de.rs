@@ -218,7 +218,7 @@ impl<'de> de::Deserializer<'de> for CidDeserializer {
 
     #[inline]
     fn deserialize_any<V: de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        unreachable!()
+        error("Only bytes can be deserialized into a CID")
     }
 
     fn deserialize_bytes<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
