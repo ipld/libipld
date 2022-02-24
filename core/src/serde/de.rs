@@ -442,20 +442,11 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_struct<V: de::Visitor<'de>>(
         self,
         _name: &str,
-        fields: &[&str],
+        _fields: &[&str],
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
         match self {
-            Self::Map(map) => {
-                let keys: Vec<_> = map.keys().collect();
-                let mut fields_sorted = fields.to_vec();
-                fields_sorted.sort_unstable();
-                if keys == fields_sorted {
-                    visit_map(map, visitor)
-                } else {
-                    error("Struct fields must match the keys of the `Ipld::Map`")
-                }
-            }
+            Self::Map(map) => visit_map(map, visitor),
             _ => error(format!(
                 "Only `Ipld::Map` can be deserialized to struct, input was `{:#?}`",
                 self

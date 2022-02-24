@@ -649,18 +649,9 @@ fn ipld_deserializer_struct_errors() {
         "wrong".into(),
         Ipld::Integer(my_struct.hello.into()),
     )]));
-    error_except(my_struct.clone(), &ipld_wrong);
+    error_except(my_struct, &ipld_wrong);
     let error_wrong = MyStruct::deserialize(ipld_wrong);
     assert!(error_wrong.is_err());
-
-    let ipld_additional = Ipld::Map(BTreeMap::from([
-        ("hello".into(), Ipld::Integer(my_struct.hello.into())),
-        ("world".into(), Ipld::Bool(my_struct.world)),
-        ("more".into(), Ipld::String("data".into())),
-    ]));
-    error_except(my_struct, &ipld_additional);
-    let error_additional = MyStruct::deserialize(ipld_additional);
-    assert!(error_additional.is_err());
 }
 
 /// This tests excercises the `deserialize_any` code path.
