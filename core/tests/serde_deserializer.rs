@@ -236,6 +236,29 @@ fn ipld_deserializer_f32() {
 }
 
 #[test]
+fn ipld_deserializer_f32_with_loss() {
+    // Make sure that there is an error if the value can only be converted with loss. 7.3f32 is
+    // different from 7.3f64.
+    let ipld = Ipld::Float(7.3f64);
+    let error = f32::deserialize(ipld);
+    assert!(error.is_err());
+}
+
+#[test]
+fn ipld_deserializer_f32_nan() {
+    let ipld = Ipld::Float(f32::NAN.into());
+    let error = f32::deserialize(ipld);
+    assert!(error.is_err());
+}
+
+#[test]
+fn ipld_deserializer_f32_infinity() {
+    let ipld = Ipld::Float(f32::INFINITY.into());
+    let error = f32::deserialize(ipld);
+    assert!(error.is_err());
+}
+
+#[test]
 fn ipld_deserializer_f64() {
     let float = 427.8f64;
     let ipld = Ipld::Float(float);
@@ -243,6 +266,20 @@ fn ipld_deserializer_f64() {
 
     let deserialized = f64::deserialize(ipld).unwrap();
     assert_eq!(deserialized, float);
+}
+
+#[test]
+fn ipld_deserializer_f64_nan() {
+    let ipld = Ipld::Float(f64::NAN);
+    let error = f64::deserialize(ipld);
+    assert!(error.is_err());
+}
+
+#[test]
+fn ipld_deserializer_f64_infinity() {
+    let ipld = Ipld::Float(f64::INFINITY);
+    let error = f64::deserialize(ipld);
+    assert!(error.is_err());
 }
 
 #[test]
@@ -321,6 +358,30 @@ fn ipld_deserializer_tuple() {
 
     let deserialized = <(bool, String)>::deserialize(ipld).unwrap();
     assert_eq!(deserialized, tuple);
+}
+
+#[test]
+fn ipld_deserializer_tuple_errors() {
+    let tuple = (true, "hello".to_string());
+
+    let ipld_not_enough = Ipld::List(vec![Ipld::Bool(tuple.0)]);
+    error_except(tuple.clone(), &ipld_not_enough);
+    let error_not_enough = <(bool, String)>::deserialize(ipld_not_enough);
+    assert!(error_not_enough.is_err());
+
+    let ipld_too_many = Ipld::List(vec![
+        Ipld::Bool(tuple.0),
+        Ipld::String(tuple.1.clone()),
+        Ipld::Null,
+    ]);
+    error_except(tuple.clone(), &ipld_too_many);
+    let error_too_many = <(bool, String)>::deserialize(ipld_too_many);
+    assert!(error_too_many.is_err());
+
+    let ipld_not_matching = Ipld::List(vec![Ipld::String(tuple.1.clone()), Ipld::Bool(tuple.0)]);
+    error_except(tuple, &ipld_not_matching);
+    let error_not_matching = <(bool, String)>::deserialize(ipld_not_matching);
+    assert!(error_not_matching.is_err());
 }
 
 #[test]
@@ -471,4 +532,43 @@ fn ipld_deserializer_struct() {
 
     let deserialized = MyStruct::deserialize(ipld).unwrap();
     assert_eq!(deserialized, my_struct);
+}
+
+#[test]
+fn ipld_deserializer_struct_errors() {
+    #[derive(Clone, Debug, Deserialize, PartialEq)]
+    struct MyStruct {
+        hello: u8,
+        world: bool,
+    }
+
+    let my_struct = MyStruct {
+        hello: 91,
+        world: false,
+    };
+
+    let ipld_missing = Ipld::Map(BTreeMap::from([(
+        "hello".into(),
+        Ipld::Integer(my_struct.hello.into()),
+    )]));
+    error_except(my_struct.clone(), &ipld_missing);
+    let error_missing = MyStruct::deserialize(ipld_missing);
+    assert!(error_missing.is_err());
+
+    let ipld_wrong = Ipld::Map(BTreeMap::from([(
+        "wrong".into(),
+        Ipld::Integer(my_struct.hello.into()),
+    )]));
+    error_except(my_struct.clone(), &ipld_wrong);
+    let error_wrong = MyStruct::deserialize(ipld_wrong);
+    assert!(error_wrong.is_err());
+
+    let ipld_additional = Ipld::Map(BTreeMap::from([
+        ("hello".into(), Ipld::Integer(my_struct.hello.into())),
+        ("world".into(), Ipld::Bool(my_struct.world)),
+        ("more".into(), Ipld::String("data".into())),
+    ]));
+    error_except(my_struct, &ipld_additional);
+    let error_additional = MyStruct::deserialize(ipld_additional);
+    assert!(error_additional.is_err());
 }

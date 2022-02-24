@@ -1,5 +1,5 @@
 use alloc::{borrow::ToOwned, collections::BTreeMap, format, string::String, vec::Vec};
-use core::fmt;
+use core::{convert::TryFrom, fmt};
 
 use cid::serde::{BytesToCidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
 use cid::Cid;
@@ -147,7 +147,7 @@ impl<'de> de::Deserialize<'de> for Ipld {
             where
                 V: de::SeqAccess<'de>,
             {
-                let mut vec = Vec::new();
+                let mut vec = Vec::with_capacity(visitor.size_hint().unwrap_or(0));
 
                 while let Some(elem) = visitor.next_element()? {
                     vec.push(elem);
@@ -190,16 +190,13 @@ macro_rules! impl_deserialize_integer {
     ($ty:ident, $deserialize:ident, $visit:ident) => {
         fn $deserialize<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
             match self {
-                Self::Integer(integer) => {
-                    if integer >= $ty::MIN.into() && integer <= $ty::MAX.into() {
-                        visitor.$visit(integer as $ty)
-                    } else {
-                        error(format!(
-                            "`Ipld::Integer` value was bigger than `{}`",
-                            stringify!($ty)
-                        ))
-                    }
-                }
+                Self::Integer(integer) => match $ty::try_from(integer) {
+                    Ok(int) => visitor.$visit(int),
+                    Err(_) => error(format!(
+                        "`Ipld::Integer` value was bigger than `{}`",
+                        stringify!($ty)
+                    )),
+                },
                 _ => error(format!(
                     "Only `Ipld::Integer` can be deserialized to `{}`, input was `{:#?}`",
                     stringify!($ty),
@@ -287,7 +284,17 @@ impl<'de> de::Deserializer<'de> for Ipld {
 
     fn deserialize_f32<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
-            Self::Float(float) => visitor.visit_f32(float as f32),
+            Self::Float(float) => {
+                if float.is_finite() {
+                    if (float as f32) as f64 == float {
+                        visitor.visit_f32(float as f32)
+                    } else {
+                        error("`Ipld::Float` cannot be deserialized to `f32`, without loss of precision`")
+                    }
+                } else {
+                    error(format!("`Ipld::Float` must be a finite number, not infinity or NaN, input was `{}`", float))
+                }
+            }
             _ => error(format!(
                 "Only `Ipld::Float` can be deserialized to `f32`, input was `{:#?}`",
                 self
@@ -297,7 +304,13 @@ impl<'de> de::Deserializer<'de> for Ipld {
 
     fn deserialize_f64<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
-            Self::Float(float) => visitor.visit_f64(float),
+            Self::Float(float) => {
+                if float.is_finite() {
+                    visitor.visit_f64(float)
+                } else {
+                    error(format!("`Ipld::Float` must be a finite number, not infinity or NaN, input was `{}`", float))
+                }
+            }
             _ => error(format!(
                 "Only `Ipld::Float` can be deserialized to `f64`, input was `{:#?}`",
                 self
@@ -308,7 +321,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_char<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
         match self {
             Self::String(string) => {
-                if string.len() == 1 {
+                if string.chars().count() == 1 {
                     visitor.visit_char(string.chars().next().unwrap())
                 } else {
                     error("`Ipld::String` was longer than a single character")
@@ -376,10 +389,22 @@ impl<'de> de::Deserializer<'de> for Ipld {
 
     fn deserialize_tuple<V: de::Visitor<'de>>(
         self,
-        _len: usize,
+        len: usize,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        self.deserialize_seq(visitor)
+        match self {
+            Self::List(list) => {
+                if len == list.len() {
+                    visit_seq(list, visitor)
+                } else {
+                    error(format!("The tuple size must match the length of the `Ipld::List`, tuple size: {}, `Ipld::List` length: {}", len, list.len()))
+                }
+            }
+            _ => error(format!(
+                "Only `Ipld::List` can be deserialized to tuple, input was `{:#?}`",
+                self
+            )),
+        }
     }
 
     fn deserialize_tuple_struct<V: de::Visitor<'de>>(
@@ -417,11 +442,20 @@ impl<'de> de::Deserializer<'de> for Ipld {
     fn deserialize_struct<V: de::Visitor<'de>>(
         self,
         _name: &str,
-        _fields: &[&str],
+        fields: &[&str],
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
         match self {
-            Self::Map(map) => visit_map(map, visitor),
+            Self::Map(map) => {
+                let keys: Vec<_> = map.keys().collect();
+                let mut fields_sorted = fields.to_vec();
+                fields_sorted.sort_unstable();
+                if keys == fields_sorted {
+                    visit_map(map, visitor)
+                } else {
+                    error("Struct fields must match the keys of the `Ipld::Map`")
+                }
+            }
             _ => error(format!(
                 "Only `Ipld::Map` can be deserialized to struct, input was `{:#?}`",
                 self
@@ -499,7 +533,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
         drop(self);
-        visitor.visit_none()
+        visitor.visit_unit()
     }
 
     fn deserialize_option<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
@@ -567,6 +601,13 @@ impl<'de> de::MapAccess<'de> for MapDeserializer {
             None => error("value is missing"),
         }
     }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
+        }
+    }
 }
 
 // Heavily based on
@@ -593,6 +634,13 @@ impl<'de> de::SeqAccess<'de> for SeqDeserializer {
         match self.iter.next() {
             Some(value) => seed.deserialize(value).map(Some),
             None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
         }
     }
 }
