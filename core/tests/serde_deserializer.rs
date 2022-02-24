@@ -7,6 +7,7 @@ use core::convert::TryFrom;
 
 use serde::Deserialize;
 use serde_bytes::ByteBuf;
+use serde_json::json;
 
 use libipld_core::cid::Cid;
 use libipld_core::ipld::Ipld;
@@ -607,4 +608,25 @@ fn ipld_deserializer_ipld() {
 
     let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
     assert_eq!(deserialized, ipld);
+}
+
+/// This test shows that the values [`serde_json::Value`] supports, can be deserialized into Ipld
+#[test]
+fn ipld_deserializer_serde_json_value() {
+    let json_value = json!({ "hello": true, "world": "it is" });
+    let ipld = Ipld::Map(BTreeMap::from([
+        ("hello".into(), Ipld::Bool(true)),
+        ("world".into(), Ipld::String("it is".into())),
+    ]));
+    let deserialized = serde_json::Value::deserialize(ipld).unwrap();
+    assert_eq!(deserialized, json_value);
+}
+
+/// This test shows that CIDs cannot be deserialized into a [`serde_json::Value`].
+#[test]
+fn ipld_deserializer_serde_json_value_cid_fails() {
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    let error = serde_json::Value::deserialize(ipld);
+    assert!(error.is_err());
 }
