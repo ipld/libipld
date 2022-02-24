@@ -447,6 +447,24 @@ fn ipld_deserializer_cid_not_bytes_newtype_struct() {
     assert!(deserialized.is_err());
 }
 
+/// Make sure that a CID cannot be deserialized into bytes.
+#[test]
+fn ipld_deserializer_cid_untagged() {
+    #[derive(Clone, Debug, Deserialize, PartialEq)]
+    #[serde(untagged)]
+    enum MyOption {
+        Some(ByteBuf),
+        None,
+    }
+
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    error_except(cid, &ipld);
+
+    let deserialized = MyOption::deserialize(ipld);
+    assert!(deserialized.is_err());
+}
+
 #[test]
 fn ipld_deserializer_newtype_struct() {
     #[derive(Clone, Debug, Deserialize, PartialEq)]
