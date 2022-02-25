@@ -12,6 +12,8 @@ pub mod ipld;
 pub mod link;
 pub mod raw;
 pub mod raw_value;
+#[cfg(feature = "serde-codec")]
+pub mod serde;
 
 pub use cid;
 #[cfg(feature = "std")]

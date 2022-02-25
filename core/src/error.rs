@@ -1,4 +1,6 @@
 //! `Ipld` error definitions.
+#[cfg(feature = "serde-codec")]
+use alloc::string::ToString;
 use alloc::{string::String, vec::Vec};
 
 use crate::cid::Cid;
@@ -35,6 +37,35 @@ pub struct InvalidMultihash(pub Vec<u8>);
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "std", derive(Error), error("Failed to retrieve block {0}."))]
 pub struct BlockNotFound(pub Cid);
+
+/// Error during Serde operations.
+#[cfg(feature = "serde-codec")]
+#[derive(Clone, Debug)]
+pub struct SerdeError(String);
+
+#[cfg(feature = "serde-codec")]
+impl core::fmt::Display for SerdeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Serde error: {}", self.0)
+    }
+}
+
+#[cfg(feature = "serde-codec")]
+impl serde::de::Error for SerdeError {
+    fn custom<T: core::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
+#[cfg(feature = "serde-codec")]
+impl serde::ser::Error for SerdeError {
+    fn custom<T: core::fmt::Display>(msg: T) -> Self {
+        Self(msg.to_string())
+    }
+}
+
+#[cfg(feature = "serde-codec")]
+impl serde::ser::StdError for SerdeError {}
 
 /// Type error.
 #[derive(Clone, Debug)]
