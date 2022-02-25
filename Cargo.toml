@@ -63,3 +63,6 @@ harness = false
 [[bench]]
 name = "store"
 harness = false
+
+[patch.crates-io]
+cid = { git = "https://github.com/ipld/rust-cid", branch = "cid-as-enum" }

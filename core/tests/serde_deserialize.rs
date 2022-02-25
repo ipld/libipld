@@ -5,9 +5,10 @@ extern crate alloc;
 use alloc::collections::BTreeMap;
 use core::convert::TryFrom;
 
+use serde::Deserialize;
 use serde_test::{assert_de_tokens, Token};
 
-use libipld_core::cid::{serde::CID_SERDE_PRIVATE_IDENTIFIER, Cid};
+use libipld_core::cid::Cid;
 use libipld_core::ipld::Ipld;
 
 #[test]
@@ -124,25 +125,6 @@ fn ipld_deserialize_map() {
 }
 
 #[test]
-fn ipld_deserialize_link() {
-    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
-    let ipld = Ipld::Link(cid);
-    assert_de_tokens(
-        &ipld,
-        &[
-            Token::NewtypeStruct {
-                name: CID_SERDE_PRIVATE_IDENTIFIER,
-            },
-            Token::Bytes(&[
-                1, 85, 18, 32, 159, 228, 204, 198, 222, 22, 114, 79, 58, 48, 199, 232, 242, 84,
-                243, 198, 71, 25, 134, 172, 177, 248, 216, 207, 142, 150, 206, 42, 215, 219, 231,
-                251,
-            ]),
-        ],
-    );
-}
-
-#[test]
 #[should_panic(expected = "assertion failed")]
 fn ipld_deserialize_link_not_as_bytes() {
     let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
@@ -154,4 +136,71 @@ fn ipld_deserialize_link_not_as_bytes() {
             198, 71, 25, 134, 172, 177, 248, 216, 207, 142, 150, 206, 42, 215, 219, 231, 251,
         ])],
     );
+}
+
+#[test]
+fn ipld_deserialize_ipld_null() {
+    let ipld = Ipld::Null;
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_bool() {
+    let ipld = Ipld::Bool(true);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_integer() {
+    let ipld = Ipld::Integer(31);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_float() {
+    let ipld = Ipld::Float(211.421);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_string() {
+    let ipld = Ipld::String("hello".into());
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_bytes() {
+    let ipld = Ipld::Bytes(vec![0x68, 0x65, 0x6c, 0x6c, 0x6f]);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_list() {
+    let ipld = Ipld::List(vec![Ipld::Bool(false), Ipld::Float(22.7)]);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_map() {
+    let ipld = Ipld::Map(BTreeMap::from([
+        ("hello".to_string(), Ipld::Bool(true)),
+        ("world!".to_string(), Ipld::Bool(false)),
+    ]));
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
+}
+
+#[test]
+fn ipld_deserialize_ipld_link() {
+    let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
+    let ipld = Ipld::Link(cid);
+    let deserialized = Ipld::deserialize(ipld.clone()).unwrap();
+    assert_eq!(deserialized, ipld);
 }
