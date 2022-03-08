@@ -259,7 +259,13 @@ impl<'de> de::Deserializer<'de> for Ipld {
     }
 
     fn deserialize_unit<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        visitor.visit_unit()
+        match self {
+            Self::Null => visitor.visit_unit(),
+            _ => error(format!(
+                "Only `Ipld::Null` can be deserialized to unit, input was `{:#?}`",
+                self
+            )),
+        }
     }
 
     fn deserialize_bool<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
