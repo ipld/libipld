@@ -73,6 +73,13 @@ fn ipld_deserializer_unit_struct() {
 }
 
 #[test]
+fn ipld_deserializer_other_as_unit() {
+    let ipld = Ipld::Bool(true);
+    let deserialized = <()>::deserialize(ipld);
+    assert!(deserialized.is_err());
+}
+
+#[test]
 fn ipld_deserializer_bool() {
     let bool = false;
     let ipld = Ipld::Bool(bool);
