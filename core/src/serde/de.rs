@@ -258,8 +258,8 @@ impl<'de> de::Deserializer<'de> for Ipld {
         }
     }
 
-    fn deserialize_unit<V: de::Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        error("Unit cannot be deserialized")
+    fn deserialize_unit<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        visitor.visit_unit()
     }
 
     fn deserialize_bool<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
