@@ -57,7 +57,10 @@ where
 #[test]
 #[allow(clippy::unit_cmp)]
 fn ipld_deserializer_unit() {
+    let unit = ();
     let ipld = Ipld::Null;
+    error_except(unit, &ipld);
+
     let deserialized = <()>::deserialize(ipld).unwrap();
     assert_eq!(deserialized, ());
 }
@@ -69,13 +72,6 @@ fn ipld_deserializer_unit_struct() {
 
     let ipld = Ipld::Null;
     let deserialized = UnitStruct::deserialize(ipld);
-    assert!(deserialized.is_err());
-}
-
-#[test]
-fn ipld_deserializer_other_as_unit() {
-    let ipld = Ipld::Bool(true);
-    let deserialized = <()>::deserialize(ipld);
     assert!(deserialized.is_err());
 }
 
