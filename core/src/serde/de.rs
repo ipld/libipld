@@ -51,20 +51,15 @@ use crate::{
 ///   is_cool: bool,
 /// }
 ///
-/// let ipld = Ipld::Map({
-///   BTreeMap::from([
-///     ("name".into(), Ipld::String("Hello World!".into())),
-///     ("age".into(), Ipld::Integer(52)),
-///     (
-///       "hobbies".into(),
-///       Ipld::List(vec![
-///         Ipld::String("geography".into()),
-///         Ipld::String("programming".into()),
-///       ]),
-///     ),
-///     ("is_cool".into(), Ipld::Bool(true)),
-///   ])
-/// });
+/// let ipld = Ipld::List(vec![
+///   Ipld::String("Hello World!".into()),
+///   Ipld::Integer(52),
+///   Ipld::List(vec![
+///     Ipld::String("geography".into()),
+///     Ipld::String("programming".into()),
+///   ]),
+///   Ipld::Bool(true),
+/// ]);
 ///
 /// let person = from_ipld(ipld);
 /// assert!(matches!(person, Ok(Person { .. })));
@@ -283,9 +278,10 @@ impl<'de> de::Deserializer<'de> for Ipld {
     visitor: V,
   ) -> Result<V::Value, Self::Error> {
     match self {
-      Self::Null => visitor.visit_unit(),
+      Self::List(xs) if xs.is_empty() => visitor.visit_unit(),
       _ => error(format!(
-        "Only `Ipld::Null` can be deserialized to unit, input was `{:#?}`",
+        "Only the empty `Ipld::List` can be deserialized to unit, input was
+        `{:#?}`",
         self
       )),
     }
@@ -512,9 +508,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
     visitor: V,
   ) -> Result<V::Value, Self::Error> {
     match self {
-      Self::Map(map) => visit_map(map, visitor),
+      Self::List(vec) => visit_seq(vec, visitor),
       _ => error(format!(
-        "Only `Ipld::Map` can be deserialized to struct, input was `{:#?}`",
+        "Only `Ipld::List` can be deserialized to struct, input was `{:#?}`",
         self
       )),
     }
@@ -547,8 +543,6 @@ impl<'de> de::Deserializer<'de> for Ipld {
     }
   }
 
-  // Heavily based on
-  // https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L249
   fn deserialize_enum<V: de::Visitor<'de>>(
     self,
     _name: &str,
@@ -589,8 +583,6 @@ impl<'de> de::Deserializer<'de> for Ipld {
     visitor.visit_enum(EnumDeserializer { variant, value })
   }
 
-  // Heavily based on
-  // https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L446
   fn deserialize_ignored_any<V: de::Visitor<'de>>(
     self,
     visitor: V,
@@ -714,8 +706,6 @@ impl<'de> de::SeqAccess<'de> for SeqDeserializer {
   }
 }
 
-// Heavily based on
-// https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L455
 struct EnumDeserializer {
   variant: String,
   value: Option<Ipld>,
@@ -738,8 +728,6 @@ impl<'de> de::EnumAccess<'de> for EnumDeserializer {
   }
 }
 
-// Heavily based on
-// https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L482
 struct VariantDeserializer(Option<Ipld>);
 
 impl<'de> de::VariantAccess<'de> for VariantDeserializer {

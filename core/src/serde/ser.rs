@@ -1,11 +1,7 @@
 use alloc::{
   borrow::ToOwned,
-  collections::BTreeMap,
   format,
-  string::{
-    String,
-    ToString,
-  },
+  string::ToString,
   vec::Vec,
 };
 use core::convert::TryFrom;
@@ -52,7 +48,8 @@ use crate::{
 ///  - [`std::option::Option`] -> eithe `Ipld::Null` or the value
 ///  - [`serde_bytes::ByteBuf`] -> `Ipld::Bytes`
 ///  - lists (like e.g. [`std::vec::Vec`]) -> `Ipld::List`
-///  - maps (like e.g. [`std::collections::BTreeMap`]) -> `Ipld::Map`
+///  - maps (like e.g. [`std::collections::BTreeMap`]) -> `Ipld::List` of key
+///  value pairs
 ///  - [`cid::Cid`] -> `Ipld::Link`
 ///
 ///
@@ -81,7 +78,7 @@ use crate::{
 /// };
 ///
 /// let ipld = to_ipld(person);
-/// assert!(matches!(ipld, Ok(Ipld::Vec(_))));
+/// assert!(matches!(ipld, Ok(Ipld::List(_))));
 pub fn to_ipld<T>(value: T) -> Result<Ipld, SerdeError>
 where T: ser::Serialize {
   value.serialize(&Serializer)
@@ -98,7 +95,7 @@ impl ser::Serialize for Ipld {
       Self::String(value) => serializer.serialize_str(value),
       Self::Bytes(value) => serializer.serialize_bytes(value),
       Self::List(value) => serializer.collect_seq(value),
-      Self::Map(value) => serializer.collect_map(value),
+      Self::Map(value) => serializer.collect_seq(value),
       Self::Link(value) => value.serialize(serializer),
     }
   }
@@ -174,8 +171,8 @@ impl<'a> serde::Serializer for &'a Serializer {
 
   #[inline]
   fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Error> {
-    if value.is_nan() {
-      Err(ser::Error::custom("Cannot serialize NaN"))
+    if value.is_nan() || value.is_infinite() {
+      Err(ser::Error::custom("Cannot serialize NaN or infinity for f32"))
     }
     else {
       self.serialize_f64(f64::from(value))
@@ -184,11 +181,11 @@ impl<'a> serde::Serializer for &'a Serializer {
 
   #[inline]
   fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Error> {
-    if value.is_nan() {
-      Err(ser::Error::custom("Cannot serialize NaN"))
+    if value.is_nan() || value.is_infinite() {
+      Err(ser::Error::custom("Cannot serialize NaN or infinity for f64"))
     }
     else {
-      self.serialize_f64(f64::from(value))
+      Ok(Self::Ok::Float(value))
     }
   }
 
@@ -226,7 +223,8 @@ impl<'a> serde::Serializer for &'a Serializer {
     variant_index: u32,
     _variant: &'static str,
   ) -> Result<Self::Ok, Self::Error> {
-    self.serialize_u32(variant_index)
+    let idx = self.serialize_u32(variant_index)?;
+    Ok(Self::Ok::List(vec![idx]))
   }
 
   #[inline]
@@ -319,7 +317,7 @@ impl<'a> serde::Serializer for &'a Serializer {
     self,
     _len: Option<usize>,
   ) -> Result<Self::SerializeMap, Self::Error> {
-    Ok(SerializeMap { map: BTreeMap::new(), next_key: None })
+    Ok(SerializeMap { vec: Vec::new(), next_key: None })
   }
 
   fn serialize_struct(
@@ -354,8 +352,8 @@ pub struct SerializeTupleVariant {
 }
 
 pub struct SerializeMap {
-  map: BTreeMap<String, Ipld>,
-  next_key: Option<String>,
+  vec: Vec<Ipld>,
+  next_key: Option<Ipld>,
 }
 
 impl ser::SerializeSeq for SerializeVec {
@@ -426,8 +424,11 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
   }
 
   fn end(self) -> Result<Self::Ok, Self::Error> {
-    let variant_index = Ipld::Integer(self.idx.clone() as i128);
-    Ok(Ipld::List([variant_index, Ipld::List(self.vec)].into()))
+    let mut vec = Vec::new();
+    let mut args = self.vec.clone();
+    vec.push(Ipld::Integer(self.idx.clone() as i128));
+    vec.append(&mut args);
+    Ok(Ipld::List(vec))
   }
 }
 
@@ -438,11 +439,10 @@ impl ser::SerializeMap for SerializeMap {
   fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
   where T: ser::Serialize {
     match key.serialize(&Serializer)? {
-      Ipld::String(string_key) => {
-        self.next_key = Some(string_key);
+      key => {
+        self.next_key = Some(key);
         Ok(())
       }
-      _ => Err(ser::Error::custom("Map keys must be strings".to_string())),
     }
   }
 
@@ -457,11 +457,11 @@ impl ser::SerializeMap for SerializeMap {
     // Panic because this indicates a bug in the program rather than an
     // expected failure.
     let key = key.expect("serialize_value called before serialize_key");
-    self.map.insert(key, value.serialize(&Serializer)?);
+    self.vec.push(Ipld::List(vec![key, value.serialize(&Serializer)?]));
     Ok(())
   }
 
-  fn end(self) -> Result<Self::Ok, Self::Error> { Ok(Self::Ok::Map(self.map)) }
+  fn end(self) -> Result<Self::Ok, Self::Error> { Ok(Self::Ok::List(self.vec)) }
 }
 
 impl<'a> StructSerializer<'a> {
@@ -534,8 +534,10 @@ impl<'a> ser::SerializeStructVariant for StructSerializer<'a> {
   }
 
   fn end(self) -> Result<Self::Ok, Self::Error> {
-    let variant_index = Ipld::Integer(self.variant_index as i128);
-    let x = self.end_inner()?;
-    Ok(Ipld::List([variant_index, Ipld::List(x)].into()))
+    let mut vec = Vec::new();
+    vec.push(Ipld::Integer(self.variant_index.clone() as i128));
+    let mut args = self.end_inner()?;
+    vec.append(&mut args);
+    Ok(Ipld::List(vec))
   }
 }
