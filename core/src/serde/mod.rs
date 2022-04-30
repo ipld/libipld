@@ -45,8 +45,8 @@ mod test {
   where T: Serialize + DeserializeOwned + PartialEq + fmt::Debug {
     let encoded: Ipld = to_ipld(&data).unwrap();
     assert_eq!(&encoded, ipld);
-    // let decoded: T = from_ipld(ipld.clone()).unwrap();
-    // assert_eq!(&decoded, data);
+    let decoded: T = from_ipld(ipld.clone()).unwrap();
+    assert_eq!(&decoded, data);
   }
 
   #[derive(Debug, Deserialize, PartialEq, Serialize)]

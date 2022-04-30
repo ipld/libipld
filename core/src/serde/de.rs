@@ -546,35 +546,36 @@ impl<'de> de::Deserializer<'de> for Ipld {
   fn deserialize_enum<V: de::Visitor<'de>>(
     self,
     _name: &str,
-    _variants: &[&str],
+    variants: &[&str],
     visitor: V,
   ) -> Result<V::Value, Self::Error> {
     let (variant, value) = match self {
-      Ipld::Map(map) => {
-        let mut iter = map.into_iter();
-        let (variant, value) = match iter.next() {
-          Some(v) => v,
-          None => {
-            return error(
-              "Only `Ipld::Map`s with a single key can be deserialized to \
-               `enum`, input had no keys",
-            );
+      Ipld::List(xs) if xs.len() >= 1 => match &xs[0] {
+        Ipld::Integer(idx)
+          if *idx >= 0i128 && *idx < variants.len() as i128 =>
+        {
+          let idx = *idx as usize;
+          let variant = String::from(variants[idx]);
+          let value = if xs.len() == 1 {
+            None
           }
-        };
-        // Enums are encoded in IPLD as maps with a single key-value pair
-        if iter.next().is_some() {
-          return error(
-            "Only `Ipld::Map`s with a single key can be deserialized to \
-             `enum`, input had more keys",
-          );
+          else {
+            Some(Ipld::List(xs[1..].to_owned()))
+          };
+          (variant, value)
         }
-        (variant, Some(value))
-      }
-      Ipld::String(variant) => (variant, None),
+        bad_tag => {
+          return error(format!(
+            "`enum` tags must be an Ipld::Integer between and the maximum \
+             number of variants {:#?}, input was `{:#?}`",
+            variants.len(),
+            bad_tag.clone()
+          ));
+        }
+      },
       _ => {
         return error(format!(
-          "Only `Ipld::Map` and `Ipld::String` can be deserialized to `enum`, \
-           input was `{:#?}`",
+          "Only `Ipld::List` can be deserialized to `enum`, input was `{:#?}`",
           self
         ));
       }
@@ -743,8 +744,14 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
   fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
   where T: de::DeserializeSeed<'de> {
     match self.0 {
-      Some(value) => seed.deserialize(value),
-      None => Err(de::Error::invalid_type(
+      Some(Ipld::List(xs)) => match xs.as_slice() {
+        [value] => seed.deserialize(value.to_owned()),
+        _ => Err(de::Error::invalid_type(
+          de::Unexpected::TupleVariant,
+          &"newtype variant",
+        )),
+      },
+      _ => Err(de::Error::invalid_type(
         de::Unexpected::UnitVariant,
         &"newtype variant",
       )),
@@ -794,9 +801,9 @@ impl<'de> de::VariantAccess<'de> for VariantDeserializer {
     V: de::Visitor<'de>,
   {
     match self.0 {
-      Some(Ipld::Map(v)) => visit_map(v, visitor),
+      Some(Ipld::List(xs)) => visit_seq(xs, visitor),
       Some(_) => error(format!(
-        "Only `Ipld::Map` can be deserialized to struct variant, input was \
+        "Only `Ipld::List` can be deserialized to struct variant, input was \
          `{:#?}`",
         self.0
       )),

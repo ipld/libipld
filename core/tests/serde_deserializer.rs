@@ -611,22 +611,19 @@ fn ipld_deserializer_enum() {
   }
 
   let enum_one = MyEnum::One;
-  let ipld_one = Ipld::String("One".into());
+  let ipld_one = Ipld::List(vec![Ipld::Integer(0)]);
   error_except(enum_one.clone(), &ipld_one);
   let deserialized_one = MyEnum::deserialize(ipld_one).unwrap();
   assert_eq!(deserialized_one, enum_one);
 
   let enum_two = MyEnum::Two(4);
-  let ipld_two = Ipld::Map(BTreeMap::from([("Two".into(), Ipld::Integer(4))]));
+  let ipld_two = Ipld::List(vec![Ipld::Integer(1), Ipld::Integer(4)]);
   error_except(enum_two.clone(), &ipld_two);
   let deserialized_two = MyEnum::deserialize(ipld_two).unwrap();
   assert_eq!(deserialized_two, enum_two);
 
   let enum_three = MyEnum::Three { value: true };
-  let ipld_three = Ipld::Map(BTreeMap::from([(
-    "Three".into(),
-    Ipld::Map(BTreeMap::from([("value".into(), Ipld::Bool(true))])),
-  )]));
+  let ipld_three = Ipld::List(vec![Ipld::Integer(2), Ipld::Bool(true)]);
   error_except(enum_three.clone(), &ipld_three);
   let deserialized_three = MyEnum::deserialize(ipld_three).unwrap();
   assert_eq!(deserialized_three, enum_three);
@@ -641,26 +638,23 @@ fn ipld_deserializer_enum_tuple_variant_errors() {
 
   let tuple_variant = MyEnum::Two(17, false);
 
-  let ipld_not_enough = Ipld::Map(BTreeMap::from([(
-    "Two".into(),
-    Ipld::List(vec![Ipld::Integer(17)]),
-  )]));
+  let ipld_not_enough = Ipld::List(vec![Ipld::Integer(0), Ipld::Integer(17)]);
   error_except(tuple_variant.clone(), &ipld_not_enough);
   let error_not_enough = MyEnum::deserialize(ipld_not_enough);
   assert!(error_not_enough.is_err());
 
-  let ipld_too_many = Ipld::Map(BTreeMap::from([(
-    "Two".into(),
-    Ipld::List(vec![Ipld::Integer(17), Ipld::Bool(false), Ipld::Null]),
-  )]));
+  let ipld_too_many = Ipld::List(vec![
+    Ipld::Integer(0),
+    Ipld::Integer(17),
+    Ipld::Bool(false),
+    Ipld::Null,
+  ]);
   error_except(tuple_variant.clone(), &ipld_too_many);
   let error_too_many = MyEnum::deserialize(ipld_too_many);
   assert!(error_too_many.is_err());
 
-  let ipld_not_matching = Ipld::Map(BTreeMap::from([(
-    "Two".into(),
-    Ipld::List(vec![Ipld::Bool(false), Ipld::Integer(17)]),
-  )]));
+  let ipld_not_matching =
+    Ipld::List(vec![Ipld::Integer(0), Ipld::Bool(false), Ipld::Integer(17)]);
   error_except(tuple_variant, &ipld_not_matching);
   let error_not_matching = MyEnum::deserialize(ipld_not_matching);
   assert!(error_not_matching.is_err());
