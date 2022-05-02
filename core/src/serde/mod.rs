@@ -17,6 +17,7 @@ mod test {
     fmt,
   };
 
+  use alloc::collections::BTreeMap;
   use cid::{
     serde::CID_SERDE_PRIVATE_IDENTIFIER,
     Cid,
@@ -154,6 +155,14 @@ mod test {
     let expected_ipld = Ipld::List(vec![]);
 
     assert_roundtrip(&unit, &expected_ipld);
+
+    let map: BTreeMap<String, u64> =
+      BTreeMap::from([("hello".into(), 1u64), ("world!".into(), 7u64)]);
+    let expected_ipld = Ipld::List(vec![
+      Ipld::List(vec![Ipld::String("hello".into()), Ipld::Integer(1i128)]),
+      Ipld::List(vec![Ipld::String("world!".into()), Ipld::Integer(7i128)]),
+    ]);
+    assert_roundtrip(&map, &expected_ipld);
   }
 
   /// Test that deserializing arbitrary bytes are not accidently recognized as

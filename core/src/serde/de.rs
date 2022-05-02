@@ -268,7 +268,10 @@ impl<'de> de::Deserializer<'de> for Ipld {
       Self::String(string) => visitor.visit_str(&string),
       Self::Bytes(bytes) => visitor.visit_bytes(&bytes),
       Self::List(list) => visit_seq(list, visitor),
-      Self::Map(map) => visit_map(map, visitor),
+      Self::Map(_map) => {
+        use serde::de::Error;
+        Err(SerdeError::custom("no deserialization for Maps"))
+      }
       Self::Link(cid) => visitor.visit_newtype_struct(CidDeserializer(cid)),
     }
   }
@@ -479,9 +482,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
     visitor: V,
   ) -> Result<V::Value, Self::Error> {
     match self {
-      Self::Map(map) => visit_map(map, visitor),
+      Self::List(map) => visit_map(map, visitor),
       _ => error(format!(
-        "Only `Ipld::Map` can be deserialized to map, input was `{:#?}`",
+        "Only `Ipld::List` can be deserialized to map, input was `{:#?}`",
         self
       )),
     }
@@ -604,7 +607,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
 }
 
 fn visit_map<'de, V>(
-  map: BTreeMap<String, Ipld>,
+  map: Vec<Ipld>,
   visitor: V,
 ) -> Result<V::Value, SerdeError>
 where
@@ -625,17 +628,13 @@ where
   visitor.visit_seq(&mut deserializer)
 }
 
-// Heavily based on
-// https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L601
 struct MapDeserializer {
-  iter: <BTreeMap<String, Ipld> as IntoIterator>::IntoIter,
+  iter: <Vec<Ipld> as IntoIterator>::IntoIter,
   value: Option<Ipld>,
 }
 
 impl MapDeserializer {
-  fn new(map: BTreeMap<String, Ipld>) -> Self {
-    Self { iter: map.into_iter(), value: None }
-  }
+  fn new(map: Vec<Ipld>) -> Self { Self { iter: map.into_iter(), value: None } }
 }
 
 impl<'de> de::MapAccess<'de> for MapDeserializer {
@@ -649,9 +648,15 @@ impl<'de> de::MapAccess<'de> for MapDeserializer {
     K: de::DeserializeSeed<'de>,
   {
     match self.iter.next() {
-      Some((key, value)) => {
-        self.value = Some(value);
-        seed.deserialize(Ipld::String(key)).map(Some)
+      Some(Ipld::List(xs)) => match xs.as_slice() {
+        [key, val] => {
+          self.value = Some(val.to_owned());
+          seed.deserialize(key.to_owned()).map(Some)
+        }
+        _ => todo!(),
+      },
+      Some(_) => {
+        todo!()
       }
       None => Ok(None),
     }

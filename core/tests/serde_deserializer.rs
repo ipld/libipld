@@ -451,10 +451,10 @@ fn ipld_deserializer_map() {
     ("hello".to_string(), true),
     ("world!".to_string(), false),
   ]);
-  let ipld = Ipld::Map(BTreeMap::from([
-    ("hello".to_string(), Ipld::Bool(true)),
-    ("world!".to_string(), Ipld::Bool(false)),
-  ]));
+  let ipld = Ipld::List(vec![
+    Ipld::List(vec![Ipld::String("hello".into()), Ipld::Bool(true)]),
+    Ipld::List(vec![Ipld::String("world!".into()), Ipld::Bool(false)]),
+  ]);
   error_except(map.clone(), &ipld);
 
   let deserialized = BTreeMap::deserialize(ipld).unwrap();
@@ -718,11 +718,14 @@ fn ipld_deserializer_ipld() {
 /// deserialized into Ipld
 #[test]
 fn ipld_deserializer_serde_json_value() {
-  let json_value = json!({ "hello": true, "world": "it is" });
-  let ipld = Ipld::Map(BTreeMap::from([
-    ("hello".into(), Ipld::Bool(true)),
-    ("world".into(), Ipld::String("it is".into())),
-  ]));
+  let json_value = json!([["hello", true], ["world!", "it is"]]);
+  let ipld = Ipld::List(vec![
+    Ipld::List(vec![Ipld::String("hello".into()), Ipld::Bool(true)]),
+    Ipld::List(vec![
+      Ipld::String("world!".into()),
+      Ipld::String("it is".into()),
+    ]),
+  ]);
   let deserialized = serde_json::Value::deserialize(ipld).unwrap();
   assert_eq!(deserialized, json_value);
 }
