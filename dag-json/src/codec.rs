@@ -1,7 +1,7 @@
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
-use libipld_core::ipld::Ipld;
-use libipld_core::multibase::Base;
+use lurk_ipld_core::cid::Cid;
+use lurk_ipld_core::ipld::Ipld;
+use lurk_ipld_core::multibase::Base;
 use serde::de::Error as SerdeError;
 use serde::{de, ser, Deserialize, Serialize};
 use serde_json::ser::Serializer;

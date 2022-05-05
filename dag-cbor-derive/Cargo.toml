@@ -1,11 +1,9 @@
 [package]
-name = "libipld-cbor-derive"
-version = "0.13.1"
-authors = ["David Craven <david@craven.ch>"]
+name = "lurk-ipld-cbor-derive"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
-description = "ipld cbor codec proc macro"
-repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [lib]
 proc-macro = true
@@ -18,5 +16,5 @@ syn = "1.0.72"
 synstructure = "0.12.4"
 
 [dev-dependencies]
-libipld = { path = ".." }
+lurk-ipld = { path = ".." }
 trybuild = "1.0.42"

@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use libipld::cbor::DagCborCodec;
-use libipld::cid::Cid;
-use libipld::codec::Codec;
-use libipld::ipld;
+use lurk_ipld::cbor::DagCborCodec;
+use lurk_ipld::cid::Cid;
+use lurk_ipld::codec::Codec;
+use lurk_ipld::ipld;
 
 fn bench_codec(c: &mut Criterion) {
     c.bench_function("roundtrip", |b| {

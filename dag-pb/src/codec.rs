@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
-use libipld_core::cid::Cid;
-use libipld_core::error::{Result, TypeError, TypeErrorType};
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::cid::Cid;
+use lurk_ipld_core::error::{Result, TypeError, TypeErrorType};
+use lurk_ipld_core::ipld::Ipld;
 use std::collections::BTreeMap;
 
 mod dag_pb {

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use libipld_cbor::DagCborCodec;
-use libipld_core::{codec::Codec, raw_value::RawValue};
+use lurk_ipld_cbor::DagCborCodec;
+use lurk_ipld_core::{codec::Codec, raw_value::RawValue};
 use quickcheck::{empty_shrinker, Arbitrary, Gen, QuickCheck};
 
 #[test]

@@ -8,10 +8,10 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use byteorder::{BigEndian, ByteOrder};
-use libipld_core::cid::Cid;
-use libipld_core::codec::Encode;
-use libipld_core::error::Result;
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::cid::Cid;
+use lurk_ipld_core::codec::Encode;
+use lurk_ipld_core::error::Result;
+use lurk_ipld_core::ipld::Ipld;
 
 use crate::cbor::{MajorKind, FALSE, TRUE};
 use crate::error::NumberOutOfRange;

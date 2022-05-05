@@ -8,4 +8,4 @@ publish = false
 release = false
 
 [dependencies]
-ipld = { path = "../../../", package = "libipld"}
+ipld = { path = "../../../", package = "lurk-ipld"}

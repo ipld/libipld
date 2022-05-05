@@ -4,49 +4,49 @@ use crate::ast::*;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-pub fn gen_encode(ast: &SchemaType, libipld: &syn::Ident) -> TokenStream {
+pub fn gen_encode(ast: &SchemaType, lurk_ipld: &syn::Ident) -> TokenStream {
     let (ident, generics, body) = match ast {
         SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_encode_struct(s)),
         SchemaType::Union(u) => (&u.name, &u.generics, gen_encode_union(u)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let trait_name = quote!(#libipld::codec::Encode<#libipld::cbor::DagCborCodec>);
+    let trait_name = quote!(#lurk_ipld::codec::Encode<#lurk_ipld::cbor::DagCborCodec>);
 
     quote! {
         impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn encode<W: std::io::Write>(
                 &self,
-                c: #libipld::cbor::DagCborCodec,
+                c: #lurk_ipld::cbor::DagCborCodec,
                 w: &mut W,
-            ) -> #libipld::Result<()> {
-                use #libipld::codec::Encode;
-                use #libipld::cbor::cbor::MajorKind;
-                use #libipld::cbor::encode::{write_null, write_u8, write_u64};
+            ) -> #lurk_ipld::Result<()> {
+                use #lurk_ipld::codec::Encode;
+                use #lurk_ipld::cbor::cbor::MajorKind;
+                use #lurk_ipld::cbor::encode::{write_null, write_u8, write_u64};
                 #body
             }
         }
     }
 }
 
-pub fn gen_decode(ast: &SchemaType, libipld: &syn::Ident) -> TokenStream {
+pub fn gen_decode(ast: &SchemaType, lurk_ipld: &syn::Ident) -> TokenStream {
     let (ident, generics, body) = match ast {
         SchemaType::Struct(s) => (&s.name, s.generics.as_ref().unwrap(), gen_decode_struct(s)),
         SchemaType::Union(u) => (&u.name, &u.generics, gen_decode_union(u)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let trait_name = quote!(#libipld::codec::Decode<#libipld::cbor::DagCborCodec>);
+    let trait_name = quote!(#lurk_ipld::codec::Decode<#lurk_ipld::cbor::DagCborCodec>);
 
     quote! {
         impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn decode<R: std::io::Read + std::io::Seek>(
-                c: #libipld::cbor::DagCborCodec,
+                c: #lurk_ipld::cbor::DagCborCodec,
                 r: &mut R,
-            ) -> #libipld::Result<Self> {
-                use #libipld::cbor::cbor::{MajorKind, NULL};
-                use #libipld::cbor::decode::{read_uint, read_major};
-                use #libipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
-                use #libipld::codec::Decode;
-                use #libipld::error::Result;
+            ) -> #lurk_ipld::Result<Self> {
+                use #lurk_ipld::cbor::cbor::{MajorKind, NULL};
+                use #lurk_ipld::cbor::decode::{read_uint, read_major};
+                use #lurk_ipld::cbor::error::{LengthOutOfRange, MissingKey, UnexpectedCode, UnexpectedKey};
+                use #lurk_ipld::codec::Decode;
+                use #lurk_ipld::error::Result;
                 use std::io::SeekFrom;
                 #body
             }

@@ -1,10 +1,10 @@
 use async_std::task::{block_on, sleep};
 use async_trait::async_trait;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use libipld::block::create_raw_block;
-use libipld::error::Result;
-use libipld::store::{BufStore, MemStore, Store};
-use libipld::{Cid, DefaultHash as H};
+use lurk_ipld::block::create_raw_block;
+use lurk_ipld::error::Result;
+use lurk_ipld::store::{BufStore, MemStore, Store};
+use lurk_ipld::{Cid, DefaultHash as H};
 use std::path::Path;
 use std::time::Duration;
 

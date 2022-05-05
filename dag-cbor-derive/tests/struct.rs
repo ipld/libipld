@@ -1,6 +1,6 @@
-use libipld::cbor::{DagCbor, DagCborCodec};
-use libipld::codec::assert_roundtrip;
-use libipld::{ipld, DagCbor};
+use lurk_ipld::cbor::{DagCbor, DagCborCodec};
+use lurk_ipld::codec::assert_roundtrip;
+use lurk_ipld::{ipld, DagCbor};
 
 #[derive(Clone, Copy, DagCbor, Debug, Eq, PartialEq)]
 #[ipld(repr = "map")]

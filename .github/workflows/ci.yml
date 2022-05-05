@@ -113,7 +113,7 @@ jobs:
       run: cargo clippy --workspace --all-features --examples --tests -- -D warnings
 
   build-no-std:
-    name: Build no_std (libipld-core)
+    name: Build no_std (lurk-ipld-core)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources
@@ -134,7 +134,7 @@ jobs:
           args: --no-default-features --target thumbv6m-none-eabi --manifest-path core/Cargo.toml
 
   build-no-std-serde:
-    name: Build no_std (libipld-core), but with the `serde-codec` feature enabled
+    name: Build no_std (lurk-ipld-core), but with the `serde-codec` feature enabled
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Sources

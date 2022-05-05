@@ -146,11 +146,11 @@ impl<S: StoreParams> Block<S> {
     /// Decoding to [`Ipld`]:
     ///
     /// ```
-    /// use libipld::block::Block;
-    /// use libipld::cbor::DagCborCodec;
-    /// use libipld::ipld::Ipld;
-    /// use libipld::multihash::Code;
-    /// use libipld::store::DefaultParams;
+    /// use lurk_ipld::block::Block;
+    /// use lurk_ipld::cbor::DagCborCodec;
+    /// use lurk_ipld::ipld::Ipld;
+    /// use lurk_ipld::multihash::Code;
+    /// use lurk_ipld::store::DefaultParams;
     ///
     /// let block =
     ///     Block::<DefaultParams>::encode(DagCborCodec, Code::Blake3_256, "Hello World!").unwrap();

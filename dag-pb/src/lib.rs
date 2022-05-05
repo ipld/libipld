@@ -4,10 +4,10 @@
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};
-use libipld_core::cid::Cid;
-use libipld_core::codec::{Codec, Decode, Encode, References};
-use libipld_core::error::{Result, UnsupportedCodec};
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::cid::Cid;
+use lurk_ipld_core::codec::{Codec, Decode, Encode, References};
+use lurk_ipld_core::error::{Result, UnsupportedCodec};
+use lurk_ipld_core::ipld::Ipld;
 use std::io::{Read, Seek, Write};
 
 mod codec;
@@ -63,8 +63,8 @@ impl References<DagPbCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashDigest};
+    use lurk_ipld_core::cid::Cid;
+    use lurk_ipld_core::multihash::{Code, MultihashDigest};
     use std::collections::BTreeMap;
 
     #[test]

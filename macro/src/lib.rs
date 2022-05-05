@@ -2,7 +2,7 @@
 /// Construct an `Ipld` from a literal.
 ///
 /// ```edition2018
-/// # use libipld_macro::ipld;
+/// # use lurk_ipld_macro::ipld;
 /// #
 /// let value = ipld!({
 ///     "code": 200,
@@ -24,7 +24,7 @@
 /// map with non-string keys, the `json!` macro will panic.
 ///
 /// ```edition2018
-/// # use libipld_macro::ipld;
+/// # use lurk_ipld_macro::ipld;
 /// #
 /// let code = 200;
 /// let features = vec!["serde", "json"];
@@ -41,7 +41,7 @@
 /// Trailing commas are allowed inside both arrays and objects.
 ///
 /// ```edition2018
-/// # use libipld_macro::ipld;
+/// # use lurk_ipld_macro::ipld;
 /// #
 /// let value = ipld!([
 ///     "notice",
@@ -50,7 +50,7 @@
 ///     "comma -->",
 /// ]);
 /// ```
-pub use libipld_core::ipld::Ipld;
+pub use lurk_ipld_core::ipld::Ipld;
 
 #[macro_export(local_inner_macros)]
 macro_rules! ipld {
@@ -292,8 +292,8 @@ macro_rules! ipld_unexpected {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashDigest};
+    use lurk_ipld_core::cid::Cid;
+    use lurk_ipld_core::multihash::{Code, MultihashDigest};
 
     #[test]
     fn test_macro() {

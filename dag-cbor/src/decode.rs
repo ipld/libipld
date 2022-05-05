@@ -7,10 +7,10 @@ use crate::error::{
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::codec::{Decode, References};
-use libipld_core::error::Result;
-use libipld_core::ipld::Ipld;
-use libipld_core::{cid::Cid, raw_value::SkipOne};
+use lurk_ipld_core::codec::{Decode, References};
+use lurk_ipld_core::error::Result;
+use lurk_ipld_core::ipld::Ipld;
+use lurk_ipld_core::{cid::Cid, raw_value::SkipOne};
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
@@ -567,7 +567,7 @@ impl SkipOne for DagCbor {
 mod tests {
     use super::*;
     use crate::{error::UnexpectedEof, DagCborCodec};
-    use libipld_core::codec::Codec;
+    use lurk_ipld_core::codec::Codec;
 
     #[test]
     fn il_map() {

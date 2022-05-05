@@ -130,7 +130,7 @@ pub fn dyn_alias(alias: &'static str, id: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_macro::ipld;
+    use lurk_ipld_macro::ipld;
 
     mod aliases {
         pub const CHAIN_ALIAS: &str = alias!(CHAIN_ALIAS);
@@ -138,14 +138,14 @@ mod tests {
 
     #[test]
     fn test_alias() {
-        assert_eq!(alias!(test_alias), "libipld::store::tests::test_alias");
+        assert_eq!(alias!(test_alias), "lurk_ipld::store::tests::test_alias");
         assert_eq!(
             aliases::CHAIN_ALIAS,
-            "libipld::store::tests::aliases::CHAIN_ALIAS"
+            "lurk_ipld::store::tests::aliases::CHAIN_ALIAS"
         );
         assert_eq!(
             dyn_alias(aliases::CHAIN_ALIAS, 3).as_str(),
-            "libipld::store::tests::aliases::CHAIN_ALIAS::3"
+            "lurk_ipld::store::tests::aliases::CHAIN_ALIAS::3"
         );
     }
 

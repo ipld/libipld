@@ -2,7 +2,7 @@
 use std::convert::TryFrom;
 
 use crate::error::UnexpectedCode;
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::ipld::Ipld;
 
 /// Represents a major "byte". This includes both the major bits and the additional info.
 #[repr(transparent)]

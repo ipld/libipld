@@ -1,11 +1,11 @@
 [package]
-name = "libipld-core"
-version = "0.13.1"
-authors = ["David Craven <david@craven.ch>"]
+name = "lurk-ipld-core"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Base traits and definitions used by ipld codecs."
-repository = "https://github.com/ipfs-rust/rust-ipld"
+#repository = "https://github.com//rust-ipld"
 
 [features]
 default = ["std"]

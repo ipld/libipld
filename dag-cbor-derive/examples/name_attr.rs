@@ -1,7 +1,7 @@
-use libipld::cbor::DagCborCodec;
-use libipld::codec::{Decode, Encode};
-use libipld::ipld::Ipld;
-use libipld::{ipld, DagCbor};
+use lurk_ipld::cbor::DagCborCodec;
+use lurk_ipld::codec::{Decode, Encode};
+use lurk_ipld::ipld::Ipld;
+use lurk_ipld::{ipld, DagCbor};
 use std::io::Cursor;
 
 #[derive(Clone, Debug, Default, PartialEq, DagCbor)]

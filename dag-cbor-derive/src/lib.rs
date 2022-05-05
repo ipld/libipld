@@ -11,13 +11,13 @@ mod gen;
 mod parse;
 
 fn dag_cbor_derive(s: Structure) -> TokenStream {
-    let libipld = match use_crate("libipld") {
+    let lurk_ipld = match use_crate("lurk-ipld") {
         Ok(ident) => ident,
         Err(error) => return error,
     };
     let ast = parse::parse(&s);
-    let encode = gen::gen_encode(&ast, &libipld);
-    let decode = gen::gen_decode(&ast, &libipld);
+    let encode = gen::gen_encode(&ast, &lurk_ipld);
+    let decode = gen::gen_decode(&ast, &lurk_ipld);
     quote! {
         #encode
         #decode

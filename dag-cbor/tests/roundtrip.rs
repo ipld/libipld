@@ -1,5 +1,5 @@
-use libipld_cbor::DagCborCodec;
-use libipld_core::{
+use lurk_ipld_cbor::DagCborCodec;
+use lurk_ipld_core::{
     codec::{assert_roundtrip, Codec, Decode, Encode},
     ipld::Ipld,
     raw_value::{IgnoredAny, RawValue, SkipOne},

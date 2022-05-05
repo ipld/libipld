@@ -1,11 +1,12 @@
 [package]
-name = "libipld"
-version = "0.13.1"
-authors = ["David Craven <david@craven.ch>"]
+name = "lurk-ipld"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
-description = "library for dealing with ipld"
-repository = "https://github.com/ipld/libipld"
+description = "IPLD library for Lurk"
+repository = "https://github.com/lurk-lang/lurk-ipld"
+readme = "README.md"
 
 [package.metadata.release]
 consolidate-commits = true
@@ -16,12 +17,12 @@ shared-version = true
 async-trait = "0.1.50"
 cached = { version = "0.30.0", default-features = false }
 fnv = "1.0.7"
-libipld-cbor = { version = "0.13.0", path = "dag-cbor", optional = true }
-libipld-cbor-derive = { version = "0.13.0", path = "dag-cbor-derive", optional = true }
-libipld-core = { version = "0.13.0", path = "core" }
-libipld-json = { version = "0.13.0", path = "dag-json", optional = true }
-libipld-macro = { version = "0.13.0", path = "macro" }
-libipld-pb = { version = "0.13.0", path = "dag-pb", optional = true }
+lurk-ipld-cbor = { version = "0.1.0", path = "dag-cbor", optional = true }
+lurk-ipld-cbor-derive = { version = "0.1.0", path = "dag-cbor-derive", optional = true }
+lurk-ipld-core = { version = "0.1.0", path = "core" }
+lurk-ipld-json = { version = "0.1.0", path = "dag-json", optional = true }
+lurk-ipld-macro = { version = "0.1.0", path = "macro" }
+lurk-ipld-pb = { version = "0.1.0", path = "dag-pb", optional = true }
 log = "0.4.14"
 multihash = { version = "0.16.0", default-features = false, features = ["multihash-impl"] }
 parking_lot = "0.12.0"
@@ -36,11 +37,11 @@ multihash = "0.16.0"
 
 [features]
 default = ["dag-cbor", "dag-json", "dag-pb", "derive"]
-dag-cbor = ["libipld-cbor"]
-dag-json = ["libipld-json"]
-dag-pb = ["libipld-pb"]
-derive = ["libipld-cbor-derive"]
-serde-codec = ["libipld-core/serde-codec"]
+dag-cbor = ["lurk-ipld-cbor"]
+dag-json = ["lurk-ipld-json"]
+dag-pb = ["lurk-ipld-pb"]
+derive = ["lurk-ipld-cbor-derive"]
+serde-codec = ["lurk-ipld-core/serde-codec"]
 
 [workspace]
 members = [

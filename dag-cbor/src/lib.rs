@@ -3,8 +3,8 @@
 #![deny(warnings)]
 
 use core::convert::TryFrom;
-use libipld_core::codec::{Codec, Decode, Encode};
-pub use libipld_core::error::{Result, UnsupportedCodec};
+use lurk_ipld_core::codec::{Codec, Decode, Encode};
+pub use lurk_ipld_core::error::{Result, UnsupportedCodec};
 
 pub mod cbor;
 pub mod decode;
@@ -39,11 +39,11 @@ impl<T: Encode<DagCborCodec> + Decode<DagCborCodec>> DagCbor for T {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::Cid;
-    use libipld_core::codec::assert_roundtrip;
-    use libipld_core::ipld::Ipld;
-    use libipld_core::multihash::{Code, MultihashDigest};
-    use libipld_macro::ipld;
+    use lurk_ipld_core::cid::Cid;
+    use lurk_ipld_core::codec::assert_roundtrip;
+    use lurk_ipld_core::ipld::Ipld;
+    use lurk_ipld_core::multihash::{Code, MultihashDigest};
+    use lurk_ipld_macro::ipld;
     use std::collections::HashSet;
 
     #[test]

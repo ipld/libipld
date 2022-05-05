@@ -3,10 +3,10 @@
 #![deny(warnings)]
 
 use core::convert::TryFrom;
-use libipld_core::cid::Cid;
-use libipld_core::codec::{Codec, Decode, Encode, References};
-use libipld_core::error::{Result, UnsupportedCodec};
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::cid::Cid;
+use lurk_ipld_core::codec::{Codec, Decode, Encode, References};
+use lurk_ipld_core::error::{Result, UnsupportedCodec};
+use lurk_ipld_core::ipld::Ipld;
 // TODO vmx 2020-05-28: Don't expose the `serde_json` error directly, but wrap it in a custom one
 pub use serde_json::Error;
 use std::io::{Read, Seek, Write};
@@ -59,8 +59,8 @@ impl References<DagJsonCodec> for Ipld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashDigest};
+    use lurk_ipld_core::cid::Cid;
+    use lurk_ipld_core::multihash::{Code, MultihashDigest};
     use std::collections::BTreeMap;
 
     #[test]

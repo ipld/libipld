@@ -7,8 +7,8 @@ use core::convert::TryFrom;
 
 use serde_test::{assert_de_tokens, Token};
 
-use libipld_core::cid::{serde::CID_SERDE_PRIVATE_IDENTIFIER, Cid};
-use libipld_core::ipld::Ipld;
+use lurk_ipld_core::cid::{serde::CID_SERDE_PRIVATE_IDENTIFIER, Cid};
+use lurk_ipld_core::ipld::Ipld;
 
 #[test]
 fn ipld_deserialize_null() {

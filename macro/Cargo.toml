@@ -1,14 +1,14 @@
 [package]
-name = "libipld-macro"
-version = "0.13.1"
-authors = ["David Craven <david@craven.ch>"]
+name = "lurk-ipld-macro"
+version = "0.1.0"
+authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
-description = "ipld macro"
-repository = "https://github.com/ipfs-rust/rust-ipld"
+#description = "ipld macro"
+#repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
-libipld-core = { version = "0.13.0", path = "../core" }
+lurk-ipld-core = { version = "0.1.0", path = "../core" }
 
 [dev-dependencies]
 multihash = { version = "0.16.0", features = ["blake3"] }

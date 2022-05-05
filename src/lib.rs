@@ -11,15 +11,15 @@ pub mod prelude;
 pub mod store;
 
 #[cfg(feature = "dag-cbor")]
-pub use libipld_cbor as cbor;
+pub use lurk_ipld_cbor as cbor;
 #[cfg(all(feature = "dag-cbor", feature = "derive"))]
-pub use libipld_cbor_derive::DagCbor;
-pub use libipld_core::*;
+pub use lurk_ipld_cbor_derive::DagCbor;
+pub use lurk_ipld_core::*;
 #[cfg(feature = "dag-json")]
-pub use libipld_json as json;
-pub use libipld_macro::*;
+pub use lurk_ipld_json as json;
+pub use lurk_ipld_macro::*;
 #[cfg(feature = "dag-pb")]
-pub use libipld_pb as pb;
+pub use lurk_ipld_pb as pb;
 
 pub use block::Block;
 pub use cid::Cid;

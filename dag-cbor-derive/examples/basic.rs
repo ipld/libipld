@@ -1,6 +1,6 @@
-use libipld::cbor::DagCborCodec;
-use libipld::codec::assert_roundtrip;
-use libipld::{ipld, DagCbor, Ipld};
+use lurk_ipld::cbor::DagCborCodec;
+use lurk_ipld::codec::assert_roundtrip;
+use lurk_ipld::{ipld, DagCbor, Ipld};
 use std::collections::BTreeMap;
 
 #[derive(Clone, DagCbor, Debug, Default, PartialEq)]
