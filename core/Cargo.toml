@@ -5,7 +5,7 @@ authors = ["porcuquine <porcuquine@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Base traits and definitions used by ipld codecs."
-#repository = "https://github.com//rust-ipld"
+repository = "https://github.com/lurk-lang/lurk-ipld"
 
 [features]
 default = ["std"]
