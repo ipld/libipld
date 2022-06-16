@@ -6,7 +6,7 @@ mod de;
 mod ser;
 
 pub use de::from_ipld;
-pub use ser::to_ipld;
+pub use ser::{to_ipld, Serializer};
 
 #[cfg(test)]
 mod tests {
