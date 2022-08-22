@@ -99,7 +99,8 @@ impl ser::Serialize for Ipld {
     }
 }
 
-struct Serializer;
+/// The IPLD serializer.
+pub struct Serializer;
 
 impl serde::Serializer for Serializer {
     type Ok = Ipld;
