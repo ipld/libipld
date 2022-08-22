@@ -100,7 +100,6 @@ fn gen_encode_struct_body(s: &Struct) -> TokenStream {
             let dfields = s.fields.iter().filter_map(|field| {
                 if let Some(default) = field.default.as_ref() {
                     let binding = &field.binding;
-                    let default = &*default;
                     Some(quote! {
                         if #binding == &#default {
                             len -= 1;
