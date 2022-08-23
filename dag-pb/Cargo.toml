@@ -13,7 +13,7 @@ prost = "0.9.0"
 thiserror = "1.0.25"
 
 [build-dependencies]
-prost-build = "0.9.0"
+prost-build = "0.11.1"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
