@@ -17,7 +17,7 @@ mod tests {
     use cid::serde::CID_SERDE_PRIVATE_IDENTIFIER;
     use cid::Cid;
     use serde::{de::DeserializeOwned, Deserialize, Serialize};
-    use serde_test::{assert_tokens, Token};
+    use serde_test::{assert_ser_tokens, Token};
 
     use crate::ipld::Ipld;
     use crate::serde::{from_ipld, to_ipld};
@@ -61,7 +61,9 @@ mod tests {
     fn test_tokens() {
         let person = Person::default();
 
-        assert_tokens(
+        // The `serde_test` deserializer doesn't deserialize enums as one would expect (it doesn't
+        // call `visit_enum`), hence only the serializer is tested.
+        assert_ser_tokens(
             &person,
             &[
                 Token::Struct {
@@ -80,14 +82,17 @@ mod tests {
                 Token::Str("is_cool"),
                 Token::Bool(true),
                 Token::Str("link"),
-                Token::NewtypeStruct {
+                Token::TupleVariant {
                     name: CID_SERDE_PRIVATE_IDENTIFIER,
+                    variant: CID_SERDE_PRIVATE_IDENTIFIER,
+                    len: 1,
                 },
                 Token::Bytes(&[
                     0x01, 0x71, 0x12, 0x20, 0x35, 0x4d, 0x45, 0x5f, 0xf3, 0xa6, 0x41, 0xb8, 0xca,
                     0xc2, 0x5c, 0x38, 0xa7, 0x7e, 0x64, 0xaa, 0x73, 0x5d, 0xc8, 0xa4, 0x89, 0x66,
                     0xa6, 0xf, 0x1a, 0x78, 0xca, 0xa1, 0x72, 0xa4, 0x88, 0x5e,
                 ]),
+                Token::TupleVariantEnd,
                 Token::StructEnd,
             ],
         );

@@ -95,14 +95,17 @@ fn ipld_serialize_link() {
     assert_ser_tokens(
         &ipld,
         &[
-            Token::NewtypeStruct {
+            Token::TupleVariant {
                 name: CID_SERDE_PRIVATE_IDENTIFIER,
+                variant: CID_SERDE_PRIVATE_IDENTIFIER,
+                len: 1,
             },
             Token::Bytes(&[
                 1, 85, 18, 32, 159, 228, 204, 198, 222, 22, 114, 79, 58, 48, 199, 232, 242, 84,
                 243, 198, 71, 25, 134, 172, 177, 248, 216, 207, 142, 150, 206, 42, 215, 219, 231,
                 251,
             ]),
+            Token::TupleVariantEnd,
         ],
     );
 }

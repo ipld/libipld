@@ -210,21 +210,13 @@ impl serde::Serializer for Serializer {
     #[inline]
     fn serialize_newtype_struct<T: ?Sized>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: ser::Serialize,
     {
-        let ipld = value.serialize(self);
-        if name == CID_SERDE_PRIVATE_IDENTIFIER {
-            if let Ok(Ipld::Bytes(bytes)) = ipld {
-                let cid = Cid::try_from(bytes)
-                    .map_err(|err| ser::Error::custom(format!("Invalid CID: {}", err)))?;
-                return Ok(Self::Ok::Link(cid));
-            }
-        }
-        ipld
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
@@ -399,7 +391,15 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
         Ok(())
     }
 
-    fn end(self) -> Result<Self::Ok, Self::Error> {
+    fn end(mut self) -> Result<Self::Ok, Self::Error> {
+        if self.name == CID_SERDE_PRIVATE_IDENTIFIER && self.vec.len() == 1 {
+            if let Ipld::Bytes(bytes) = self.vec.pop().unwrap() {
+                let cid = Cid::try_from(bytes)
+                    .map_err(|err| ser::Error::custom(format!("Invalid CID: {}", err)))?;
+                return Ok(Self::Ok::Link(cid));
+            }
+        }
+
         let map = BTreeMap::from([(self.name, Self::Ok::List(self.vec))]);
         Ok(Self::Ok::Map(map))
     }

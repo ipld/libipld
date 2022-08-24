@@ -4,7 +4,7 @@ use core::{convert::TryFrom, fmt};
 use cid::serde::{BytesToCidVisitor, CID_SERDE_PRIVATE_IDENTIFIER};
 use cid::Cid;
 use serde::{
-    de::{self, IntoDeserializer},
+    de::{self, IntoDeserializer, VariantAccess},
     forward_to_deserialize_any,
 };
 
@@ -170,15 +170,24 @@ impl<'de> de::Deserialize<'de> for Ipld {
                 Ok(Ipld::Map(values))
             }
 
-            /// Newtype structs are only used to deserialize CIDs.
+            /// Enums are only used to deserialize CIDs.
             #[inline]
-            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+            fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
             where
-                D: de::Deserializer<'de>,
+                A: de::EnumAccess<'de>,
             {
-                deserializer
-                    .deserialize_bytes(BytesToCidVisitor)
-                    .map(Ipld::Link)
+                match data.variant() {
+                    // Make sure that we only deserialize a CID when we clearly intended to.
+                    Ok((CID_SERDE_PRIVATE_IDENTIFIER, value)) => {
+                        // It's not really a tuple, we use the `tuple_variant` call in order to be
+                        // able to pass in a custom visitor.
+                        let cid = value.tuple_variant(1, BytesToCidVisitor)?;
+                        Ok(Ipld::Link(cid))
+                    }
+                    _ => Err(de::Error::custom(
+                        "invalid type: enum, expected any valid IPLD kind",
+                    )),
+                }
             }
         }
 
@@ -207,6 +216,26 @@ macro_rules! impl_deserialize_integer {
     };
 }
 
+/// Dummy deserializer to deserialize an existing string.
+///
+/// From https://github.com/honsunrise/path-value/blob/d5eb3283f68b82e73cbc627889c32d32d484a009/src/value/de.rs#L141-L162
+struct StrDeserializer<'a>(&'a str);
+
+impl<'de, 'a: 'de> de::Deserializer<'de> for StrDeserializer<'a> {
+    type Error = SerdeError;
+
+    #[inline]
+    fn deserialize_any<V: de::Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
+        visitor.visit_borrowed_str(self.0)
+    }
+
+    forward_to_deserialize_any! {
+        bool u8 u16 u32 u64 i8 i16 i32 i64 f32 f64 char str string seq
+        bytes byte_buf map struct unit enum newtype_struct
+        identifier ignored_any unit_struct tuple_struct tuple option
+    }
+}
+
 /// A Deserializer for CIDs.
 ///
 /// A separate deserializer is needed to make sure we always deserialize only CIDs as `Ipld::Link`
@@ -228,6 +257,60 @@ impl<'de> de::Deserializer<'de> for CidDeserializer {
     forward_to_deserialize_any! {
         bool byte_buf char enum f32 f64  i8 i16 i32 i64 identifier ignored_any map newtype_struct
         option seq str string struct tuple tuple_struct  u8 u16 u32 u64 unit unit_struct
+    }
+}
+
+impl<'de> de::EnumAccess<'de> for CidDeserializer {
+    type Error = SerdeError;
+    // We just implement `VariantAccess` for `CidDeserializer`.
+    type Variant = Self;
+
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: de::DeserializeSeed<'de>,
+    {
+        // This is the Serde way of saying `let value = CID_SERDE_PRIVATE_IDENTIFIER;`.
+        let key = seed.deserialize(StrDeserializer(CID_SERDE_PRIVATE_IDENTIFIER))?;
+        // The `CidDeserializer` already contains the CID, hence return itself.
+        Ok((key, self))
+    }
+}
+
+impl<'de> de::VariantAccess<'de> for CidDeserializer {
+    type Error = SerdeError;
+
+    fn unit_variant(self) -> Result<(), Self::Error> {
+        unreachable!();
+    }
+
+    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value, Self::Error>
+    where
+        T: de::DeserializeSeed<'de>,
+    {
+        unreachable!();
+    }
+
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        if len == 1 {
+            // This is not how tuple variants usually work. This is a hack in order to get a CID out.
+            visitor.visit_bytes(&self.0.to_bytes())
+        } else {
+            error("CidDeserializer only support deserializing CIDs")
+        }
+    }
+
+    fn struct_variant<V>(
+        self,
+        _fields: &'static [&'static str],
+        _visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        unreachable!();
     }
 }
 
@@ -254,7 +337,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
             Self::Bytes(bytes) => visitor.visit_bytes(&bytes),
             Self::List(list) => visit_seq(list, visitor),
             Self::Map(map) => visit_map(map, visitor),
-            Self::Link(cid) => visitor.visit_newtype_struct(CidDeserializer(cid)),
+            Self::Link(cid) => visitor.visit_enum(CidDeserializer(cid)),
         }
     }
 
@@ -470,31 +553,30 @@ impl<'de> de::Deserializer<'de> for Ipld {
 
     fn deserialize_newtype_struct<V: de::Visitor<'de>>(
         self,
-        name: &str,
+        _name: &str,
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        if name == CID_SERDE_PRIVATE_IDENTIFIER {
-            match self {
-                Ipld::Link(cid) => visitor.visit_newtype_struct(CidDeserializer(cid)),
-                _ => error(format!(
-                    "Only `Ipld::Link`s can be deserialized to CIDs, input was `{:#?}`",
-                    self
-                )),
-            }
-        } else {
-            visitor.visit_newtype_struct(self)
-        }
+        visitor.visit_newtype_struct(self)
     }
 
     // Heavily based on
     // https://github.com/serde-rs/json/blob/95f67a09399d546d9ecadeb747a845a77ff309b2/src/value/de.rs#L249
     fn deserialize_enum<V: de::Visitor<'de>>(
         self,
-        _name: &str,
-        _variants: &[&str],
+        name: &str,
+        variants: &[&str],
         visitor: V,
     ) -> Result<V::Value, Self::Error> {
-        let (variant, value) = match self {
+        if name == CID_SERDE_PRIVATE_IDENTIFIER && variants == [CID_SERDE_PRIVATE_IDENTIFIER] {
+            match self {
+                Ipld::Link(cid) => visitor.visit_enum(CidDeserializer(cid)),
+                _ => error(format!(
+                    "Only `Ipld::Link`s can be deserialized to CIDs, input was `{:#?}`",
+                    self
+                )),
+            }
+        } else {
+            let (variant, value) = match self {
             Ipld::Map(map) => {
                 let mut iter = map.into_iter();
                 let (variant, value) = match iter.next() {
@@ -520,7 +602,8 @@ impl<'de> de::Deserializer<'de> for Ipld {
             )),
         };
 
-        visitor.visit_enum(EnumDeserializer { variant, value })
+            visitor.visit_enum(EnumDeserializer { variant, value })
+        }
     }
 
     // Heavily based on
