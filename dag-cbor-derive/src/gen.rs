@@ -13,7 +13,7 @@ pub fn gen_encode(ast: &SchemaType, libipld: &syn::Ident) -> TokenStream {
     let trait_name = quote!(#libipld::codec::Encode<#libipld::cbor::DagCborCodec>);
 
     quote! {
-        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
+        impl #impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn encode<W: std::io::Write>(
                 &self,
                 c: #libipld::cbor::DagCborCodec,
@@ -37,7 +37,7 @@ pub fn gen_decode(ast: &SchemaType, libipld: &syn::Ident) -> TokenStream {
     let trait_name = quote!(#libipld::codec::Decode<#libipld::cbor::DagCborCodec>);
 
     quote! {
-        impl#impl_generics #trait_name for #ident #ty_generics #where_clause {
+        impl #impl_generics #trait_name for #ident #ty_generics #where_clause {
             fn decode<R: std::io::Read + std::io::Seek>(
                 c: #libipld::cbor::DagCborCodec,
                 r: &mut R,
