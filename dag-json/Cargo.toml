@@ -2,7 +2,7 @@
 name = "libipld-json"
 version = "0.13.1"
 authors = ["Irakli Gozalishvili <contact@gozala.io>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "ipld json codec"
 repository = "https://github.com/ipfs-rust/rust-ipld"
