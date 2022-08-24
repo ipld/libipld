@@ -601,6 +601,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::let_unit_value)]
     fn tuples() -> Result<()> {
         let data = ();
         let bytes = DagCborCodec.encode(&data)?;

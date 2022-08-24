@@ -1,6 +1,7 @@
 //! Protobuf codec.
 #![deny(missing_docs)]
 #![deny(warnings)]
+#![allow(clippy::derive_partial_eq_without_eq)]
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};

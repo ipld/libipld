@@ -58,7 +58,7 @@ impl ToString for Path {
 }
 
 /// Path in a dag.
-#[derive(Clone, Debug, PartialEq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DagPath<'a>(&'a Cid, Path);
 
 impl<'a> DagPath<'a> {

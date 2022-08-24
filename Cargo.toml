@@ -2,7 +2,7 @@
 name = "libipld"
 version = "0.13.1"
 authors = ["David Craven <david@craven.ch>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "library for dealing with ipld"
 repository = "https://github.com/ipld/libipld"
