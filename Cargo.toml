@@ -52,3 +52,7 @@ members = [
 
 [profile.release]
 debug = true
+
+[[bench]]
+name = "codec"
+harness = false
