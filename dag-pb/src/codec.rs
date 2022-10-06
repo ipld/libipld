@@ -2,6 +2,7 @@ use core::convert::{TryFrom, TryInto};
 use libipld_core::cid::Cid;
 use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
+use prost::bytes::{Buf, Bytes};
 use std::collections::BTreeMap;
 
 mod dag_pb {
@@ -31,13 +32,22 @@ pub struct PbNode {
 use prost::Message;
 
 impl PbNode {
+    pub(crate) fn links(bytes: Bytes, links: &mut impl Extend<Cid>) -> Result<()> {
+        let proto = dag_pb::PbNode::decode(bytes)?;
+        for link in proto.links {
+            let cid = Cid::try_from(link.hash.as_ref())?;
+            links.extend(Some(cid));
+        }
+        Ok(())
+    }
+
     /// Deserializes a `PbNode` from bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: impl Buf) -> Result<Self> {
         let proto: dag_pb::PbNode = dag_pb::PbNode::decode(bytes)?;
-        let data = proto.data.into_boxed_slice();
+        let data = proto.data.to_vec().into_boxed_slice();
         let mut links = Vec::new();
         for link in proto.links {
-            let cid = Cid::try_from(link.hash)?;
+            let cid = Cid::try_from(link.hash.as_ref())?;
             let name = link.name;
             let size = link.tsize;
             links.push(PbLink { cid, name, size });
@@ -51,13 +61,13 @@ impl PbNode {
             .links
             .into_iter()
             .map(|link| dag_pb::PbLink {
-                hash: link.cid.to_bytes(),
+                hash: link.cid.to_bytes().into(),
                 name: link.name,
                 tsize: link.size,
             })
             .collect::<Vec<_>>();
         let proto = dag_pb::PbNode {
-            data: self.data.into_vec(),
+            data: self.data.into(),
             links,
         };
 
