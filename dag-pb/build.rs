@@ -1,3 +1,6 @@
 fn main() {
-    prost_build::compile_protos(&["src/dag_pb.proto"], &["src"]).unwrap();
+    prost_build::Config::new()
+        .bytes(&["."])
+        .compile_protos(&["src/dag_pb.proto"], &["src"])
+        .unwrap();
 }
