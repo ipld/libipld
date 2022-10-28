@@ -159,7 +159,7 @@ impl Ipld {
     }
 }
 
-#[cfg(test)]
+#[cfg(feature = "quickcheck")]
 impl quickcheck::Arbitrary for Ipld {
     fn arbitrary(g: &mut quickcheck::Gen) -> Self {
         let bool_item = bool::arbitrary(g);
@@ -167,8 +167,10 @@ impl quickcheck::Arbitrary for Ipld {
         let float_item = f64::arbitrary(g);
         let string_item = String::arbitrary(g);
         let bytes_item = Vec::arbitrary(g);
-        let list_item = Vec::new();
-        let map_item = BTreeMap::new();
+        let list_item = Vec::arbitrary(g);
+        let map_item = BTreeMap::arbitrary(g);
+        // rust-cid will soon support quickcheck
+        // When available, use `Cid::arbitrary(g)`
         let cid = Cid::new_v1(
             u64::arbitrary(g),
             cid::multihash::Multihash::wrap(u64::arbitrary(g), &[u8::arbitrary(g)]).unwrap(),

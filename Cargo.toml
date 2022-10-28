@@ -38,6 +38,7 @@ dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
 serde-codec = ["libipld-core/serde-codec"]
+quickcheck = ["libipld-core/quickcheck"]
 
 [workspace]
 members = [
