@@ -13,6 +13,7 @@ use prost::bytes::Bytes;
 use std::io::{Read, Seek, Write};
 
 mod codec;
+mod dag_pb;
 
 /// Protobuf codec.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
