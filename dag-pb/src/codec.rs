@@ -1,13 +1,10 @@
+use crate::dag_pb;
 use core::convert::{TryFrom, TryInto};
 use libipld_core::cid::Cid;
 use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
 use prost::bytes::{Buf, Bytes};
 use std::collections::BTreeMap;
-
-mod dag_pb {
-    include!(concat!(env!("OUT_DIR"), "/dag_pb.rs"));
-}
 
 /// A protobuf ipld link.
 #[derive(Debug)]
