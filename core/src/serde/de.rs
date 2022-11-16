@@ -539,6 +539,7 @@ impl<'de> de::Deserializer<'de> for Ipld {
             _ => visitor.visit_some(self),
         }
     }
+
     fn is_human_readable(&self) -> bool {
         false
     }
