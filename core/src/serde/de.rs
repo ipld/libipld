@@ -539,6 +539,9 @@ impl<'de> de::Deserializer<'de> for Ipld {
             _ => visitor.visit_some(self),
         }
     }
+    fn is_human_readable(&self) -> bool {
+        false
+    }
 }
 
 fn visit_map<'de, V>(map: BTreeMap<String, Ipld>, visitor: V) -> Result<V::Value, SerdeError>
