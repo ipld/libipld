@@ -11,4 +11,4 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 libipld-core = { version = "0.14.0", path = "../core" }
 
 [dev-dependencies]
-multihash = { version = "0.16.0", features = ["blake3"] }
+multihash = { version = "0.17.0", features = ["blake3"] }

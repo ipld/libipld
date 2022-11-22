@@ -14,4 +14,4 @@ thiserror = "1.0.25"
 
 [dev-dependencies]
 libipld-macro = { path = "../macro" }
-multihash = "0.16.0"
+multihash = "0.17.0"
