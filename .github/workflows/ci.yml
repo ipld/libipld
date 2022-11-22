@@ -74,15 +74,28 @@ jobs:
 
     - name: Install cargo-apk
       if: contains(matrix.platform.target, 'android')
-      run: cargo install cargo-apk
+      uses: baptiste0928/cargo-install@bf6758885262d0e6f61089a9d8c8790d3ac3368f # v1.3.0
+      with:
+        crate: cargo-apk
 
     - name: Build
-      if: contains(matrix.platform.target, 'android') == false
+      if: contains(matrix.platform.target, 'android') == false && contains(matrix.platform.target, 'wasm') == false
       run: cargo build --workspace --all-features --target ${{ matrix.platform.target }}
 
     - name: Build android
       if: contains(matrix.platform.target, 'android')
-      run: cargo apk --target ${{ matrix.platform.target }} build --workspace --all-features
+      run: |
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-core
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-cbor
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-macro
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-cbor-derive
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-json
+        cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-pb
+
+    - name: Build WASM
+      if: contains(matrix.platform.target, 'wasm')
+      run: cargo build --workspace --features std,default,dag-cbor,dag-json,dag-pb,derive,serde-codec --target ${{ matrix.platform.target }}
 
     - name: Rust tests
       if: matrix.platform.cross == false
