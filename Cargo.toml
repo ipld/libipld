@@ -16,7 +16,7 @@ shared-version = true
 fnv = "1.0.7"
 libipld-cbor = { version = "0.14.0", path = "dag-cbor", optional = true }
 libipld-cbor-derive = { version = "0.14.0", path = "dag-cbor-derive", optional = true }
-libipld-core = { version = "0.14.0", path = "core" }
+libipld-core = { version = "0.15.0", path = "core" }
 libipld-json = { version = "0.14.0", path = "dag-json", optional = true }
 libipld-macro = { version = "0.14.0", path = "macro" }
 libipld-pb = { version = "0.14.0", path = "dag-pb", optional = true }
