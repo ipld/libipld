@@ -79,7 +79,7 @@ jobs:
         crate: cargo-apk
 
     - name: Build
-      if: contains(matrix.platform.target, 'android') == false
+      if: contains(matrix.platform.target, 'android') == false && contains(matrix.platform.target, 'wasm') == false
       run: cargo build --workspace --all-features --target ${{ matrix.platform.target }}
 
     - name: Build android
@@ -92,6 +92,10 @@ jobs:
         cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld
         cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-json
         cargo apk -- build --all-features --target ${{ matrix.platform.target }} -p libipld-pb
+
+    - name: Build WASM
+      if: contains(matrix.platform.target, 'wasm')
+      run: cargo build --workspace --features std,default,dag-cbor,dag-json,dag-pb,derive,serde-codec --target ${{ matrix.platform.target }}
 
     - name: Rust tests
       if: matrix.platform.cross == false

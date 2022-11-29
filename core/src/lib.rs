@@ -15,6 +15,9 @@ pub mod raw_value;
 #[cfg(feature = "serde-codec")]
 pub mod serde;
 
+#[cfg(feature = "arb")]
+mod arb;
+
 pub use cid;
 #[cfg(feature = "std")]
 pub use multibase;
