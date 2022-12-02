@@ -236,13 +236,12 @@ impl<'a> MessageWrite for PbNode<'a> {
     }
 
     fn write_message<W: WriterBackend>(&self, w: &mut Writer<W>) -> quick_protobuf::Result<()> {
-        // Write data first to comply with the spec.
-        if let Some(ref data) = self.data {
-            w.write_with_tag(10, |w| w.write_bytes(data))?;
-        }
-
         for s in &self.links {
             w.write_with_tag(18, |w| w.write_message(s))?;
+        }
+
+        if let Some(ref data) = self.data {
+            w.write_with_tag(10, |w| w.write_bytes(data))?;
         }
 
         Ok(())
