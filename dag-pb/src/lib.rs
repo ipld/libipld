@@ -1,7 +1,5 @@
 //! Protobuf codec.
 #![deny(missing_docs)]
-#![deny(warnings)]
-#![allow(clippy::derive_partial_eq_without_eq)]
 
 pub use crate::codec::{PbLink, PbNode};
 use core::convert::{TryFrom, TryInto};
@@ -9,11 +7,9 @@ use libipld_core::cid::Cid;
 use libipld_core::codec::{Codec, Decode, Encode, References};
 use libipld_core::error::{Result, UnsupportedCodec};
 use libipld_core::ipld::Ipld;
-use prost::bytes::Bytes;
 use std::io::{Read, Seek, Write};
 
 mod codec;
-mod dag_pb;
 
 /// Protobuf codec.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -48,7 +44,8 @@ impl Decode<DagPbCodec> for Ipld {
     fn decode<R: Read + Seek>(_: DagPbCodec, r: &mut R) -> Result<Self> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
-        Ok(PbNode::from_bytes(Bytes::from(bytes))?.into())
+        let node = PbNode::from_bytes(&bytes)?;
+        Ok(node.into())
     }
 }
 
@@ -60,7 +57,7 @@ impl References<DagPbCodec> for Ipld {
     ) -> Result<()> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
-        PbNode::links(Bytes::from(bytes), set)
+        PbNode::links(&bytes, set)
     }
 }
 
