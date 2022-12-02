@@ -49,7 +49,11 @@ impl<'a> PbNode<'a> {
     pub fn into_bytes(mut self) -> Box<[u8]> {
         // Links must be strictly sorted by name before encoding, leaving stable
         // ordering where the names are the same (or absent).
-        self.links.sort_by(|a, b| a.name.cmp(&b.name));
+        self.links.sort_by(|a, b| {
+            let a = a.name.as_ref().map(|s| s.as_bytes()).unwrap_or(&[][..]);
+            let b = b.name.as_ref().map(|s| s.as_bytes()).unwrap_or(&[][..]);
+            a.cmp(b)
+        });
 
         let mut buf = Vec::with_capacity(self.get_size());
         let mut writer = Writer::new(&mut buf);
