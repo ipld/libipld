@@ -175,7 +175,7 @@ impl<'a> MessageRead<'a> for PbLink {
 impl MessageWrite for PbLink {
     fn get_size(&self) -> usize {
         let mut size = 0;
-        let l = self.cid.to_bytes().len();
+        let l = self.cid.encoded_len();
         size += 1 + sizeof_len(l);
 
         if let Some(ref name) = self.name {
