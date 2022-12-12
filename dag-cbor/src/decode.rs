@@ -9,7 +9,7 @@ use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
 use libipld_core::codec::{Decode, References};
 use libipld_core::error::Result;
-use libipld_core::ipld::Ipld;
+use libipld_core::ipld::{FiniteFloat, Ipld};
 use libipld_core::{cid::Cid, raw_value::SkipOne};
 use std::collections::BTreeMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -372,8 +372,14 @@ impl Decode<DagCbor> for Ipld {
                 FALSE => Self::Bool(false),
                 TRUE => Self::Bool(true),
                 NULL => Self::Null,
-                F32 => Self::Float(read_f32(r)? as f64),
-                F64 => Self::Float(read_f64(r)?),
+                F32 => match FiniteFloat::from_normal_float(read_f32(r)? as f64) {
+                    None => return Err(NumberOutOfRange::new::<f64>().into()),
+                    Some(v) => Self::Float(v),
+                },
+                F64 => match FiniteFloat::from_normal_float(read_f64(r)?) {
+                    None => return Err(NumberOutOfRange::new::<f64>().into()),
+                    Some(v) => Self::Float(v),
+                },
                 m => return Err(UnexpectedCode::new::<Self>(m.into()).into()),
             },
         };

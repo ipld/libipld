@@ -267,7 +267,7 @@ macro_rules! ipld_internal {
     // Must be below every other rule.
     ($other:expr) => {
         {
-            $crate::Ipld::from($other)
+            $crate::Ipld::try_from($other).unwrap()
         }
     };
 }

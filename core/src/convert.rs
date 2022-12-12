@@ -1,6 +1,7 @@
 //! Conversion to and from ipld.
-use crate::cid::Cid;
+use crate::error::TypeError;
 use crate::ipld::Ipld;
+use crate::{cid::Cid, ipld::FiniteFloat};
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -51,8 +52,7 @@ derive_to_ipld_prim!(Integer, u16, clone);
 derive_to_ipld_prim!(Integer, u32, clone);
 derive_to_ipld_prim!(Integer, u64, clone);
 derive_to_ipld_prim!(Integer, usize, clone);
-derive_to_ipld_prim!(Float, f32, clone);
-derive_to_ipld_prim!(Float, f64, clone);
+derive_to_ipld_prim!(Float, FiniteFloat, clone);
 derive_to_ipld!(String, String, into);
 derive_to_ipld!(String, &str, to_string);
 derive_to_ipld!(Bytes, Box<[u8]>, into_vec);
@@ -62,3 +62,11 @@ derive_to_ipld!(List, Vec<Ipld>, into);
 derive_to_ipld!(Map, BTreeMap<String, Ipld>, to_owned);
 derive_to_ipld_generic!(Link, Cid, clone);
 derive_to_ipld_generic!(Link, &Cid, to_owned);
+
+impl TryFrom<f64> for Ipld {
+    type Error = TypeError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        FiniteFloat::try_from(value).map(Ipld::Float)
+    }
+}

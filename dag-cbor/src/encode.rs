@@ -277,7 +277,7 @@ impl Encode<DagCbor> for Ipld {
             Self::Null => write_null(w),
             Self::Bool(b) => b.encode(c, w),
             Self::Integer(i) => i.encode(c, w),
-            Self::Float(f) => f.encode(c, w),
+            Self::Float(f) => f.as_f64().encode(c, w),
             Self::Bytes(b) => b.as_slice().encode(c, w),
             Self::String(s) => s.encode(c, w),
             Self::List(l) => l.encode(c, w),

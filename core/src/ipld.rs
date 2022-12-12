@@ -9,8 +9,41 @@ use alloc::{
 };
 use core::fmt;
 
-use crate::cid::Cid;
 use crate::error::TypeError;
+use crate::{cid::Cid, error::TypeErrorType};
+
+#[derive(Debug, Clone, PartialEq)]
+/// Floating point type that excludes NaN, Infinity, -Infinity, and subnormal values
+pub struct FiniteFloat(f64);
+impl FiniteFloat {
+    /// Constructs a FiniteFloat from an f64 if it is not NaN, Infinite, or subnormal
+    pub fn from_normal_float(normal: f64) -> Option<Self> {
+        if normal.is_normal() {
+            Some(FiniteFloat(normal))
+        } else {
+            None
+        }
+    }
+
+    /// Converts to f64
+    pub fn as_f64(&self) -> f64 {
+        self.0
+    }
+}
+
+impl TryFrom<f64> for FiniteFloat {
+    type Error = TypeError;
+
+    fn try_from(value: f64) -> Result<Self, Self::Error> {
+        match FiniteFloat::from_normal_float(value) {
+            Some(v) => Ok(v),
+            None => Err(TypeError {
+                expected: TypeErrorType::Float,
+                found: TypeErrorType::Float,
+            }),
+        }
+    }
+}
 
 /// Ipld
 #[derive(Clone, PartialEq)]
@@ -22,7 +55,7 @@ pub enum Ipld {
     /// Represents an integer.
     Integer(i128),
     /// Represents a floating point value.
-    Float(f64),
+    Float(FiniteFloat),
     /// Represents an UTF-8 string.
     String(String),
     /// Represents a sequence of bytes.
@@ -218,12 +251,6 @@ mod tests {
         assert_eq!(Ipld::Integer(1), Ipld::from(1u16));
         assert_eq!(Ipld::Integer(1), Ipld::from(1u32));
         assert_eq!(Ipld::Integer(1), Ipld::from(1u64));
-    }
-
-    #[test]
-    fn test_ipld_float_from() {
-        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f32));
-        assert_eq!(Ipld::Float(1.0), Ipld::from(1.0f64));
     }
 
     #[test]

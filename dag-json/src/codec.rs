@@ -29,7 +29,7 @@ fn serialize<S: ser::Serializer>(ipld: &Ipld, ser: S) -> Result<S::Ok, S::Error>
         Ipld::Null => ser.serialize_none(),
         Ipld::Bool(bool) => ser.serialize_bool(*bool),
         Ipld::Integer(i128) => ser.serialize_i128(*i128),
-        Ipld::Float(f64) => ser.serialize_f64(*f64),
+        Ipld::Float(f64) => ser.serialize_f64(f64.as_f64()),
         Ipld::String(string) => ser.serialize_str(string),
         Ipld::Bytes(bytes) => {
             let base_encoded = Base::Base64.encode(bytes);
@@ -209,7 +209,13 @@ impl<'de> de::Visitor<'de> for JsonVisitor {
     where
         E: de::Error,
     {
-        Ok(Ipld::Float(v))
+        match Ipld::try_from(v) {
+            Err(_) => Err(de::Error::invalid_value(
+                de::Unexpected::Float(v),
+                &"Normal F64",
+            )),
+            Ok(v) => Ok(v),
+        }
     }
 }
 
