@@ -36,6 +36,8 @@ pub enum Ipld {
     Link(Cid),
 }
 
+impl Eq for Ipld {}
+
 impl fmt::Debug for Ipld {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if f.alternate() {
