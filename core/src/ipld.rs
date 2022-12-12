@@ -31,7 +31,8 @@ pub enum Ipld {
     List(Vec<Ipld>),
     /// Represents a map of strings.
     Map(BTreeMap<String, Ipld>),
-    /// Represents a map of integers.
+    /// Represents an IPLD Link structure, implemented with Cid's (Content Identifiers)
+    /// For more information see: https://ipld.io/docs/data-model/kinds/#link-kind
     Link(Cid),
 }
 
