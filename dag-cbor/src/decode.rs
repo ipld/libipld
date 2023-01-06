@@ -166,7 +166,7 @@ pub fn read_uint<R: Read>(r: &mut R, major: Major) -> Result<u64> {
             0..=MAX_2BYTE => Err(NumberNotMinimal.into()),
             value => Ok(value),
         },
-        27 => match read_u64(r)? as u64 {
+        27 => match read_u64(r)? {
             0..=MAX_4BYTE => Err(NumberNotMinimal.into()),
             value => Ok(value),
         },

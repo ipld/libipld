@@ -212,7 +212,7 @@ impl MessageWrite for PbLink {
         }
 
         if let Some(tsize) = self.size {
-            size += 1 + sizeof_varint(tsize as u64);
+            size += 1 + sizeof_varint(tsize);
         }
         size
     }
@@ -280,7 +280,7 @@ impl MessageWrite for PbNode {
 impl MessageWrite for PbNodeRef<'_> {
     fn get_size(&self) -> usize {
         let mut size = 0;
-        if let Some(ref data) = self.data {
+        if let Some(data) = self.data {
             size += 1 + sizeof_len(data.len());
         }
 
@@ -298,7 +298,7 @@ impl MessageWrite for PbNodeRef<'_> {
             w.write_with_tag(18, |w| w.write_message(s))?;
         }
 
-        if let Some(ref data) = self.data {
+        if let Some(data) = self.data {
             w.write_with_tag(10, |w| w.write_bytes(data))?;
         }
 
