@@ -1,7 +1,9 @@
 //! Protobuf codec.
 #![deny(missing_docs)]
 
+use crate::codec::PbNodeRef;
 pub use crate::codec::{PbLink, PbNode};
+
 use core::convert::{TryFrom, TryInto};
 use libipld_core::cid::Cid;
 use libipld_core::codec::{Codec, Decode, Encode, References};
@@ -33,7 +35,7 @@ impl TryFrom<u64> for DagPbCodec {
 
 impl Encode<DagPbCodec> for Ipld {
     fn encode<W: Write>(&self, _: DagPbCodec, w: &mut W) -> Result<()> {
-        let pb_node: PbNode = self.try_into()?;
+        let pb_node: PbNodeRef = self.try_into()?;
         let bytes = pb_node.into_bytes();
         w.write_all(&bytes)?;
         Ok(())
@@ -44,7 +46,7 @@ impl Decode<DagPbCodec> for Ipld {
     fn decode<R: Read + Seek>(_: DagPbCodec, r: &mut R) -> Result<Self> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
-        let node = PbNode::from_bytes(&bytes)?;
+        let node = PbNode::from_bytes(bytes.into())?;
         Ok(node.into())
     }
 }
@@ -57,7 +59,7 @@ impl References<DagPbCodec> for Ipld {
     ) -> Result<()> {
         let mut bytes = Vec::new();
         r.read_to_end(&mut bytes)?;
-        PbNode::links(&bytes, set)
+        PbNode::links(bytes.into(), set)
     }
 }
 

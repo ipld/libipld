@@ -1,7 +1,7 @@
 use core::convert::{TryFrom, TryInto};
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
+use bytes::Bytes;
 use libipld_core::cid::Cid;
 use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
@@ -9,7 +9,7 @@ use quick_protobuf::sizeofs::*;
 use quick_protobuf::{BytesReader, MessageRead, MessageWrite, Writer, WriterBackend};
 
 /// A protobuf ipld link.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PbLink {
     /// Content identifier.
     pub cid: Cid,
@@ -20,16 +20,22 @@ pub struct PbLink {
 }
 
 /// A protobuf ipld node.
-#[derive(Debug, Default)]
-pub struct PbNode<'a> {
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub struct PbNode {
     /// List of protobuf ipld links.
     pub links: Vec<PbLink>,
     /// Binary data blob.
-    pub data: Option<Cow<'a, [u8]>>,
+    pub data: Option<Bytes>,
 }
 
-impl<'a> PbNode<'a> {
-    pub(crate) fn links(bytes: &[u8], links: &mut impl Extend<Cid>) -> Result<()> {
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
+pub(crate) struct PbNodeRef<'a> {
+    links: Vec<PbLink>,
+    data: Option<&'a [u8]>,
+}
+
+impl PbNode {
+    pub(crate) fn links(bytes: Bytes, links: &mut impl Extend<Cid>) -> Result<()> {
         let node = PbNode::from_bytes(bytes)?;
         for link in node.links {
             links.extend(Some(link.cid));
@@ -38,11 +44,15 @@ impl<'a> PbNode<'a> {
     }
 
     /// Deserializes a `PbNode` from bytes.
-    pub fn from_bytes(buf: &'a [u8]) -> Result<Self> {
-        // For compat reasons, an empty buf is equal to the default.
-        let mut reader = BytesReader::from_bytes(buf);
-        let node = Self::from_reader(&mut reader, buf)?;
-        Ok(node)
+    pub fn from_bytes(buf: Bytes) -> Result<Self> {
+        let mut reader = BytesReader::from_bytes(&buf);
+        let node = PbNodeRef::from_reader(&mut reader, &buf)?;
+        let data = node.data.map(|d| buf.slice_ref(d));
+
+        Ok(PbNode {
+            links: node.links,
+            data,
+        })
     }
 
     /// Serializes a `PbNode` to bytes.
@@ -63,7 +73,26 @@ impl<'a> PbNode<'a> {
     }
 }
 
-impl<'a> From<PbNode<'a>> for Ipld {
+impl PbNodeRef<'_> {
+    /// Serializes a `PbNode` to bytes.
+    pub fn into_bytes(mut self) -> Box<[u8]> {
+        // Links must be strictly sorted by name before encoding, leaving stable
+        // ordering where the names are the same (or absent).
+        self.links.sort_by(|a, b| {
+            let a = a.name.as_ref().map(|s| s.as_bytes()).unwrap_or(&[][..]);
+            let b = b.name.as_ref().map(|s| s.as_bytes()).unwrap_or(&[][..]);
+            a.cmp(b)
+        });
+
+        let mut buf = Vec::with_capacity(self.get_size());
+        let mut writer = Writer::new(&mut buf);
+        self.write_message(&mut writer)
+            .expect("protobuf to be valid");
+        buf.into_boxed_slice()
+    }
+}
+
+impl From<PbNode> for Ipld {
     fn from(node: PbNode) -> Self {
         let mut map = BTreeMap::<String, Ipld>::new();
         let links = node
@@ -94,11 +123,11 @@ impl From<PbLink> for Ipld {
     }
 }
 
-impl<'a> TryFrom<&'a Ipld> for PbNode<'a> {
+impl<'a> TryFrom<&'a Ipld> for PbNodeRef<'a> {
     type Error = TypeError;
 
-    fn try_from(ipld: &'a Ipld) -> core::result::Result<PbNode, Self::Error> {
-        let mut node = PbNode::default();
+    fn try_from(ipld: &'a Ipld) -> core::result::Result<Self, Self::Error> {
+        let mut node = PbNodeRef::default();
 
         if let Ipld::List(links) = ipld.get("Links")? {
             node.links = links
@@ -107,7 +136,7 @@ impl<'a> TryFrom<&'a Ipld> for PbNode<'a> {
                 .collect::<Result<_, _>>()?
         }
         if let Ok(Ipld::Bytes(data)) = ipld.get("Data") {
-            node.data = Some(Cow::Borrowed(&data[..]));
+            node.data = Some(&data[..]);
         }
 
         Ok(node)
@@ -202,13 +231,13 @@ impl MessageWrite for PbLink {
     }
 }
 
-impl<'a> MessageRead<'a> for PbNode<'a> {
+impl<'a> MessageRead<'a> for PbNodeRef<'a> {
     fn from_reader(r: &mut BytesReader, bytes: &'a [u8]) -> quick_protobuf::Result<Self> {
         let mut msg = Self::default();
         while !r.is_eof() {
             match r.next_tag(bytes) {
                 Ok(18) => msg.links.push(r.read_message::<PbLink>(bytes)?),
-                Ok(10) => msg.data = Some(r.read_bytes(bytes).map(Cow::Borrowed)?),
+                Ok(10) => msg.data = Some(r.read_bytes(bytes)?),
                 Ok(t) => {
                     r.read_unknown(bytes, t)?;
                 }
@@ -219,7 +248,36 @@ impl<'a> MessageRead<'a> for PbNode<'a> {
     }
 }
 
-impl<'a> MessageWrite for PbNode<'a> {
+impl MessageWrite for PbNode {
+    fn get_size(&self) -> usize {
+        let mut size = 0;
+        if let Some(ref data) = self.data {
+            size += 1 + sizeof_len(data.len());
+        }
+
+        size += self
+            .links
+            .iter()
+            .map(|s| 1 + sizeof_len((s).get_size()))
+            .sum::<usize>();
+
+        size
+    }
+
+    fn write_message<W: WriterBackend>(&self, w: &mut Writer<W>) -> quick_protobuf::Result<()> {
+        for s in &self.links {
+            w.write_with_tag(18, |w| w.write_message(s))?;
+        }
+
+        if let Some(ref data) = self.data {
+            w.write_with_tag(10, |w| w.write_bytes(data))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl MessageWrite for PbNodeRef<'_> {
     fn get_size(&self) -> usize {
         let mut size = 0;
         if let Some(ref data) = self.data {
