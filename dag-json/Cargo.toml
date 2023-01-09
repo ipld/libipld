@@ -9,6 +9,6 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 
 [dependencies]
 libipld-core = { version = "0.15.0", path = "../core" }
-multihash = "0.17.0"
+multihash = "0.18.0"
 serde_json = { version = "1.0.64", features = ["float_roundtrip"] }
 serde = { version = "1.0.126", features = ["derive"] }
