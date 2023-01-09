@@ -28,7 +28,7 @@ fn test_compat_roundtrip() {
         TestCase {
             name: "Data some Links zero",
             node: ipld!({
-                "Links": empty_links.clone(),
+                "Links": empty_links,
                 "Data": data_some
             }),
             expected_bytes: "0a050001020304",
@@ -36,7 +36,7 @@ fn test_compat_roundtrip() {
         TestCase {
             name: "Links Hash some",
             node: ipld!({
-                "Links": vec![ipld!({ "Hash": acid.clone() })],
+                "Links": vec![ipld!({ "Hash": acid})],
             }),
             expected_bytes: "120b0a09015500050001020304",
         },
