@@ -5,7 +5,7 @@ use bytes::Bytes;
 use libipld_core::cid::Cid;
 use libipld_core::error::{Result, TypeError, TypeErrorType};
 use libipld_core::ipld::Ipld;
-use quick_protobuf::sizeofs::*;
+use quick_protobuf::sizeofs::{sizeof_len, sizeof_varint};
 use quick_protobuf::{BytesReader, MessageRead, MessageWrite, Writer, WriterBackend};
 
 /// A protobuf ipld link.
