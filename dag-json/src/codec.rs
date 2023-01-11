@@ -198,10 +198,13 @@ impl<'de> de::Visitor<'de> for JsonVisitor {
             }
         }
 
-        let unwrapped = values
-            .into_iter()
-            .map(|(key, WrapperOwned(value))| (key, value))
-            .collect();
+        let mut unwrapped = BTreeMap::new();
+        for (key, WrapperOwned(value)) in values {
+            let prev_value = unwrapped.insert(key, value);
+            if prev_value.is_some() {
+                return Err(SerdeError::custom("duplicate map key".to_string()));
+            }
+        }
         Ok(Ipld::Map(unwrapped))
     }
 

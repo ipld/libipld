@@ -129,14 +129,35 @@ impl<'a> TryFrom<&'a Ipld> for PbNodeRef<'a> {
     fn try_from(ipld: &'a Ipld) -> core::result::Result<Self, Self::Error> {
         let mut node = PbNodeRef::default();
 
-        if let Ipld::List(links) = ipld.get("Links")? {
-            node.links = links
-                .iter()
-                .map(|link| link.try_into())
-                .collect::<Result<_, _>>()?
+        match ipld.get("Links")? {
+            Ipld::List(links) => {
+                let mut prev_name = "".to_string();
+                for link in links.iter() {
+                    match link {
+                        Ipld::Map(_) => {
+                            let pb_link: PbLink = link.try_into()?;
+                            // Make sure the links are sorted correctly.
+                            if let Some(ref name) = pb_link.name {
+                                if name.as_bytes() < prev_name.as_bytes() {
+                                    // This error message isn't ideal, but the important thing is
+                                    // that it errors.
+                                    return Err(TypeError::new(TypeErrorType::Link, ipld));
+                                }
+                                prev_name = name.clone()
+                            }
+                            node.links.push(pb_link)
+                        }
+                        ipld => return Err(TypeError::new(TypeErrorType::Link, ipld)),
+                    }
+                }
+            }
+            ipld => return Err(TypeError::new(TypeErrorType::List, ipld)),
         }
-        if let Ok(Ipld::Bytes(data)) = ipld.get("Data") {
-            node.data = Some(&data[..]);
+
+        match ipld.get("Data") {
+            Ok(Ipld::Bytes(data)) => node.data = Some(&data[..]),
+            Ok(ipld) => return Err(TypeError::new(TypeErrorType::Bytes, ipld)),
+            _ => (),
         }
 
         Ok(node)
@@ -147,26 +168,53 @@ impl TryFrom<&Ipld> for PbLink {
     type Error = TypeError;
 
     fn try_from(ipld: &Ipld) -> core::result::Result<PbLink, Self::Error> {
-        let cid = if let Ipld::Link(cid) = ipld.get("Hash")? {
-            *cid
+        if let Ipld::Map(map) = ipld {
+            let mut cid = None;
+            let mut name = None;
+            let mut size = None;
+            for (key, value) in map {
+                match key.as_str() {
+                    "Hash" => {
+                        cid = if let Ipld::Link(cid) = value {
+                            Some(*cid)
+                        } else {
+                            return Err(TypeError::new(TypeErrorType::Link, ipld));
+                        };
+                    }
+                    "Name" => {
+                        name = if let Ipld::String(name) = value {
+                            Some(name.clone())
+                        } else {
+                            return Err(TypeError::new(TypeErrorType::String, ipld));
+                        }
+                    }
+                    "Tsize" => {
+                        size = if let Ipld::Integer(size) = value {
+                            Some(
+                                u64::try_from(*size)
+                                    .map_err(|_| TypeError::new(TypeErrorType::Integer, value))?,
+                            )
+                        } else {
+                            return Err(TypeError::new(TypeErrorType::Integer, ipld));
+                        }
+                    }
+                    _ => {
+                        return Err(TypeError::new(
+                            TypeErrorType::Key("Hash, Name or Tsize".to_string()),
+                            TypeErrorType::Key(key.to_string()),
+                        ));
+                    }
+                }
+            }
+
+            // Name and size are optional, CID is not.
+            match cid {
+                Some(cid) => Ok(PbLink { cid, name, size }),
+                None => Err(TypeError::new(TypeErrorType::Key("Hash".to_string()), ipld)),
+            }
         } else {
-            return Err(TypeError::new(TypeErrorType::Link, ipld));
-        };
-
-        let mut link = PbLink {
-            cid,
-            name: None,
-            size: None,
-        };
-
-        if let Ok(Ipld::String(name)) = ipld.get("Name") {
-            link.name = Some(name.clone());
+            Err(TypeError::new(TypeErrorType::Map, ipld))
         }
-        if let Ok(Ipld::Integer(size)) = ipld.get("Tsize") {
-            link.size = Some(*size as u64);
-        }
-
-        Ok(link)
     }
 }
 
@@ -187,8 +235,10 @@ impl<'a> MessageRead<'a> for PbLink {
                 }
                 Ok(18) => name = Some(r.read_string(bytes)?.to_string()),
                 Ok(24) => size = Some(r.read_uint64(bytes)?),
-                Ok(t) => {
-                    r.read_unknown(bytes, t)?;
+                Ok(_) => {
+                    return Err(quick_protobuf::Error::Message(
+                        "unexpected bytes".to_string(),
+                    ))
                 }
                 Err(e) => return Err(e),
             }
@@ -234,12 +284,28 @@ impl MessageWrite for PbLink {
 impl<'a> MessageRead<'a> for PbNodeRef<'a> {
     fn from_reader(r: &mut BytesReader, bytes: &'a [u8]) -> quick_protobuf::Result<Self> {
         let mut msg = Self::default();
+        let mut links_before_data = false;
         while !r.is_eof() {
             match r.next_tag(bytes) {
-                Ok(18) => msg.links.push(r.read_message::<PbLink>(bytes)?),
-                Ok(10) => msg.data = Some(r.read_bytes(bytes)?),
-                Ok(t) => {
-                    r.read_unknown(bytes, t)?;
+                Ok(18) => {
+                    // Links and data might be in any order, but they may not be interleaved.
+                    if links_before_data {
+                        return Err(quick_protobuf::Error::Message(
+                            "duplicate Links section".to_string(),
+                        ));
+                    }
+                    msg.links.push(r.read_message::<PbLink>(bytes)?)
+                }
+                Ok(10) => {
+                    msg.data = Some(r.read_bytes(bytes)?);
+                    if !msg.links.is_empty() {
+                        links_before_data = true
+                    }
+                }
+                Ok(_) => {
+                    return Err(quick_protobuf::Error::Message(
+                        "unexpected bytes".to_string(),
+                    ))
                 }
                 Err(e) => return Err(e),
             }

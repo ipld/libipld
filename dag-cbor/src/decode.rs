@@ -1,8 +1,8 @@
 //! CBOR decoder
 use crate::cbor::{Major, MajorKind, F32, F64, FALSE, NULL, TRUE};
 use crate::error::{
-    InvalidCidPrefix, LengthOutOfRange, NumberNotMinimal, NumberOutOfRange, UnexpectedCode,
-    UnexpectedEof, UnknownTag,
+    DuplicateKey, InvalidCidPrefix, LengthOutOfRange, NumberNotMinimal, NumberOutOfRange,
+    UnexpectedCode, UnexpectedEof, UnknownTag,
 };
 use crate::DagCborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
@@ -100,7 +100,10 @@ pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
     for _ in 0..len {
         let key = K::decode(DagCbor, r)?;
         let value = T::decode(DagCbor, r)?;
-        map.insert(key, value);
+        let prev_value = map.insert(key, value);
+        if prev_value.is_some() {
+            return Err(DuplicateKey.into());
+        }
     }
     Ok(map)
 }
