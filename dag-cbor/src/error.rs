@@ -103,7 +103,7 @@ impl MissingKey {
 
 /// Unknown cbor tag.
 #[derive(Debug, Error)]
-#[error("Unkown cbor tag `{0}`.")]
+#[error("Unknown cbor tag `{0}`.")]
 pub struct UnknownTag(pub u64);
 
 /// Unexpected eof.

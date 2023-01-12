@@ -1,4 +1,4 @@
-//! Serde (de)serializtion for [`crate::ipld::Ipld`].
+//! Serde (de)serialization for [`crate::ipld::Ipld`].
 //!
 //! This implementation enables Serde to serialize to/deserialize from [`crate::ipld::Ipld`]
 //! values. The `Ipld` enum is similar to the `Value` enum in `serde_json` or `serde_cbor`.
@@ -117,7 +117,7 @@ mod tests {
         assert_roundtrip(&person, &expected_ipld);
     }
 
-    /// Test that deserializing arbitrary bytes are not accidently recognized as CID.
+    /// Test that deserializing arbitrary bytes are not accidentally recognized as CID.
     #[test]
     fn test_bytes_not_cid() {
         let cid =
