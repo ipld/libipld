@@ -9,7 +9,6 @@ repository = "https://github.com/ipld/libipld"
 
 [package.metadata.release]
 consolidate-commits = true
-consolidate-pushes = true
 shared-version = true
 
 [dependencies]
