@@ -534,7 +534,7 @@ fn ipld_deserializer_option() {
     let ipld_some = Ipld::Integer(option_some.unwrap().into());
     let ipld_none = Ipld::Null;
 
-    // This is similar to `error_except`, which cannot be used here, as we need to excluse
+    // This is similar to `error_except`, which cannot be used here, as we need to exclude
     // `Ipld::Integer` *and* `Ipld::Null`.
     assert!(<Option<u8>>::deserialize(Ipld::Bool(true)).is_err());
     assert!(<Option<u8>>::deserialize(Ipld::Float(5.3)).is_err());
@@ -676,7 +676,7 @@ fn ipld_deserializer_struct_errors() {
     assert!(error_wrong.is_err());
 }
 
-/// This tests excercises the `deserialize_any` code path.
+/// This tests exercises the `deserialize_any` code path.
 #[test]
 fn ipld_deserializer_ipld() {
     let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
