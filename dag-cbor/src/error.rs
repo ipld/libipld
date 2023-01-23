@@ -115,3 +115,8 @@ pub struct UnexpectedEof;
 #[derive(Debug, Error)]
 #[error("Invalid Cid prefix: {0}")]
 pub struct InvalidCidPrefix(pub u8);
+
+/// A duplicate key within a map.
+#[derive(Debug, Error)]
+#[error("Duplicate map key.")]
+pub struct DuplicateKey;
