@@ -1,0 +1,28 @@
+[package]
+name = "libipld-jose"
+version = "0.16.0"
+authors = ["Nathaniel Cook <nvcook42@gmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "ipld dag-json codec"
+repository = "https://github.com/ipfs-rust/rust-ipld"
+
+[dependencies]
+anyhow = "1.0.68"
+base64-url = "1.4.13"
+libipld-core = { version = "0.16.0", path = "../core" }
+libipld-cbor = { version = "0.16.0", path = "../dag-cbor" }
+libipld-cbor-derive = { version = "0.16.0", path = "../dag-cbor-derive" }
+# TODO gate behind the dag-json feature flag
+libipld-json = { version = "0.16.0", path = "../dag-json" }
+multihash = "0.18.0"
+thiserror = "1.0.38"
+
+[dev-dependencies]
+libipld-json = { version = "0.16.0", path = "../dag-json" }
+libipld-macro = { version = "0.16.0", path = "../macro" }
+assert-json-diff = "2.0.2"
+hex = "0.4.3"
+once_cell = "1.17.0"
+serde_json = "1.0.91"
+testmark = {git = "https://github.com/bsundsrud/rust-testmark" }

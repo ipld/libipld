@@ -13,6 +13,8 @@ pub use libipld_cbor as cbor;
 #[cfg(all(feature = "dag-cbor", feature = "derive"))]
 pub use libipld_cbor_derive::DagCbor;
 pub use libipld_core::*;
+#[cfg(feature = "dag-jose")]
+pub use libipld_jose as jose;
 #[cfg(feature = "dag-json")]
 pub use libipld_json as json;
 pub use libipld_macro::*;

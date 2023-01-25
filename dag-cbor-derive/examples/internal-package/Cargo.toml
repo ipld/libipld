@@ -1,0 +1,13 @@
+[package]
+name = "internal-package"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[package.metadata.release]
+release = false
+
+[dependencies]
+libipld-core = { path = "../../../core"}
+libipld-cbor = { path = "../../../dag-cbor"}
+libipld-cbor-derive = { path = "../../../dag-cbor-derive"}

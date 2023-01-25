@@ -16,6 +16,7 @@ fnv = "1.0.7"
 libipld-cbor = { version = "0.16.0", path = "dag-cbor", optional = true }
 libipld-cbor-derive = { version = "0.16.0", path = "dag-cbor-derive", optional = true }
 libipld-core = { version = "0.16.0", path = "core" }
+libipld-jose = { version = "0.16.0", path = "dag-jose", optional = true }
 libipld-json = { version = "0.16.0", path = "dag-json", optional = true }
 libipld-macro = { version = "0.16.0", path = "macro" }
 libipld-pb = { version = "0.16.0", path = "dag-pb", optional = true }
@@ -33,6 +34,7 @@ multihash = "0.18.0"
 [features]
 default = ["dag-cbor", "dag-json", "dag-pb", "derive"]
 dag-cbor = ["libipld-cbor"]
+dag-jose = ["libipld-jose"]
 dag-json = ["libipld-json"]
 dag-pb = ["libipld-pb"]
 derive = ["libipld-cbor-derive"]
@@ -44,10 +46,12 @@ members = [
   "core",
   "dag-cbor",
   "dag-cbor-derive",
+  "dag-jose",
   "dag-json",
   "dag-pb",
   "macro",
   "dag-cbor-derive/examples/renamed-package",
+  "dag-cbor-derive/examples/internal-package",
 ]
 
 [profile.release]

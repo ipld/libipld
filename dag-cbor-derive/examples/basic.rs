@@ -1,4 +1,4 @@
-use libipld::cbor::DagCborCodec;
+use libipld::cbor::{Bytes, DagCborCodec};
 use libipld::codec::assert_roundtrip;
 use libipld::{ipld, DagCbor, Ipld};
 use std::collections::BTreeMap;
@@ -9,7 +9,7 @@ struct NamedStruct {
     integer: u32,
     float: f64,
     string: String,
-    bytes: Vec<u8>,
+    bytes: Bytes,
     list: Vec<Ipld>,
     map: BTreeMap<String, Ipld>,
     //link: Cid,
@@ -44,7 +44,7 @@ fn main() {
             "integer": 0,
             "float": 0.0,
             "string": "",
-            "bytes": [],
+            "bytes": vec![].into_boxed_slice(),
             "list": [],
             "map": {},
         }),

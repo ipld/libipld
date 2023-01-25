@@ -11,6 +11,7 @@ repository = "https://github.com/ipfs-rust/rust-ipld"
 proc-macro = true
 
 [dependencies]
+anyhow = "1.0.68"
 proc-macro-crate = "1.1.0"
 proc-macro2 = "1.0.27"
 quote = "1.0.9"

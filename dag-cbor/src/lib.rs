@@ -36,6 +36,11 @@ pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> {}
 
 impl<T: Encode<DagCborCodec> + Decode<DagCborCodec>> DagCbor for T {}
 
+/// Bytes is sequence of byte values.
+///
+/// Implements Encode and Decode to/from CBOR byte strings
+pub type Bytes = Box<[u8]>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
