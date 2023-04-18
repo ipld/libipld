@@ -1,6 +1,7 @@
 //! Conversion to and from ipld.
-use crate::cid::Cid;
+use crate::error::TypeErrorType;
 use crate::ipld::Ipld;
+use crate::{cid::Cid, error::TypeError};
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -8,6 +9,42 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+
+impl TryFrom<Ipld> for () {
+    type Error = TypeError;
+
+    fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+        match ipld {
+            Ipld::Null => Ok(()),
+            _ => {
+                return Err(TypeError {
+                    expected: TypeErrorType::Null,
+                    found: ipld.into(),
+                })
+            }
+        }
+    }
+}
+
+macro_rules! derive_from_ipld {
+    ($enum:ident, $ty:ty) => {
+        impl TryFrom<Ipld> for $ty {
+            type Error = TypeError;
+
+            fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
+                match ipld {
+                    Ipld::$enum(value) => Ok(value),
+                    _ => {
+                        return Err(TypeError {
+                            expected: TypeErrorType::$enum,
+                            found: ipld.into(),
+                        })
+                    }
+                }
+            }
+        }
+    };
+}
 
 macro_rules! derive_to_ipld_prim {
     ($enum:ident, $ty:ty, $fn:ident) => {
@@ -62,3 +99,11 @@ derive_to_ipld!(List, Vec<Ipld>, into);
 derive_to_ipld!(Map, BTreeMap<String, Ipld>, to_owned);
 derive_to_ipld_generic!(Link, Cid, clone);
 derive_to_ipld_generic!(Link, &Cid, to_owned);
+derive_from_ipld!(Bool, bool);
+derive_from_ipld!(Integer, i128);
+derive_from_ipld!(Float, f64);
+derive_from_ipld!(String, String);
+derive_from_ipld!(Bytes, Vec<u8>);
+derive_from_ipld!(List, Vec<Ipld>);
+derive_from_ipld!(Map, BTreeMap<String, Ipld>);
+derive_from_ipld!(Link, Cid);
