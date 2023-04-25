@@ -48,6 +48,8 @@ pub trait SkipOne: Codec {
 }
 
 impl<C: Codec + SkipOne> Decode<C> for RawValue<C> {
+    // `core2` doesn't support `stream_position()`, hence silence this Clippy warning.
+    #[allow(clippy::seek_from_current)]
     fn decode<R: Read + Seek>(c: C, r: &mut R) -> anyhow::Result<Self> {
         let p0 = r.seek(SeekFrom::Current(0)).map_err(anyhow::Error::msg)?;
         c.skip(r)?;
