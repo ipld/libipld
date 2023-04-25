@@ -1,11 +1,10 @@
 //! Conversion to and from ipld.
-//!
-//! Please note conversion use the ```as``` keyword under the hood.
-//!
-//! Refer to [numeric cast](https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast) for more info.
-use crate::error::TypeErrorType;
-use crate::ipld::Ipld;
-use crate::{cid::Cid, error::TypeError};
+use crate::{
+    cid::Cid,
+    error::{Error, TypeError, TypeErrorType},
+    ipld::Ipld,
+};
+
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -15,7 +14,7 @@ use alloc::{
 };
 
 impl TryFrom<Ipld> for () {
-    type Error = TypeError;
+    type Error = Error;
 
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
@@ -23,7 +22,8 @@ impl TryFrom<Ipld> for () {
             _ => Err(TypeError {
                 expected: TypeErrorType::Null,
                 found: ipld.into(),
-            }),
+            }
+            .into()),
         }
     }
 }
@@ -31,16 +31,17 @@ impl TryFrom<Ipld> for () {
 macro_rules! derive_from_ipld_option {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for Option<$ty> {
-            type Error = TypeError;
+            type Error = Error;
 
             fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
                 match ipld {
                     Ipld::Null => Ok(None),
-                    Ipld::$enum(value) => Ok(Some(value as _)),
+                    Ipld::$enum(value) => Ok(Some(value.try_into()?)),
                     _ => Err(TypeError {
                         expected: TypeErrorType::$enum,
                         found: ipld.into(),
-                    }),
+                    }
+                    .into()),
                 }
             }
         }
@@ -50,15 +51,16 @@ macro_rules! derive_from_ipld_option {
 macro_rules! derive_from_ipld {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for $ty {
-            type Error = TypeError;
+            type Error = Error;
 
             fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
                 match ipld {
-                    Ipld::$enum(value) => Ok(value as _),
+                    Ipld::$enum(value) => Ok(value.try_into()?),
                     _ => Err(TypeError {
                         expected: TypeErrorType::$enum,
                         found: ipld.into(),
-                    }),
+                    }
+                    .into()),
                 }
             }
         }
@@ -122,7 +124,7 @@ derive_from_ipld!(Integer, u32);
 derive_from_ipld!(Integer, u64);
 derive_from_ipld!(Integer, u128);
 derive_from_ipld!(Integer, usize);
-derive_from_ipld!(Float, f32);
+//derive_from_ipld!(Float, f32);
 derive_from_ipld!(Float, f64);
 derive_from_ipld!(String, String);
 derive_from_ipld!(Bytes, Vec<u8>);
@@ -143,7 +145,7 @@ derive_from_ipld_option!(Integer, u32);
 derive_from_ipld_option!(Integer, u64);
 derive_from_ipld_option!(Integer, u128);
 derive_from_ipld_option!(Integer, usize);
-derive_from_ipld_option!(Float, f32);
+//derive_from_ipld_option!(Float, f32);
 derive_from_ipld_option!(Float, f64);
 derive_from_ipld_option!(String, String);
 derive_from_ipld_option!(Bytes, Vec<u8>);
@@ -231,13 +233,13 @@ mod tests {
 
     #[test]
     fn try_into_floats() {
-        let float: f32 = Ipld::Float(f32::MAX as f64).try_into().unwrap();
-        assert_eq!(float, f32::MAX);
+        /* let float: f32 = Ipld::Float(f32::MAX as f64).try_into().unwrap();
+        assert_eq!(float, f32::MAX); */
 
         let float: f64 = Ipld::Float(f64::MAX).try_into().unwrap();
         assert_eq!(float, f64::MAX);
 
-        let float: Option<f32> = Ipld::Null.try_into().unwrap();
+        let float: Option<f64> = Ipld::Null.try_into().unwrap();
         assert_eq!(float, Option::None)
     }
 
