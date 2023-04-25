@@ -28,7 +28,7 @@ impl TryFrom<Ipld> for () {
     }
 }
 
-macro_rules! derive_from_ipld_option {
+macro_rules! derive_try_from_ipld_option {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for Option<$ty> {
             type Error = Error;
@@ -48,7 +48,7 @@ macro_rules! derive_from_ipld_option {
     };
 }
 
-macro_rules! derive_from_ipld {
+macro_rules! derive_try_from_ipld {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for $ty {
             type Error = Error;
@@ -67,7 +67,7 @@ macro_rules! derive_from_ipld {
     };
 }
 
-macro_rules! derive_to_ipld_prim {
+macro_rules! derive_into_ipld_prim {
     ($enum:ident, $ty:ty, $fn:ident) => {
         impl From<$ty> for Ipld {
             fn from(t: $ty) -> Self {
@@ -77,7 +77,7 @@ macro_rules! derive_to_ipld_prim {
     };
 }
 
-macro_rules! derive_to_ipld {
+macro_rules! derive_into_ipld {
     ($enum:ident, $ty:ty, $($fn:ident),*) => {
         impl From<$ty> for Ipld {
             fn from(t: $ty) -> Self {
@@ -87,71 +87,71 @@ macro_rules! derive_to_ipld {
     };
 }
 
-derive_to_ipld!(Bool, bool, clone);
-derive_to_ipld_prim!(Integer, i8, clone);
-derive_to_ipld_prim!(Integer, i16, clone);
-derive_to_ipld_prim!(Integer, i32, clone);
-derive_to_ipld_prim!(Integer, i64, clone);
-derive_to_ipld_prim!(Integer, i128, clone);
-derive_to_ipld_prim!(Integer, isize, clone);
-derive_to_ipld_prim!(Integer, u8, clone);
-derive_to_ipld_prim!(Integer, u16, clone);
-derive_to_ipld_prim!(Integer, u32, clone);
-derive_to_ipld_prim!(Integer, u64, clone);
-derive_to_ipld_prim!(Integer, usize, clone);
-derive_to_ipld_prim!(Float, f32, clone);
-derive_to_ipld_prim!(Float, f64, clone);
-derive_to_ipld!(String, String, into);
-derive_to_ipld!(String, &str, to_string);
-derive_to_ipld!(Bytes, Box<[u8]>, into_vec);
-derive_to_ipld!(Bytes, Vec<u8>, into);
-derive_to_ipld!(Bytes, &[u8], to_vec);
-derive_to_ipld!(List, Vec<Ipld>, into);
-derive_to_ipld!(Map, BTreeMap<String, Ipld>, to_owned);
-derive_to_ipld!(Link, Cid, clone);
-derive_to_ipld!(Link, &Cid, to_owned);
+derive_into_ipld!(Bool, bool, clone);
+derive_into_ipld_prim!(Integer, i8, clone);
+derive_into_ipld_prim!(Integer, i16, clone);
+derive_into_ipld_prim!(Integer, i32, clone);
+derive_into_ipld_prim!(Integer, i64, clone);
+derive_into_ipld_prim!(Integer, i128, clone);
+derive_into_ipld_prim!(Integer, isize, clone);
+derive_into_ipld_prim!(Integer, u8, clone);
+derive_into_ipld_prim!(Integer, u16, clone);
+derive_into_ipld_prim!(Integer, u32, clone);
+derive_into_ipld_prim!(Integer, u64, clone);
+derive_into_ipld_prim!(Integer, usize, clone);
+derive_into_ipld_prim!(Float, f32, clone);
+derive_into_ipld_prim!(Float, f64, clone);
+derive_into_ipld!(String, String, into);
+derive_into_ipld!(String, &str, to_string);
+derive_into_ipld!(Bytes, Box<[u8]>, into_vec);
+derive_into_ipld!(Bytes, Vec<u8>, into);
+derive_into_ipld!(Bytes, &[u8], to_vec);
+derive_into_ipld!(List, Vec<Ipld>, into);
+derive_into_ipld!(Map, BTreeMap<String, Ipld>, to_owned);
+derive_into_ipld!(Link, Cid, clone);
+derive_into_ipld!(Link, &Cid, to_owned);
 
-derive_from_ipld!(Bool, bool);
-derive_from_ipld!(Integer, i8);
-derive_from_ipld!(Integer, i16);
-derive_from_ipld!(Integer, i32);
-derive_from_ipld!(Integer, i64);
-derive_from_ipld!(Integer, i128);
-derive_from_ipld!(Integer, isize);
-derive_from_ipld!(Integer, u8);
-derive_from_ipld!(Integer, u16);
-derive_from_ipld!(Integer, u32);
-derive_from_ipld!(Integer, u64);
-derive_from_ipld!(Integer, u128);
-derive_from_ipld!(Integer, usize);
+derive_try_from_ipld!(Bool, bool);
+derive_try_from_ipld!(Integer, i8);
+derive_try_from_ipld!(Integer, i16);
+derive_try_from_ipld!(Integer, i32);
+derive_try_from_ipld!(Integer, i64);
+derive_try_from_ipld!(Integer, i128);
+derive_try_from_ipld!(Integer, isize);
+derive_try_from_ipld!(Integer, u8);
+derive_try_from_ipld!(Integer, u16);
+derive_try_from_ipld!(Integer, u32);
+derive_try_from_ipld!(Integer, u64);
+derive_try_from_ipld!(Integer, u128);
+derive_try_from_ipld!(Integer, usize);
 //derive_from_ipld!(Float, f32);
-derive_from_ipld!(Float, f64);
-derive_from_ipld!(String, String);
-derive_from_ipld!(Bytes, Vec<u8>);
-derive_from_ipld!(List, Vec<Ipld>);
-derive_from_ipld!(Map, BTreeMap<String, Ipld>);
-derive_from_ipld!(Link, Cid);
+derive_try_from_ipld!(Float, f64);
+derive_try_from_ipld!(String, String);
+derive_try_from_ipld!(Bytes, Vec<u8>);
+derive_try_from_ipld!(List, Vec<Ipld>);
+derive_try_from_ipld!(Map, BTreeMap<String, Ipld>);
+derive_try_from_ipld!(Link, Cid);
 
-derive_from_ipld_option!(Bool, bool);
-derive_from_ipld_option!(Integer, i8);
-derive_from_ipld_option!(Integer, i16);
-derive_from_ipld_option!(Integer, i32);
-derive_from_ipld_option!(Integer, i64);
-derive_from_ipld_option!(Integer, i128);
-derive_from_ipld_option!(Integer, isize);
-derive_from_ipld_option!(Integer, u8);
-derive_from_ipld_option!(Integer, u16);
-derive_from_ipld_option!(Integer, u32);
-derive_from_ipld_option!(Integer, u64);
-derive_from_ipld_option!(Integer, u128);
-derive_from_ipld_option!(Integer, usize);
+derive_try_from_ipld_option!(Bool, bool);
+derive_try_from_ipld_option!(Integer, i8);
+derive_try_from_ipld_option!(Integer, i16);
+derive_try_from_ipld_option!(Integer, i32);
+derive_try_from_ipld_option!(Integer, i64);
+derive_try_from_ipld_option!(Integer, i128);
+derive_try_from_ipld_option!(Integer, isize);
+derive_try_from_ipld_option!(Integer, u8);
+derive_try_from_ipld_option!(Integer, u16);
+derive_try_from_ipld_option!(Integer, u32);
+derive_try_from_ipld_option!(Integer, u64);
+derive_try_from_ipld_option!(Integer, u128);
+derive_try_from_ipld_option!(Integer, usize);
 //derive_from_ipld_option!(Float, f32);
-derive_from_ipld_option!(Float, f64);
-derive_from_ipld_option!(String, String);
-derive_from_ipld_option!(Bytes, Vec<u8>);
-derive_from_ipld_option!(List, Vec<Ipld>);
-derive_from_ipld_option!(Map, BTreeMap<String, Ipld>);
-derive_from_ipld_option!(Link, Cid);
+derive_try_from_ipld_option!(Float, f64);
+derive_try_from_ipld_option!(String, String);
+derive_try_from_ipld_option!(Bytes, Vec<u8>);
+derive_try_from_ipld_option!(List, Vec<Ipld>);
+derive_try_from_ipld_option!(Map, BTreeMap<String, Ipld>);
+derive_try_from_ipld_option!(Link, Cid);
 
 #[cfg(test)]
 mod tests {
