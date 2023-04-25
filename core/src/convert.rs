@@ -1,4 +1,8 @@
 //! Conversion to and from ipld.
+//!
+//! Please note conversion use the ```as``` keyword under the hood.
+//!
+//! Refer to [numeric cast](https://doc.rust-lang.org/reference/expressions/operator-expr.html#numeric-cast) for more info.
 use crate::error::TypeErrorType;
 use crate::ipld::Ipld;
 use crate::{cid::Cid, error::TypeError};
@@ -16,12 +20,10 @@ impl TryFrom<Ipld> for () {
     fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
         match ipld {
             Ipld::Null => Ok(()),
-            _ => {
-                return Err(TypeError {
-                    expected: TypeErrorType::Null,
-                    found: ipld.into(),
-                })
-            }
+            _ => Err(TypeError {
+                expected: TypeErrorType::Null,
+                found: ipld.into(),
+            }),
         }
     }
 }
@@ -35,12 +37,10 @@ macro_rules! derive_from_ipld_option {
                 match ipld {
                     Ipld::Null => Ok(None),
                     Ipld::$enum(value) => Ok(Some(value as _)),
-                    _ => {
-                        return Err(TypeError {
-                            expected: TypeErrorType::$enum,
-                            found: ipld.into(),
-                        })
-                    }
+                    _ => Err(TypeError {
+                        expected: TypeErrorType::$enum,
+                        found: ipld.into(),
+                    }),
                 }
             }
         }
@@ -55,12 +55,10 @@ macro_rules! derive_from_ipld {
             fn try_from(ipld: Ipld) -> Result<Self, Self::Error> {
                 match ipld {
                     Ipld::$enum(value) => Ok(value as _),
-                    _ => {
-                        return Err(TypeError {
-                            expected: TypeErrorType::$enum,
-                            found: ipld.into(),
-                        })
-                    }
+                    _ => Err(TypeError {
+                        expected: TypeErrorType::$enum,
+                        found: ipld.into(),
+                    }),
                 }
             }
         }
@@ -152,3 +150,147 @@ derive_from_ipld_option!(Bytes, Vec<u8>);
 derive_from_ipld_option!(List, Vec<Ipld>);
 derive_from_ipld_option!(Map, BTreeMap<String, Ipld>);
 derive_from_ipld_option!(Link, Cid);
+
+#[cfg(test)]
+mod tests {
+    use alloc::collections::BTreeMap;
+
+    use cid::Cid;
+
+    use crate::ipld::Ipld;
+
+    #[test]
+    #[should_panic]
+    fn try_into_wrong_type() {
+        let _boolean: bool = Ipld::Integer(u8::MAX as i128).try_into().unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn try_into_wrong_range() {
+        let int: u128 = Ipld::Integer(-1i128).try_into().unwrap();
+        assert_eq!(int, u128::MIN);
+    }
+
+    #[test]
+    fn try_into_null() {
+        let nothing: () = Ipld::Null.try_into().unwrap();
+        assert_eq!(nothing, ())
+    }
+
+    #[test]
+    fn try_into_bool() {
+        let boolean: bool = Ipld::Bool(true).try_into().unwrap();
+        assert!(boolean);
+
+        let boolean: Option<bool> = Ipld::Null.try_into().unwrap();
+        assert_eq!(boolean, Option::None)
+    }
+
+    #[test]
+    fn try_into_ints() {
+        let int: u8 = Ipld::Integer(u8::MAX as i128).try_into().unwrap();
+        assert_eq!(int, u8::MAX);
+
+        let int: u16 = Ipld::Integer(u16::MAX as i128).try_into().unwrap();
+        assert_eq!(int, u16::MAX);
+
+        let int: u32 = Ipld::Integer(u32::MAX as i128).try_into().unwrap();
+        assert_eq!(int, u32::MAX);
+
+        let int: u64 = Ipld::Integer(u64::MAX as i128).try_into().unwrap();
+        assert_eq!(int, u64::MAX);
+
+        let int: usize = Ipld::Integer(usize::MAX as i128).try_into().unwrap();
+        assert_eq!(int, usize::MAX);
+
+        let int: u128 = Ipld::Integer(i128::MAX).try_into().unwrap();
+        assert_eq!(int, i128::MAX as u128);
+
+        let int: i8 = Ipld::Integer(i8::MIN as i128).try_into().unwrap();
+        assert_eq!(int, i8::MIN);
+
+        let int: i16 = Ipld::Integer(i16::MIN as i128).try_into().unwrap();
+        assert_eq!(int, i16::MIN);
+
+        let int: i32 = Ipld::Integer(i32::MIN as i128).try_into().unwrap();
+        assert_eq!(int, i32::MIN);
+
+        let int: i64 = Ipld::Integer(i64::MIN as i128).try_into().unwrap();
+        assert_eq!(int, i64::MIN);
+
+        let int: isize = Ipld::Integer(isize::MIN as i128).try_into().unwrap();
+        assert_eq!(int, isize::MIN);
+
+        let int: i128 = Ipld::Integer(i128::MIN).try_into().unwrap();
+        assert_eq!(int, i128::MIN);
+
+        let int: Option<i32> = Ipld::Null.try_into().unwrap();
+        assert_eq!(int, Option::None)
+    }
+
+    #[test]
+    fn try_into_floats() {
+        let float: f32 = Ipld::Float(f32::MAX as f64).try_into().unwrap();
+        assert_eq!(float, f32::MAX);
+
+        let float: f64 = Ipld::Float(f64::MAX).try_into().unwrap();
+        assert_eq!(float, f64::MAX);
+
+        let float: Option<f32> = Ipld::Null.try_into().unwrap();
+        assert_eq!(float, Option::None)
+    }
+
+    #[test]
+    fn try_into_string() {
+        let lyrics: String = "I'm blue babedi babeda".into();
+        let string: String = Ipld::String(lyrics.clone()).try_into().unwrap();
+        assert_eq!(string, lyrics);
+
+        let option: Option<String> = Ipld::Null.try_into().unwrap();
+        assert_eq!(option, Option::None)
+    }
+
+    #[test]
+    fn try_into_vec() {
+        let data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let bytes: Vec<u8> = Ipld::Bytes(data.clone()).try_into().unwrap();
+        assert_eq!(bytes, data);
+
+        let option: Option<Vec<u8>> = Ipld::Null.try_into().unwrap();
+        assert_eq!(option, Option::None)
+    }
+
+    #[test]
+    fn try_into_list() {
+        let ints = vec![Ipld::Integer(0), Ipld::Integer(1), Ipld::Integer(2)];
+        let list: Vec<Ipld> = Ipld::List(ints.clone()).try_into().unwrap();
+        assert_eq!(ints, list);
+
+        let option: Option<Vec<Ipld>> = Ipld::Null.try_into().unwrap();
+        assert_eq!(option, Option::None)
+    }
+
+    #[test]
+    fn try_into_map() {
+        let mut numbs = BTreeMap::new();
+        numbs.insert("zero".into(), Ipld::Integer(0));
+        numbs.insert("one".into(), Ipld::Integer(1));
+        numbs.insert("two".into(), Ipld::Integer(2));
+        let map: BTreeMap<String, Ipld> = Ipld::Map(numbs.clone()).try_into().unwrap();
+        assert_eq!(numbs, map);
+
+        let option: Option<BTreeMap<String, Ipld>> = Ipld::Null.try_into().unwrap();
+        assert_eq!(option, Option::None)
+    }
+
+    #[test]
+    fn try_into_cid() {
+        let cid = Cid::default();
+        let link: Cid = Ipld::Link(cid).try_into().unwrap();
+        assert_eq!(cid, link);
+
+        let option: Option<Cid> = Ipld::Null.try_into().unwrap();
+        assert_eq!(option, Option::None)
+    }
+}
