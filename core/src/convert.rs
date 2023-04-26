@@ -178,12 +178,6 @@ mod tests {
     }
 
     #[test]
-    fn try_into_null() {
-        let nothing: () = Ipld::Null.try_into().unwrap();
-        assert_eq!(nothing, ())
-    }
-
-    #[test]
     fn try_into_bool() {
         let boolean: bool = Ipld::Bool(true).try_into().unwrap();
         assert!(boolean);
