@@ -13,6 +13,7 @@ use alloc::{
     vec::Vec,
 };
 
+#[cfg(feature = "std")]
 impl TryFrom<Ipld> for () {
     type Error = Error;
 
@@ -28,6 +29,7 @@ impl TryFrom<Ipld> for () {
     }
 }
 
+#[cfg(feature = "std")]
 macro_rules! derive_try_from_ipld_option {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for Option<$ty> {
@@ -48,6 +50,7 @@ macro_rules! derive_try_from_ipld_option {
     };
 }
 
+#[cfg(feature = "std")]
 macro_rules! derive_try_from_ipld {
     ($enum:ident, $ty:ty) => {
         impl TryFrom<Ipld> for $ty {
@@ -124,7 +127,7 @@ derive_try_from_ipld!(Integer, u32);
 derive_try_from_ipld!(Integer, u64);
 derive_try_from_ipld!(Integer, u128);
 derive_try_from_ipld!(Integer, usize);
-//derive_from_ipld!(Float, f32);
+//derive_from_ipld!(Float, f32); // User explicit conversion is prefered. Would implicitly lossily convert from f64.
 derive_try_from_ipld!(Float, f64);
 derive_try_from_ipld!(String, String);
 derive_try_from_ipld!(Bytes, Vec<u8>);
@@ -145,7 +148,7 @@ derive_try_from_ipld_option!(Integer, u32);
 derive_try_from_ipld_option!(Integer, u64);
 derive_try_from_ipld_option!(Integer, u128);
 derive_try_from_ipld_option!(Integer, usize);
-//derive_from_ipld_option!(Float, f32);
+//derive_from_ipld_option!(Float, f32); // User explicit conversion is prefered. Would implicitly lossily convert from f64.
 derive_try_from_ipld_option!(Float, f64);
 derive_try_from_ipld_option!(String, String);
 derive_try_from_ipld_option!(Bytes, Vec<u8>);
