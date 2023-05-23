@@ -2,7 +2,7 @@ The [Ipld] crate.
 
 *InterPlanetary Linked Data* (IPLD) is a data model to enable decentralized data structures that are universally addressable and linkable, which in turn will enable more decentralized applications; see [ipld.io/docs](https://ipld.io/docs/).
 
-The *Data Model* is decoupled from a particular *Codec* in IPLD; see [ipld.io/glossary](https://ipld.io/glossary/).
+The *Data Model* is decoupled from a particular *Codec* in IPLD; see [ipld.io/glossary](https://ipld.io/glossary/). The Data Model is represented by the [Ipld] rust enum.
 
 # Serde Support
 
