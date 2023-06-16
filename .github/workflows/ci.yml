@@ -133,18 +133,13 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: thumbv6m-none-eabi
+          targets: thumbv6m-none-eabi
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --no-default-features --target thumbv6m-none-eabi --manifest-path core/Cargo.toml
+        run: cargo build --no-default-features --target thumbv6m-none-eabi --manifest-path core/Cargo.toml
+        shell: bash
 
   build-no-std-serde:
     name: Build no_std (libipld-core), but with the `serde-codec` feature enabled
@@ -154,15 +149,8 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          # `thumbv6m-none-eabi` can't be used as Serde doesn't compile there.
-          args: --no-default-features --features serde-codec --manifest-path core/Cargo.toml
+        # `thumbv6m-none-eabi` can't be used as Serde doesn't compile there.
+        run: cargo build --no-default-features --features serde-codec --manifest-path core/Cargo.toml
