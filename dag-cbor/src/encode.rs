@@ -149,6 +149,30 @@ impl Encode<DagCbor> for i64 {
     }
 }
 
+macro_rules! impl_nonzero {
+    ($($t:ty),*) => {
+        $(
+            impl Encode<DagCbor> for $t {
+                fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
+                    self.get().encode(c, w)
+                }
+            }
+        )*
+    };
+}
+
+impl_nonzero!(
+    std::num::NonZeroU8,
+    std::num::NonZeroU16,
+    std::num::NonZeroU32,
+    std::num::NonZeroU64,
+    std::num::NonZeroI8,
+    std::num::NonZeroI16,
+    std::num::NonZeroI32,
+    std::num::NonZeroI64,
+    std::num::NonZeroI128
+);
+
 impl Encode<DagCbor> for f32 {
     fn encode<W: Write>(&self, c: DagCbor, w: &mut W) -> Result<()> {
         // IPLD maximally encodes floats.
