@@ -1,6 +1,6 @@
 //! `Ipld` codecs.
 use alloc::{format, string::String, vec::Vec};
-use core::{convert::TryFrom, ops::Deref};
+use core::convert::TryFrom;
 
 use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
@@ -47,7 +47,7 @@ pub trait Encode<C: Codec> {
 
 impl<C: Codec, T: Encode<C>> Encode<C> for &T {
     fn encode<W: Write>(&self, c: C, w: &mut W) -> Result<()> {
-        self.deref().encode(c, w)
+        T::encode(*self, c, w)
     }
 }
 

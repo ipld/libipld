@@ -52,7 +52,7 @@ fn main() {
 
     assert_roundtrip(DagCborCodec, &TupleStruct::default(), &ipld!([false, 0]));
 
-    assert_roundtrip(DagCborCodec, &UnitStruct::default(), &ipld!(null));
+    assert_roundtrip(DagCborCodec, &UnitStruct, &ipld!(null));
 
     assert_roundtrip(DagCborCodec, &Enum::A, &ipld!({ "A": null }));
 
