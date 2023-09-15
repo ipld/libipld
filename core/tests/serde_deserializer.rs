@@ -531,7 +531,7 @@ fn ipld_deserializer_newtype_struct_cid() {
 fn ipld_deserializer_option() {
     let option_some: Option<u8> = Some(58u8);
     let option_none: Option<u8> = None;
-    let ipld_some = Ipld::Integer(option_some.unwrap().into());
+    let ipld_some = Ipld::Integer(58);
     let ipld_none = Ipld::Null;
 
     // This is similar to `error_except`, which cannot be used here, as we need to exclude

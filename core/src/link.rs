@@ -42,10 +42,7 @@ impl<T> fmt::Display for Link<T> {
 
 impl<T> Clone for Link<T> {
     fn clone(&self) -> Self {
-        Self {
-            cid: self.cid,
-            _marker: self._marker,
-        }
+        *self
     }
 }
 

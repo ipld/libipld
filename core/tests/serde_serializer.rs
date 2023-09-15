@@ -217,7 +217,7 @@ fn ipld_serializer_newtype_struct_cid() {
 fn ipld_serializer_option() {
     let option_some: Option<u8> = Some(58u8);
     let option_none: Option<u8> = None;
-    let ipld_some = Ipld::Integer(option_some.unwrap().into());
+    let ipld_some = Ipld::Integer(58);
     let ipld_none = Ipld::Null;
     assert_serialized(option_some, ipld_some);
     assert_serialized(option_none, ipld_none);

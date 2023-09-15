@@ -71,9 +71,9 @@ impl TryFrom<u8> for Major {
         } else if (value >> 5) == MajorKind::Other as u8 {
             match value & 0x1f {
                 // False, True, Null. TODO: Allow undefined?
-                20 | 21 | 22 => (),
+                20..=22 => (),
                 // Floats. TODO: forbid f16 & f32?
-                25 | 26 | 27 => (),
+                25..=27 => (),
                 // Everything is forbidden.
                 _ => {
                     return Err(UnexpectedCode::new::<Ipld>(value));
