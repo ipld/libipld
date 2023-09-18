@@ -229,6 +229,33 @@ macro_rules! impl_num {
 impl_num!(unsigned u8, u16, u32, u64, u128);
 impl_num!(signed i8, i16, i32, i64, i128);
 
+macro_rules! impl_nonzero {
+    ($(($nzero:ty => $base:ty))*) => {
+        $(
+            impl Decode<DagCbor> for $nzero {
+                fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+                    let base = <$base>::decode(c, r)?;
+                    let nzero = <$nzero>::try_from(base)?;
+                    Ok(nzero)
+                }
+            }
+        )*
+    };
+}
+
+impl_nonzero!(
+    (std::num::NonZeroU8 => u8)
+    (std::num::NonZeroU16 => u16)
+    (std::num::NonZeroU32 => u32)
+    (std::num::NonZeroU64 => u64)
+    (std::num::NonZeroU128 => u128)
+    (std::num::NonZeroI8 => i8)
+    (std::num::NonZeroI16 => i16)
+    (std::num::NonZeroI32 => i32)
+    (std::num::NonZeroI64 => i64)
+    (std::num::NonZeroI128 => i128)
+);
+
 impl Decode<DagCbor> for f32 {
     fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
         // TODO: We don't accept f16
@@ -571,6 +598,10 @@ mod tests {
     use super::*;
     use crate::{error::UnexpectedEof, DagCborCodec};
     use libipld_core::codec::Codec;
+    use std::num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+        NonZeroU32, NonZeroU64, NonZeroU8,
+    };
 
     #[test]
     fn il_map() {
@@ -629,6 +660,56 @@ mod tests {
         let bytes = DagCborCodec.encode(&data)?;
         let data2: (String, String, u32, u8) = DagCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn nonzero_int() -> Result<()> {
+        let bytes = DagCborCodec.encode(&42i128)?;
+        let n: NonZeroI8 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 42);
+
+        let bytes = DagCborCodec.encode(&-43i64)?;
+        let n: NonZeroI16 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), -43);
+
+        let bytes = DagCborCodec.encode(&44i32)?;
+        let n: NonZeroI32 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 44);
+
+        let bytes = DagCborCodec.encode(&-45i16)?;
+        let n: NonZeroI64 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), -45);
+
+        let bytes = DagCborCodec.encode(&46i8)?;
+        let n: NonZeroI128 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 46);
+
+        Ok(())
+    }
+
+    #[test]
+    fn nonzero_uint() -> Result<()> {
+        let bytes = DagCborCodec.encode(&42i128)?;
+        let n: NonZeroU8 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 42);
+
+        let bytes = DagCborCodec.encode(&43u64)?;
+        let n: NonZeroU16 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 43);
+
+        let bytes = DagCborCodec.encode(&44u32)?;
+        let n: NonZeroU32 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 44);
+
+        let bytes = DagCborCodec.encode(&45u16)?;
+        let n: NonZeroU64 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 45);
+
+        let bytes = DagCborCodec.encode(&46u8)?;
+        let n: NonZeroU128 = DagCborCodec.decode(&bytes)?;
+        assert_eq!(n.get(), 46);
 
         Ok(())
     }
