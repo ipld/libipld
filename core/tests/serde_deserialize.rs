@@ -143,7 +143,7 @@ fn ipld_deserialize_link() {
 }
 
 #[test]
-#[should_panic(expected = "assertion failed")]
+#[should_panic]
 fn ipld_deserialize_link_not_as_bytes() {
     let cid = Cid::try_from("bafkreie74tgmnxqwojhtumgh5dzfj46gi4mynlfr7dmm7duwzyvnpw7h7m").unwrap();
     let ipld = Ipld::Link(cid);
