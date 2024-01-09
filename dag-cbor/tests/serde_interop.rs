@@ -41,8 +41,7 @@ impl Arbitrary for ValueArb {
                     .into_iter()
                     .map(|x| {
                         let slf = Self(x);
-                        let shrunk = slf.shrink().map(|x| x.0).collect::<Vec<_>>();
-                        shrunk
+                        slf.shrink().map(|x| x.0).collect::<Vec<_>>()
                     })
                     .map(Value::Array)
                     .map(Self),
