@@ -4,7 +4,17 @@
 
 Originally authored by [@dvc94ch](https://github.com/dvc94ch) as a part of the [ipfs-rust](https://github.com/ipfs-rust/) project.
 
-[![Matrix](https://img.shields.io/badge/matrix-%23rust_ipfs%3Amatrix.org-blue.svg)](https://riot.im/app/#/room/#rust-ipfs:matrix.org) [![Discord](https://img.shields.io/discord/475789330380488707?color=blueviolet&label=discord)](https://discord.gg/9E5SFvW)
+The `Ipld` enum from the `libipld-core` crate is the central piece that most of the users of this library use.
+
+The codec implementations use custom traits. In order to be more compatible with the rest of the Rust ecosystem, it's *strongly recommended*, to use new implementations, that use [Serde](https://serde.rs/) as a basis instead. Currently, the list of implementations is limited, please let us know if you crate one and we'll add it to the list:
+
+ - DAG-CBOR: https://github.com/ipld/serde_ipld_dagcbor
+
+## Community
+
+For chats with the developers and the community: Join us in any of these (bridged) locations:
+  - On Matrix: [#ipld:ipfs.io](https://matrix.to/#/#ipld:ipfs.io)
+  - On Discord: join the [IPLD community on IPFS Discord](https://discord.gg/xkUC8bqSCP).
 
 ## License
 
