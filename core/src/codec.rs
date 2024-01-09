@@ -1,6 +1,6 @@
 //! `Ipld` codecs.
-use alloc::{format, string::String, vec::Vec};
-use core::convert::TryFrom;
+use alloc::{string::String, vec::Vec};
+use core::{convert::TryFrom, fmt::Write as _};
 
 use crate::cid::Cid;
 use crate::error::{Result, UnsupportedCodec};
@@ -85,7 +85,10 @@ where
     Ipld: Decode<C> + Encode<C>,
 {
     fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|byte| format!("{:02x}", byte)).collect()
+        bytes.iter().fold(String::new(), |mut output, byte| {
+            let _ = write!(output, "{byte:02x}");
+            output
+        })
     }
     let mut bytes = Vec::new();
     data.encode(c, &mut bytes).unwrap();
