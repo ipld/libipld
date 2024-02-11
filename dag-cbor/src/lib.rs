@@ -10,6 +10,7 @@ pub mod cbor;
 pub mod decode;
 pub mod encode;
 pub mod error;
+pub mod validate;
 
 /// CBOR codec.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
