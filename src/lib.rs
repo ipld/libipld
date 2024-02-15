@@ -1,4 +1,4 @@
-//! The `Ipld` crate.
+#![doc = include_str!("../README-libipld.md")]
 #![deny(missing_docs)]
 #![deny(warnings)]
 
