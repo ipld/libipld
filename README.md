@@ -1,3 +1,7 @@
+> # ⛔️ DEPRECATED: [libipld](https://github.com/ipld/libipld) has been superseded by [ipld-core](https://github.com/ipld/rust-ipld-core)
+> The migration to `ipld-core` should be straight forward. If you run into problems during the migration or need help, feel free to [open a bug report on the `ipld-core` repo](https://github.com/ipld/rust-ipld-core/issues).
+
+
 # Rust IPLD library
 
 > Basic rust ipld library supporting `dag-cbor`, `dag-json` and `dag-pb` formats.
