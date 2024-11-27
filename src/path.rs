@@ -45,15 +45,9 @@ impl From<String> for Path {
     }
 }
 
-impl ToString for Path {
-    fn to_string(&self) -> String {
-        let mut path = "".to_string();
-        for seg in &self.0 {
-            path.push_str(seg.as_str());
-            path.push('/');
-        }
-        path.pop();
-        path
+impl std::fmt::Display for Path {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.as_slice().join("/"))
     }
 }
 

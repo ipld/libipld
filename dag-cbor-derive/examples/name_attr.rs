@@ -1,3 +1,5 @@
+#![allow(dependency_on_unit_never_type_fallback)]
+
 use libipld::cbor::DagCborCodec;
 use libipld::codec::{Decode, Encode};
 use libipld::ipld::Ipld;

@@ -114,14 +114,11 @@ impl<S: StoreParams> Block<S> {
     }
 
     /// Encode a block.`
-    pub fn encode<CE: Codec, T: Encode<CE> + ?Sized>(
+    pub fn encode<CE: Codec + Into<S::Codecs>, T: Encode<CE> + ?Sized>(
         codec: CE,
         hcode: S::Hashes,
         payload: &T,
-    ) -> Result<Self>
-    where
-        CE: Into<S::Codecs>,
-    {
+    ) -> Result<Self> {
         debug_assert_eq!(
             Into::<u64>::into(codec),
             Into::<u64>::into(Into::<S::Codecs>::into(codec))

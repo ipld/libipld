@@ -1,3 +1,5 @@
+#![allow(dependency_on_unit_never_type_fallback)]
+
 use libipld::cbor::DagCborCodec;
 use libipld::codec::assert_roundtrip;
 use libipld::{ipld, DagCbor, Ipld};
