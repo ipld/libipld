@@ -1,22 +1,22 @@
 [package]
 name = "libipld-cbor-derive"
-version = "0.16.0"
-authors = ["David Craven <david@craven.ch>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
 description = "ipld cbor codec proc macro"
-repository = "https://github.com/ipfs-rust/rust-ipld"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro-crate = "1.1.0"
-proc-macro2 = "1.0.27"
-quote = "1.0.9"
-syn = "1.0.72"
-synstructure = "0.12.4"
+proc-macro-crate = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+synstructure = { workspace = true }
 
 [dev-dependencies]
-libipld = { path = ".." }
-trybuild = "1.0.42"
+libipld = { workspace = true }
+trybuild = { workspace = true }

@@ -195,7 +195,7 @@ mod tests {
     use crate::ipld::Ipld;
     use crate::multihash::Code;
     use crate::store::DefaultParams;
-    use fnv::FnvHashSet;
+    use ahash::HashSet;
 
     type IpldBlock = Block<DefaultParams>;
 
@@ -222,7 +222,7 @@ mod tests {
         let payload2 = block.decode::<IpldCodec, _>().unwrap();
         assert_eq!(payload, payload2);
 
-        let mut refs = FnvHashSet::default();
+        let mut refs = HashSet::default();
         payload2.references(&mut refs);
         assert_eq!(refs.len(), 3);
         assert!(refs.contains(&b1.cid));

@@ -1,33 +1,31 @@
 [package]
 name = "libipld"
-version = "0.16.0"
-authors = ["David Craven <david@craven.ch>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
 description = "library for dealing with ipld"
-repository = "https://github.com/ipld/libipld"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [package.metadata.release]
 consolidate-commits = true
 shared-version = true
 
 [dependencies]
-fnv = "1.0.7"
-libipld-cbor = { version = "0.16.0", path = "dag-cbor", optional = true }
-libipld-cbor-derive = { version = "0.16.0", path = "dag-cbor-derive", optional = true }
-libipld-core = { version = "0.16.0", path = "core" }
-libipld-json = { version = "0.16.0", path = "dag-json", optional = true }
-libipld-macro = { version = "0.16.0", path = "macro" }
-libipld-pb = { version = "0.16.0", path = "dag-pb", optional = true }
-log = "0.4.14"
-multihash = { version = "0.18.0", default-features = false, features = ["multihash-impl"] }
-thiserror = "1.0.25"
+libipld-cbor = { workspace = true, optional = true }
+libipld-cbor-derive = { workspace = true, optional = true }
+libipld-core = { workspace = true }
+libipld-json = { workspace = true, optional = true }
+libipld-macro = { workspace = true }
+libipld-pb = { workspace = true, optional = true }
+
+multihash = { workspace = true, features = ["multihash-impl"] }
+thiserror = { workspace = true }
 
 [dev-dependencies]
-async-std = { version = "1.9.0", features = ["attributes"] }
-criterion = "0.3.4"
-proptest = "1.0.0"
-model = "0.1.2"
+ahash = { workspace = true }
+criterion = { workspace = true }
+multihash = { workspace = true, features = ["blake3"] }
 
 [features]
 default = ["dag-cbor", "dag-json", "dag-pb", "derive"]
@@ -48,6 +46,49 @@ members = [
   "macro",
   "dag-cbor-derive/examples/renamed-package",
 ]
+resolver = "2"
+
+[workspace.package]
+version = "0.16.0"
+authors = ["David Craven <david@craven.ch>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ipld/libipld"
+
+[workspace.dependencies]
+libipld = { path = "." }
+libipld-cbor = { path = "dag-cbor" }
+libipld-cbor-derive = { path = "dag-cbor-derive" }
+libipld-core = { path = "core" }
+libipld-json = { path = "dag-json" }
+libipld-macro = { path = "macro" }
+libipld-pb = { path = "dag-pb" }
+
+# External dependencies
+ahash = "0.8"
+anyhow = { version = "1", default-features = false }
+byteorder = "1"
+bytes = "1"
+cid = { version = "0.10", default-features = false, features = ["alloc"] }
+core2 = { version = "0.4", default-features = false, features = ["alloc"] }
+criterion = "0.5"
+hex = "0.4"
+multibase = { version = "0.9", default-features = false }
+multihash = { version = "0.18", default-features = false, features = ["alloc"] }
+proc-macro-crate = "1"
+proc-macro2 = "1"
+quick-protobuf = "0.8"
+quickcheck = "1"
+quote = "1"
+serde = { version = "1", default-features = false, features = ["alloc"] }
+serde_bytes = "0.11"
+serde_cbor = "0.11"
+serde_json = "1"
+serde_test = "1"
+syn = "1"
+synstructure = "0.12"
+thiserror = "2"
+trybuild = "1"
 
 [profile.release]
 debug = true
