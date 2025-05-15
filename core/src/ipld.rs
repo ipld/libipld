@@ -195,7 +195,7 @@ impl<'a> Iterator for IpldIter<'a> {
 mod tests {
     use super::*;
     use crate::cid::Cid;
-    use crate::multihash::{Code, MultihashDigest};
+    use multihash_codetable::{Code, MultihashDigest};
 
     #[test]
     fn test_ipld_bool_from() {

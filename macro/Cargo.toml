@@ -12,3 +12,4 @@ libipld-core = { version = "0.16.0", path = "../core" }
 
 [dev-dependencies]
 multihash = { version = "0.19.3" }
+multihash-codetable = { version = "0.1.4", features = ["blake3"] }

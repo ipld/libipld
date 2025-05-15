@@ -293,7 +293,7 @@ macro_rules! ipld_unexpected {
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashDigest};
+    use multihash_codetable::{Code, MultihashDigest};
 
     #[test]
     fn test_macro() {
