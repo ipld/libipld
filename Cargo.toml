@@ -20,7 +20,7 @@ libipld-json = { version = "0.16.0", path = "dag-json", optional = true }
 libipld-macro = { version = "0.16.0", path = "macro" }
 libipld-pb = { version = "0.16.0", path = "dag-pb", optional = true }
 log = "0.4.14"
-multihash = { version = "0.18.0", default-features = false, features = ["multihash-impl"] }
+multihash = { version = "0.18.1", default-features = false, features = ["alloc"] }
 thiserror = "1.0.25"
 
 [dev-dependencies]

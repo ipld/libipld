@@ -258,7 +258,7 @@ impl MessageWrite for PbLink {
         size += 1 + sizeof_len(l);
 
         if let Some(ref name) = self.name {
-            size += 1 + sizeof_len(name.as_bytes().len());
+            size += 1 + sizeof_len(name.len());
         }
 
         if let Some(tsize) = self.size {

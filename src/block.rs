@@ -1,5 +1,5 @@
 //! Block validation
-use crate::cid::Cid;
+use crate::cid::{self, Cid};
 use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
@@ -81,6 +81,14 @@ fn verify_cid<M: MultihashDigest<S>, const S: usize>(cid: &Cid, payload: &[u8]) 
     Ok(())
 }
 
+// Helper function to create a CID with the correct multihash version
+fn create_cid<const S: usize>(codec: u64, mh_bytes: &[u8]) -> Result<Cid> {
+    // Convert via the raw bytes
+    let mh = cid::multihash::Multihash::from_bytes(mh_bytes)
+        .map_err(|_| InvalidMultihash(mh_bytes.to_vec()))?;
+    Ok(Cid::new_v1(codec, mh))
+}
+
 impl<S: StoreParams> Block<S> {
     /// Creates a new block. Returns an error if the hash doesn't match
     /// the data.
@@ -114,13 +122,14 @@ impl<S: StoreParams> Block<S> {
     }
 
     /// Encode a block.`
-    pub fn encode<CE: Codec, T: Encode<CE> + ?Sized>(
+    pub fn encode<CE, T>(
         codec: CE,
         hcode: S::Hashes,
         payload: &T,
     ) -> Result<Self>
     where
-        CE: Into<S::Codecs>,
+        CE: Codec + Into<S::Codecs>,
+        T: Encode<CE> + ?Sized,
     {
         debug_assert_eq!(
             Into::<u64>::into(codec),
@@ -131,7 +140,9 @@ impl<S: StoreParams> Block<S> {
             return Err(BlockTooLarge(data.len()).into());
         }
         let mh = hcode.digest(&data);
-        let cid = Cid::new_v1(codec.into(), mh);
+        // Convert multihash to bytes and create CID using our helper
+        let mh_bytes = mh.to_bytes();
+        let cid = create_cid::<64>(codec.into(), &mh_bytes)?;
         Ok(Self {
             _marker: PhantomData,
             cid,

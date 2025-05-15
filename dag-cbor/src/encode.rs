@@ -27,10 +27,10 @@ pub fn write_null<W: Write>(w: &mut W) -> Result<()> {
 pub fn write_u8<W: Write>(w: &mut W, major: MajorKind, value: u8) -> Result<()> {
     let major = major as u8;
     if value <= 0x17 {
-        let buf = [major << 5 | value];
+        let buf = [(major << 5) | value];
         w.write_all(&buf)?;
     } else {
-        let buf = [major << 5 | 24, value];
+        let buf = [(major << 5) | 24, value];
         w.write_all(&buf)?;
     }
     Ok(())
@@ -38,10 +38,10 @@ pub fn write_u8<W: Write>(w: &mut W, major: MajorKind, value: u8) -> Result<()> 
 
 /// Writes a u16 to a cbor encoded byte stream.
 pub fn write_u16<W: Write>(w: &mut W, major: MajorKind, value: u16) -> Result<()> {
-    if value <= u16::from(u8::max_value()) {
+    if value <= u16::from(u8::MAX) {
         write_u8(w, major, value as u8)?;
     } else {
-        let mut buf = [(major as u8) << 5 | 25, 0, 0];
+        let mut buf = [((major as u8) << 5) | 25, 0, 0];
         BigEndian::write_u16(&mut buf[1..], value);
         w.write_all(&buf)?;
     }
@@ -50,10 +50,10 @@ pub fn write_u16<W: Write>(w: &mut W, major: MajorKind, value: u16) -> Result<()
 
 /// Writes a u32 to a cbor encoded byte stream.
 pub fn write_u32<W: Write>(w: &mut W, major: MajorKind, value: u32) -> Result<()> {
-    if value <= u32::from(u16::max_value()) {
+    if value <= u32::from(u16::MAX) {
         write_u16(w, major, value as u16)?;
     } else {
-        let mut buf = [(major as u8) << 5 | 26, 0, 0, 0, 0];
+        let mut buf = [((major as u8) << 5) | 26, 0, 0, 0, 0];
         BigEndian::write_u32(&mut buf[1..], value);
         w.write_all(&buf)?;
     }
@@ -62,10 +62,10 @@ pub fn write_u32<W: Write>(w: &mut W, major: MajorKind, value: u32) -> Result<()
 
 /// Writes a u64 to a cbor encoded byte stream.
 pub fn write_u64<W: Write>(w: &mut W, major: MajorKind, value: u64) -> Result<()> {
-    if value <= u64::from(u32::max_value()) {
+    if value <= u64::from(u32::MAX) {
         write_u32(w, major, value as u32)?;
     } else {
-        let mut buf = [(major as u8) << 5 | 27, 0, 0, 0, 0, 0, 0, 0, 0];
+        let mut buf = [((major as u8) << 5) | 27, 0, 0, 0, 0, 0, 0, 0, 0];
         BigEndian::write_u64(&mut buf[1..], value);
         w.write_all(&buf)?;
     }
@@ -224,12 +224,12 @@ impl Encode<DagCbor> for String {
 impl Encode<DagCbor> for i128 {
     fn encode<W: Write>(&self, _: DagCbor, w: &mut W) -> Result<()> {
         if *self < 0 {
-            if -(*self + 1) > u64::max_value() as i128 {
+            if -(*self + 1) > u64::MAX as i128 {
                 return Err(NumberOutOfRange::new::<i128>().into());
             }
             write_u64(w, MajorKind::NegativeInt, -(*self + 1) as u64)?;
         } else {
-            if *self > u64::max_value() as i128 {
+            if *self > u64::MAX as i128 {
                 return Err(NumberOutOfRange::new::<i128>().into());
             }
             write_u64(w, MajorKind::UnsignedInt, *self as u64)?;

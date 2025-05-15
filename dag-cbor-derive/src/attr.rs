@@ -10,6 +10,7 @@ mod kw {
     custom_keyword!(default);
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Attrs<A> {
     pub paren: syn::token::Paren,
@@ -25,6 +26,7 @@ impl<A: Parse> Parse for Attrs<A> {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Attr<K, V> {
     pub key: K,

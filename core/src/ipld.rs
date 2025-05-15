@@ -75,13 +75,13 @@ pub enum IpldIndex<'a> {
     MapRef(&'a str),
 }
 
-impl<'a> From<usize> for IpldIndex<'a> {
+impl From<usize> for IpldIndex<'_> {
     fn from(index: usize) -> Self {
         Self::List(index)
     }
 }
 
-impl<'a> From<String> for IpldIndex<'a> {
+impl From<String> for IpldIndex<'_> {
     fn from(key: String) -> Self {
         Self::Map(key)
     }

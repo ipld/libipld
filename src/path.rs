@@ -45,15 +45,17 @@ impl From<String> for Path {
     }
 }
 
-impl ToString for Path {
-    fn to_string(&self) -> String {
-        let mut path = "".to_string();
+impl core::fmt::Display for Path {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut first = true;
         for seg in &self.0 {
-            path.push_str(seg.as_str());
-            path.push('/');
+            if !first {
+                write!(f, "/")?;
+            }
+            write!(f, "{}", seg)?;
+            first = false;
         }
-        path.pop();
-        path
+        Ok(())
     }
 }
 

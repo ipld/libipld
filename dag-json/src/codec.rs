@@ -62,7 +62,7 @@ fn deserialize<'de, D: de::Deserializer<'de>>(deserializer: D) -> Result<Ipld, D
 // Needed for `collect_seq` and `collect_map` in Seserializer
 struct Wrapper<'a>(&'a Ipld);
 
-impl<'a> Serialize for Wrapper<'a> {
+impl Serialize for Wrapper<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: ser::Serializer,
