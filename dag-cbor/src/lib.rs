@@ -42,8 +42,8 @@ mod tests {
     use libipld_core::cid::Cid;
     use libipld_core::codec::assert_roundtrip;
     use libipld_core::ipld::Ipld;
-    use multihash_codetable::{Code, MultihashDigest};
     use libipld_macro::ipld;
+    use multihash_codetable::{Code, MultihashDigest};
     use std::collections::HashSet;
 
     #[test]

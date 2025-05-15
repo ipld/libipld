@@ -19,7 +19,9 @@ fn dag_cbor_derive(s: Structure) -> TokenStream {
     let encode = gen::gen_encode(&ast, &libipld);
     let decode = gen::gen_decode(&ast, &libipld);
     quote! {
+        #[allow(dependency_on_unit_never_type_fallback)]
         #encode
+        #[allow(dependency_on_unit_never_type_fallback)]
         #decode
     }
 }

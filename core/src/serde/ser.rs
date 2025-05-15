@@ -443,11 +443,7 @@ impl ser::SerializeStruct for SerializeMap {
     type Ok = Ipld;
     type Error = SerdeError;
 
-    fn serialize_field<T>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ser::Serialize + ?Sized,
     {
@@ -464,11 +460,7 @@ impl ser::SerializeStructVariant for SerializeStructVariant {
     type Ok = Ipld;
     type Error = SerdeError;
 
-    fn serialize_field<T>(
-        &mut self,
-        key: &'static str,
-        value: &T,
-    ) -> Result<(), Self::Error>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where
         T: ser::Serialize + ?Sized,
     {
