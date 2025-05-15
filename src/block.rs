@@ -3,7 +3,7 @@ use crate::cid::{self, Cid};
 use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
-use crate::multihash::MultihashDigest;
+use multihash_codetable::MultihashDigest;
 use crate::store::StoreParams;
 use core::borrow::Borrow;
 use core::convert::TryFrom;
@@ -160,7 +160,7 @@ impl<S: StoreParams> Block<S> {
     /// use libipld::block::Block;
     /// use libipld::cbor::DagCborCodec;
     /// use libipld::ipld::Ipld;
-    /// use libipld::multihash::Code;
+    /// use multihash_codetable::Code;
     /// use libipld::store::DefaultParams;
     ///
     /// let block =
@@ -204,7 +204,7 @@ mod tests {
     use crate::codec_impl::IpldCodec;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use crate::multihash::Code;
+    use multihash_codetable::Code;
     use crate::store::DefaultParams;
     use fnv::FnvHashSet;
 

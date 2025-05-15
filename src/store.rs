@@ -17,7 +17,7 @@
 //! incrementally deleting unaliased blocks until the size target is no longer exceeded. It is
 //! implementation defined in which order unaliased blocks get removed.
 use crate::codec::Codec;
-use crate::multihash::MultihashDigest;
+use multihash_codetable::{MultihashDigest, Code};
 
 /// The store parameters.
 pub trait StoreParams: std::fmt::Debug + Clone + Send + Sync + Unpin + 'static {
@@ -36,5 +36,5 @@ pub struct DefaultParams;
 impl StoreParams for DefaultParams {
     const MAX_BLOCK_SIZE: usize = 1_048_576;
     type Codecs = crate::IpldCodec;
-    type Hashes = crate::multihash::Code;
+    type Hashes = Code;
 }

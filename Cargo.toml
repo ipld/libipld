@@ -19,11 +19,10 @@ libipld-core = { version = "0.16.0", path = "core" }
 libipld-json = { version = "0.16.0", path = "dag-json", optional = true }
 libipld-macro = { version = "0.16.0", path = "macro" }
 libipld-pb = { version = "0.16.0", path = "dag-pb", optional = true }
-log = "0.4.14"
-multihash = { version = "0.18.1", default-features = false, features = ["alloc"] }
-thiserror = "1.0.25"
+multihash-codetable = "0.1.4"
 
 [dev-dependencies]
+multihash-codetable = { version = "0.1.4", features = ["blake3"] }
 async-std = { version = "1.9.0", features = ["attributes"] }
 criterion = "0.3.4"
 proptest = "1.0.0"
