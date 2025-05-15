@@ -17,7 +17,7 @@
 //! incrementally deleting unaliased blocks until the size target is no longer exceeded. It is
 //! implementation defined in which order unaliased blocks get removed.
 use crate::codec::Codec;
-use multihash_codetable::{MultihashDigest, Code};
+use multihash_codetable::{Code, MultihashDigest};
 
 /// The store parameters.
 pub trait StoreParams: std::fmt::Debug + Clone + Send + Sync + Unpin + 'static {

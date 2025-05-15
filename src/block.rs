@@ -3,12 +3,12 @@ use crate::cid::{self, Cid};
 use crate::codec::{Codec, Decode, Encode, References};
 use crate::error::{BlockTooLarge, InvalidMultihash, Result, UnsupportedMultihash};
 use crate::ipld::Ipld;
-use multihash_codetable::MultihashDigest;
 use crate::store::StoreParams;
 use core::borrow::Borrow;
 use core::convert::TryFrom;
 use core::marker::PhantomData;
 use core::ops::Deref;
+use multihash_codetable::MultihashDigest;
 
 /// Block
 #[derive(Clone)]
@@ -122,11 +122,7 @@ impl<S: StoreParams> Block<S> {
     }
 
     /// Encode a block.`
-    pub fn encode<CE, T>(
-        codec: CE,
-        hcode: S::Hashes,
-        payload: &T,
-    ) -> Result<Self>
+    pub fn encode<CE, T>(codec: CE, hcode: S::Hashes, payload: &T) -> Result<Self>
     where
         CE: Codec + Into<S::Codecs>,
         T: Encode<CE> + ?Sized,
@@ -204,9 +200,9 @@ mod tests {
     use crate::codec_impl::IpldCodec;
     use crate::ipld;
     use crate::ipld::Ipld;
-    use multihash_codetable::Code;
     use crate::store::DefaultParams;
     use fnv::FnvHashSet;
+    use multihash_codetable::Code;
 
     type IpldBlock = Block<DefaultParams>;
 
