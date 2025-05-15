@@ -60,7 +60,7 @@ impl References<DagJsonCodec> for Ipld {
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
-    use libipld_core::multihash::{Code, MultihashDigest};
+    use multihash_codetable::{Code, MultihashDigest};
     use std::collections::BTreeMap;
 
     #[test]
